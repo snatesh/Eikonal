@@ -1,5 +1,5 @@
 ########################## BEGIN USER EDIT ##############################
-# specify location of DoublyPeriodicStokes directory
+# specify location of Eikonal directory
 export EIKONAL_ROOT     = $(PWD)
 # specify desired location of shared libraries, exec bin and test bin
 export EIKONAL_LIB      = $(EIKONAL_ROOT)/lib
