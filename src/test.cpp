@@ -2,6 +2,9 @@
 #include"structure_factors.h"
 #include"jPoly.h"
 
+
+
+
 void printMat(const double* A, const unsigned int m, const unsigned int n)
 {
 
@@ -34,7 +37,6 @@ int main(int argc, char* argv[])
 
   structure_factors_tri(Np, a, b, c, H);
   printMat(H,Np,Np);
-
   jPoly<double>(x,Nx,Np,0.5,0.5,V);  
   printMat(V,Nx,Np);
   
