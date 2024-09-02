@@ -2,7 +2,7 @@
 #define _JPOLY_H
 #include<cstddef>
 #include<iostream>
-
+#include<cmath>
 /*
   Generate the Jacobi (a,b) Vandermonde matrix
   given an array of x of Nx points and number of polynomials N.
@@ -25,19 +25,19 @@
       -       to obtain the normalization coefficients. 
 */
 template<typename T>
-inline void jPoly(T* x, unsigned int Nx, unsigned int N, const T a, const T b, T* V)
+inline void jPoly(T* x, unsigned int Nx, unsigned int Np, const T a, const T b, T* V)
 {
   T apb = a + b; 
   T aa  = a * a; 
   T bb  = b * b;
-  N = N-1;
+  Np = Np-1;
   #pragma omp simd
   for (unsigned int i = 0; i < Nx; ++i) 
   { 
     V[i] = 1.0; 
   }
   
-  if (N > 0)
+  if (Np > 0)
   {
     T* v = &(V[Nx]);
     #pragma omp simd
@@ -49,7 +49,7 @@ inline void jPoly(T* x, unsigned int Nx, unsigned int N, const T a, const T b, T
   
   T k2, k2apb, q1, q2, q3, q4;
 
-  for (unsigned int k = 2; k <= N; ++k)
+  for (unsigned int k = 2; k <= Np; ++k)
   {
     k2 = 2.0 * k;
     k2apb = k2 + apb;
@@ -69,11 +69,50 @@ inline void jPoly(T* x, unsigned int Nx, unsigned int N, const T a, const T b, T
 }
 
 template<typename T>
-inline void jPoly_tri(T* X, T* Y, T* H, unsigned int n, T a, T b, T c)
+inline void jPoly_tri(T* X, T* Y, T* H, unsigned int Nx, unsigned int n, 
+                      T a, T b, T c, T* V)
 {
   // total num of polys up to degree n in d dimensions is nchoosek(n+d,n)
-  unsigned int N = static_cast<unsigned int>(0.5 * (n + 1) * (n + 2));
+  unsigned int Np = static_cast<unsigned int>(0.5 * (n + 1) * (n + 2));
+  /* the following can be allocated in helper
+    - ydx, x2m1, mxp1, Pk, Pnmk
+  */
 
+  T* ydx  = (T*) malloc(Nx*sizeof(T));
+  T* x2m1 = (T*) malloc(Nx*sizeof(T));
+  T* mxp1 = (T*) malloc(Nx*sizeof(T));
+  for (unsigned int i = 0; i < Nx; ++i)
+  {
+    ydx[i]  = 2.0 * Y[i] / (1 - X[i]) - 1;
+    x2m1[i] = 2.0 * X[i] - 1;
+    mxp1[i] = 1.0 - X[i];
+  }
+
+  T* Pk = (T*) calloc(Nx*(n+1), sizeof(T));
+  jPoly<T>(ydx, Nx, n + 1, c - 0.5, b - 0.5, Pk);
+
+  T* Pnmk = (T*) malloc(Nx*(n+1)*(n+1)*sizeof(T));
+  for (unsigned int kk = 0; kk <= n; ++kk) 
+  {
+    T* pnmk = &Pnmk[Nx*(n+1)*kk];
+    jPoly<T>(x2m1, Nx, n + 1, 2.0 * kk + b + c, a - 0.5, pnmk);
+  }  
+
+  unsigned int ind = 1;
+  for (unsigned int nn = 0; nn <= n; ++nn)
+  {
+    for (unsigned int kk = 0; kk <= nn; ++kk)
+    {
+      T* v = &V[Nx*(ind+kk-1)];
+      T* pnmk = &Pnmk[Nx*(n+1)*kk];
+      for (unsigned int i = 0; i < Nx; ++i)
+      {
+        v[i] = 1.0 / H[kk + n*nn] * pnmk[i + Nx*(nn-kk)] * 
+               std::pow(mxp1[i],kk) * Pk[i + Nx*kk];
+      }
+    }
+    ind = ind + nn + 1;
+  }
 }
 
 #endif

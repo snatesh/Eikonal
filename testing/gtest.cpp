@@ -3,6 +3,7 @@
 #include"structure_factors.h"
 #include"jPoly.h"
 
+
 /* 
   Top of file is reserved for test helper functions and data definition
 
@@ -11,10 +12,9 @@
 
 void printMat(const double* A, const unsigned int m, const unsigned int n)
 {
-
-  for (int i = 0; i < m; ++i)
+  for (unsigned int i = 0; i < m; ++i)
   {
-    for (int j = 0; j < n; ++j)
+    for (unsigned int j = 0; j < n; ++j)
     {
       std::cout << std::setw(10);
       std::cout << A[i + m*j] << " ";
@@ -24,25 +24,22 @@ void printMat(const double* A, const unsigned int m, const unsigned int n)
   std::cout << std::endl;
 }
 
-double diffMat(const double* A, const double* B, 
-             const unsigned int m, const unsigned int n)
+
+double infnorm(const double* A, const double* B, const unsigned int N)
 {
-
-  double diff = 0.0;
-  for (int i = 0; i < m; ++i)
+  double norm = -1.0;
+  double absdiff;
+  for (unsigned int i = 0; i < N; ++i) 
   {
-    for (int j = 0; j < n; ++j)
-    {
-      diff += std::abs(A[i + m*j] - B[i + m*j]);
-
-    }
+    absdiff = std::abs(A[i]-B[i]);
+    norm = (absdiff > norm) ? absdiff : norm;
   }
-  return diff;
+  return norm;
 }
 
 double Href[49] =
 {
-1.000000000000000,
+   1.000000000000000,
                    0,
                    0,
                    0,
@@ -129,8 +126,7 @@ double Vref[35] =
    0.418945312500000,
   -0.418945312500000,
    0.418945312500000,
-   2.932617187500000,
-
+   2.932617187500000
 };
 
 
@@ -139,18 +135,20 @@ namespace
 
 TEST(structureFactorTest, TolCheck)
 {
-  double tol  = 1e-14;
+  double tol  = 1e-15;
   unsigned int Np = 7;
   double a = 0.5; double b = 0.5; double c = 0.5;
   double* H = (double*) calloc(Np*Np, sizeof(double));
   structure_factors_tri(Np, a, b, c, H);
-  EXPECT_LT(diffMat(H, Href, Np, Np), tol);
+  double diff = infnorm(H,Href,Np*Np);
+  EXPECT_LT(diff, tol);
+  std::cout << "Infinity norm of diff = " << diff << "\n";
   free(H);
 }
 
 TEST(jPolyTest, TolCheck)
 {
-  double tol  = 1e-14;
+  double tol  = 1e-15;
   unsigned int Np = 7;
   unsigned int Nx = 5;
   double a = 0.5; double b = 0.5; 
@@ -162,7 +160,9 @@ TEST(jPolyTest, TolCheck)
     x[i] = -1.0 + h*i;
   }
   jPoly<double>(x, Nx, Np, 0.5, 0.5, V);  
-  EXPECT_LT(diffMat(V, Vref, Nx, Np), tol);
+  double diff = infnorm(V,Vref,Nx*Np);
+  EXPECT_LT(diff, tol);
+  std::cout << "Infinity norm of diff = " << diff << "\n";
   free(x);
   free(V);
 }
@@ -171,13 +171,12 @@ TEST(jPolyTest, TolCheck)
 
 int main(int argc, char* argv[])
 {
-
   ::testing::InitGoogleTest(&argc, argv);
-  std::cout << "\n\nRUNNING ALL TESTS ..." << std::endl;
+  std::cout << "\n<<<<<<< RUNNING ALL TESTS >>>>>>>" << std::endl;
   int ret{RUN_ALL_TESTS()};
   if (!ret)
-      std::cout << "<<<SUCCESS>>>" << std::endl;
+      std::cout << "<<<<<<<<<<<< SUCCESS >>>>>>>>>>>>" << std::endl;
   else
-      std::cout << "FAILED" << std::endl;
+      std::cout << "<<<<<<<<<<<< FAILURE >>>>>>>>>>>>" << std::endl;
   return 0;
 }
