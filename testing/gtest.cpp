@@ -142,6 +142,7 @@ TEST(structureFactorTest, TolCheck)
   structure_factors_tri(Np, a, b, c, H);
   double diff = infnorm(H,Href,Np*Np);
   EXPECT_LT(diff, tol);
+  printMat(H,Np,Np);
   std::cout << "Infinity norm of diff = " << diff << "\n";
   free(H);
 }
@@ -162,6 +163,7 @@ TEST(jPolyTest, TolCheck)
   jPoly<double>(x, Nx, Np, 0.5, 0.5, V);  
   double diff = infnorm(V,Vref,Nx*Np);
   EXPECT_LT(diff, tol);
+  printMat(V,Nx,Np);
   std::cout << "Infinity norm of diff = " << diff << "\n";
   free(x);
   free(V);
@@ -172,11 +174,11 @@ TEST(jPolyTest, TolCheck)
 int main(int argc, char* argv[])
 {
   ::testing::InitGoogleTest(&argc, argv);
-  std::cout << "\n<<<<<<< RUNNING ALL TESTS >>>>>>>" << std::endl;
+  std::cout << "\n\n<<<<<<< RUNNING ALL TESTS >>>>>>>\n\n";
   int ret{RUN_ALL_TESTS()};
   if (!ret)
-      std::cout << "<<<<<<<<<<<< SUCCESS >>>>>>>>>>>>" << std::endl;
+      std::cout << "\n\n<<<<<<<<<<<< SUCCESS >>>>>>>>>>>>\n\n";
   else
-      std::cout << "<<<<<<<<<<<< FAILURE >>>>>>>>>>>>" << std::endl;
+      std::cout << "\n\n<<<<<<<<<<<< FAILURE >>>>>>>>>>>>\n\n";
   return 0;
 }
