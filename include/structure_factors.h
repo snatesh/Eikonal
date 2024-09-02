@@ -2,14 +2,14 @@
 #define _COMMON_H
 
 #include<cmath>
-#include"exceptions.h"
+#include<iostream>
 
 using std::tgamma;
 using std::pow;
 using std::abs;
 using std::sqrt;
 
-/* 
+/*
    Generate the normalization factors for Koornwinder 
    polynomials with parameter (a,b,c). Note, the 
    basis parameters appear as (a-1/2,b-1/2,c-1/2) in the 
@@ -19,17 +19,16 @@ using std::sqrt;
   Inputs:
     N - polynomial normalizations generated up to order N-1
     a,b,c - Koornwinder parameters
-    H - Floating type T pointer to N^2 storage (heap allocated)
+    H - Floating type T pointer to N^2 storage
 
   Outputs:
     H - Populated as NxN upper triangular matrix 
       - each column has normalizations for $P_i^j$,
       - where the column is j, and i <= j
-      - That is, each column j corresponds to the space of 
+      - That is, each column j corresponds to normalizations for the space of 
       - homogeneous polynomials of degree j
-      - NOTE: stored in column major order
-*/
-   
+      - NOTE: stored in column major order 
+*/   
 template<typename T>
 inline void structure_factors_tri(const unsigned int N,
                               const T a, const T b, const T c, 
@@ -37,7 +36,8 @@ inline void structure_factors_tri(const unsigned int N,
 {
   if (!H || N == 0)
   {
-    exitErr("scale array must not be empty, and N cannot be 0!");
+    std::cerr << "scale array must not be empty, and N cannot be 0! Exiting ...\n";
+    exit(1);
   }
 
   T kap = abs(a+b+c);
@@ -49,20 +49,21 @@ inline void structure_factors_tri(const unsigned int N,
     #pragma omp simd
     for (unsigned int kk = 0; kk <= nn; ++kk)
     {
-      H[kk + N*nn] = sqrt( 
-                             wabc/( (2*nn+kap+0.5) * (2*kk+b+c) ) *
-                             tgamma(nn+kk+b+c+1) * tgamma(nn-kk+a+0.5) * 
-                             tgamma(kk+b+0.5) * tgamma(kk+c+0.5) / 
-                              ( tgamma(nn-kk+1) * tgamma(kk+1) * 
-                                tgamma(nn+kk+kap+0.5) * tgamma(kk+b+c)
-                              )
-                           );
+      H[kk + N*nn] = 
+        sqrt( 
+              wabc/( (2*nn+kap+0.5) * (2*kk+b+c) ) *
+              tgamma(nn+kk+b+c+1) * tgamma(nn-kk+a+0.5) * 
+              tgamma(kk+b+0.5) * tgamma(kk+c+0.5) / 
+              ( 
+                tgamma(nn-kk+1) * tgamma(kk+1) * 
+                tgamma(nn+kk+kap+0.5) * tgamma(kk+b+c)
+              )
+            );
     }
   }
 }
 
 
-/*
 template<typename T>
 inline void structure_factors(const unsigned int N,
                               const T a, const T b, 
@@ -77,6 +78,6 @@ inline void structure_factors(const unsigned int N,
   H[0] = pow(2, a+b+1) * tgamma(a+1) * tgamma(b+1) /
          tgamma(a+b+2);
 }
-*/
+
 
 #endif
