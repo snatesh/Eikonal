@@ -54,8 +54,12 @@ $(EIKONAL_BIN)/test: $(testSRC) $(testINC) $(LIBS)
 
 $(EIKONAL_TESTBIN)/gtest: $(gtestSRC) $(gtestINC) $(LIBS)
 	@mkdir -p $(EIKONAL_TESTBIN)
-	$(CXX) -o $(EIKONAL_TESTBIN)/gtest $(gtestSRC) $(gtestINC) $(gtestLIB) $(CXXFLAGS_test)
-	@cd $(EIKONAL_TESTBIN) && ./gtest
+	$(CXX) -o $(EIKONAL_TESTBIN)/gtest $(gtestSRC) $(gtestINC) $(gtestLIB) $(CXXFLAGS_test) -I/usr/include/python3.12 -l:libpython3.12.so -DWITHOUT_NUMPY
+	@cd $(EIKONAL_TESTBIN) && ./gtest && open ../testdata/intconv.png
 
 clean: 
-	rm -rf $(EIKONAL_LIB) $(EIKONAL_BIN) $(EIKONAL_TESTBIN)
+	rm -rf $(EIKONAL_LIB) $(EIKONAL_BIN) $(EIKONAL_TESTBIN) $(EIKONAL_TESTBIN)/*.png
+
+
+#g++ modern.cpp -I/usr/include/python3.12 -l:libpython3.12.so -w -DWITHOUT_NUMPY
+

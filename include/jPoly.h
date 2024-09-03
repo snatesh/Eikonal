@@ -3,6 +3,9 @@
 #include<cstddef>
 #include<iostream>
 #include<cmath>
+
+using std::pow;
+
 /*
   Generate the Jacobi (a,b) Vandermonde matrix
   given an array of x of Nx points and number of polynomials N.
@@ -78,9 +81,9 @@ inline void jPoly_tri(T* X, T* Y, T* H, unsigned int Nx, unsigned int n,
     - ydx, x2m1, mxp1, Pk, Pnmk
   */
 
-  T* ydx  = (T*) malloc(Nx*sizeof(T));
-  T* x2m1 = (T*) malloc(Nx*sizeof(T));
-  T* mxp1 = (T*) malloc(Nx*sizeof(T));
+  T* ydx  = (T*) calloc(Nx, sizeof(T));
+  T* x2m1 = (T*) calloc(Nx, sizeof(T));
+  T* mxp1 = (T*) calloc(Nx, sizeof(T));
   for (unsigned int i = 0; i < Nx; ++i)
   {
     ydx[i]  = 2.0 * Y[i] / (1 - X[i]) - 1;
@@ -91,7 +94,7 @@ inline void jPoly_tri(T* X, T* Y, T* H, unsigned int Nx, unsigned int n,
   T* Pk = (T*) calloc(Nx*(n+1), sizeof(T));
   jPoly<T>(ydx, Nx, n + 1, c - 0.5, b - 0.5, Pk);
 
-  T* Pnmk = (T*) malloc(Nx*(n+1)*(n+1)*sizeof(T));
+  T* Pnmk = (T*) calloc(Nx*(n+1)*(n+1), sizeof(T));
   for (unsigned int kk = 0; kk <= n; ++kk) 
   {
     T* pnmk = &Pnmk[Nx*(n+1)*kk];
@@ -107,7 +110,7 @@ inline void jPoly_tri(T* X, T* Y, T* H, unsigned int Nx, unsigned int n,
       T* pnmk = &Pnmk[Nx*(n+1)*kk];
       for (unsigned int i = 0; i < Nx; ++i)
       {
-        v[i] = 1.0 / H[kk + n*nn] * pnmk[i + Nx*(nn-kk)] * 
+        v[i] = 1.0 / H[kk + (n+1)*nn] * pnmk[i + Nx*(nn-kk)] * 
                std::pow(mxp1[i],kk) * Pk[i + Nx*kk];
       }
     }
