@@ -23,13 +23,18 @@ else
   CXXFLAGS_test           = -I$(CURDIR)/include -I /usr/include/gtest/ -w -g -O0 -DDEBUG -L$(EIKONAL_LIB)
 endif
 
+cblasINC                = /usr/include/x86_64-linux-gnu/openblas-openmp/cblas.h
+cblasLIBDIR             = /usr/lib/x86_64-linux-gnu/openblas-openmp/
+cblasLIB                = libopenblasp-r0.3.26.so
+
 structureFactorINC        = include/structure_factors.h
+promotionMatINC           = include/promotion_mat_tri.h
 jPolyINC                  = include/jPoly.h
 testSRC                   = src/test.cpp
 testINC                   = include/structure_factors.h include/jPoly.h
 gtestSRC                  = testing/gtest.cpp
 gtestINC                  = include/structure_factors.h include/jPoly.h /usr/include/gtest/gtest.h
-LIBS_                     = libstructureFactor.so libjPoly.so 
+LIBS_                     = libstructureFactor.so libjPoly.so libpromotionMat.so 
 gtestLIB                  = /usr/lib/x86_64-linux-gnu/libgtest.a
 EXEC_                     = test 
 GTEST_                    = gtest
@@ -48,13 +53,17 @@ $(EIKONAL_LIB)/libjPoly.so: $(jPolyINC)
 	@mkdir -p $(EIKONAL_LIB)
 	$(CXX) -o $@ $(jPolyINC) $(CXXFLAGS_lib) -fPIC
 
+$(EIKONAL_LIB)/libpromotionMat.so: $(promotionMatINC) $(structureFactorINC) $(LIBS) 
+	@mkdir -p $(EIKONAL_LIB)
+	$(CXX) -o $@ $(promotionMatINC) $(CXXFLAGS_lib) -fPIC
+
 $(EIKONAL_BIN)/test: $(testSRC) $(testINC) $(LIBS)
 	@mkdir -p $(EIKONAL_BIN)
 	$(CXX) -o $(EIKONAL_BIN)/test $(testSRC) $(CXXFLAGS_bin)
 
-$(EIKONAL_TESTBIN)/gtest: $(gtestSRC) $(gtestINC) $(LIBS)
+$(EIKONAL_TESTBIN)/gtest: $(gtestSRC) $(gtestINC) $(LIBS) $(cblasLIBDIR)/$(cblasLIB)
 	@mkdir -p $(EIKONAL_TESTBIN)
-	$(CXX) -o $(EIKONAL_TESTBIN)/gtest $(gtestSRC) $(gtestINC) $(gtestLIB) $(CXXFLAGS_test) -I/usr/include/python3.12 -l:libpython3.12.so -DWITHOUT_NUMPY
+	$(CXX) -o $(EIKONAL_TESTBIN)/gtest $(gtestSRC) $(gtestINC) $(gtestLIB) $(CXXFLAGS_test) -I/usr/include/python3.12 -l:libpython3.12.so -DWITHOUT_NUMPY -L$(cblasLIBDIR) $(cblasINC) -l:$(cblasLIB) 
 	@cd $(EIKONAL_TESTBIN) && ./gtest && open ../testdata/intconv.png
 
 clean: 
