@@ -29,12 +29,13 @@ cblasLIB                = libopenblasp-r0.3.26.so
 
 structureFactorINC        = include/structure_factors.h
 promotionMatINC           = include/promotion_mat_tri.h
+dxdyINC                   = include/dxdy_mat_tri.h
 jPolyINC                  = include/jPoly.h
 testSRC                   = src/test.cpp
 testINC                   = include/structure_factors.h include/jPoly.h
 gtestSRC                  = testing/gtest.cpp
 gtestINC                  = include/structure_factors.h include/jPoly.h /usr/include/gtest/gtest.h
-LIBS_                     = libstructureFactor.so libjPoly.so libpromotionMat.so 
+LIBS_                     = libstructureFactor.so libjPoly.so libpromotionMat.so libdxdy.so
 gtestLIB                  = /usr/lib/x86_64-linux-gnu/libgtest.a
 EXEC_                     = test 
 GTEST_                    = gtest
@@ -53,9 +54,13 @@ $(EIKONAL_LIB)/libjPoly.so: $(jPolyINC)
 	@mkdir -p $(EIKONAL_LIB)
 	$(CXX) -o $@ $(jPolyINC) $(CXXFLAGS_lib) -fPIC
 
-$(EIKONAL_LIB)/libpromotionMat.so: $(promotionMatINC) $(structureFactorINC) $(LIBS) 
+$(EIKONAL_LIB)/libpromotionMat.so: $(promotionMatINC) 
 	@mkdir -p $(EIKONAL_LIB)
 	$(CXX) -o $@ $(promotionMatINC) $(CXXFLAGS_lib) -fPIC
+
+$(EIKONAL_LIB)/libdxdy.so: $(dxdyINC) 
+	@mkdir -p $(EIKONAL_LIB)
+	$(CXX) -o $@ $(dxdyINC) $(CXXFLAGS_lib) -fPIC
 
 $(EIKONAL_BIN)/test: $(testSRC) $(testINC) $(LIBS)
 	@mkdir -p $(EIKONAL_BIN)

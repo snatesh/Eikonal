@@ -7,6 +7,7 @@
 #include"structure_factors.h"
 #include"jPoly.h"
 #include"promotion_mat_tri.h"
+#include"dxdy_mat_tri.h"
 #include"../include/matplotlibcpp.h"
 
 
@@ -201,7 +202,7 @@ TEST(jPolyTriTest, TolCheck)
 }
 
 namespace plt = matplotlibcpp;
-TEST(jPolyTriConvTest, PlotCheck)
+TEST(jPolyTriConvTest, convplotCheck)
 {
   double tol = 1e-14;
   double (*farr[5])(double,double) = {ftest1, ftest2, ftest3, ftest4, ftest5};
@@ -281,7 +282,7 @@ TEST(jPolyTriConvTest, PlotCheck)
 TEST(promMatA1Test, TolCheck)
 {
   double tol  = 1e-14;
-  unsigned int n = 13;
+  unsigned int n = 14;
   unsigned int n_k = n - 1; 
   unsigned int N = static_cast<unsigned int>(0.5 * (n_k + 1) * (n_k + 2)); 
   double a = 0.5; double b = 0.5; double c = 0.5;
@@ -305,6 +306,117 @@ TEST(promMatA1Test, TolCheck)
   free(K_a1bc_ref);
 }
 
+TEST(promMatB1Test, TolCheck)
+{
+  double tol  = 1e-14;
+  unsigned int n = 14;
+  unsigned int n_k = n - 1; 
+  unsigned int N = static_cast<unsigned int>(0.5 * (n_k + 1) * (n_k + 2)); 
+  double a = 0.5; double b = 0.5; double c = 0.5;
+  double* H_abc = (double*) calloc((n+1)*(n+1), sizeof(double));
+  double* H_ab1c = (double*) calloc((n+1)*(n+1), sizeof(double));
+  double* K_ab1c = (double*) calloc(N*N, sizeof(double)); 
+  double* K_ab1c_ref = (double*) calloc(N*N, sizeof(double)); 
+ 
+  std::ifstream K_ab1c_ref_file("../testdata/K_ab1c_ref.txt");
+  for (unsigned int i = 0; i < N*N; ++i) { K_ab1c_ref_file >> K_ab1c_ref[i]; } 
+  structure_factors_tri<double>(n+1, a, b, c, H_abc);
+  structure_factors_tri<double>(n+1, a, b+1.0, c, H_ab1c);
+  promotion_mat_tri(a, b, c, H_abc, H_ab1c, n_k, 1, K_ab1c);
+  
+  double diff = infnorm(K_ab1c, K_ab1c_ref, N*N);
+  EXPECT_LT(diff, tol);
+  std::cout << "\nrelative infinity norm of diff = " << diff << "\n\n";
+
+  free(H_abc);
+  free(H_ab1c);
+  free(K_ab1c);
+  free(K_ab1c_ref);
+}
+
+TEST(promMatC1Test, TolCheck)
+{
+  double tol  = 1e-14;
+  unsigned int n = 14;
+  unsigned int n_k = n - 1; 
+  unsigned int N = static_cast<unsigned int>(0.5 * (n_k + 1) * (n_k + 2)); 
+  double a = 0.5; double b = 0.5; double c = 0.5;
+  double* H_abc = (double*) calloc((n+1)*(n+1), sizeof(double));
+  double* H_abc1 = (double*) calloc((n+1)*(n+1), sizeof(double));
+  double* K_abc1 = (double*) calloc(N*N, sizeof(double)); 
+  double* K_abc1_ref = (double*) calloc(N*N, sizeof(double)); 
+ 
+  std::ifstream K_abc1_ref_file("../testdata/K_abc1_ref.txt");
+  for (unsigned int i = 0; i < N*N; ++i) { K_abc1_ref_file >> K_abc1_ref[i]; } 
+  structure_factors_tri<double>(n+1, a, b, c, H_abc);
+  structure_factors_tri<double>(n+1, a, b+1.0, c, H_abc1);
+  promotion_mat_tri(a, b, c, H_abc, H_abc1, n_k, 2, K_abc1);
+  
+  double diff = infnorm(K_abc1, K_abc1_ref, N*N);
+  EXPECT_LT(diff, tol);
+  std::cout << "\nrelative infinity norm of diff = " << diff << "\n\n";
+
+  free(H_abc);
+  free(H_abc1);
+  free(K_abc1);
+  free(K_abc1_ref);
+}
+
+TEST(dxTriTest, TolCheck)
+{
+  double tol  = 1e-14;
+  unsigned int n = 14;
+  unsigned int n_k = n - 1; 
+  unsigned int N = static_cast<unsigned int>(0.5 * (n_k + 1) * (n_k + 2)); 
+  double a = 0.5; double b = 0.5; double c = 0.5;
+  double* H_abc = (double*) calloc((n+1)*(n+1), sizeof(double));
+  double* H_a1bc1 = (double*) calloc((n+1)*(n+1), sizeof(double));
+  double* D_a1bc1 = (double*) calloc(N*N, sizeof(double)); 
+  double* D_a1bc1_ref = (double*) calloc(N*N, sizeof(double)); 
+ 
+  std::ifstream D_a1bc1_ref_file("../testdata/Dx_a1bc1_ref.txt");
+  for (unsigned int i = 0; i < N*N; ++i) { D_a1bc1_ref_file >> D_a1bc1_ref[i]; } 
+  structure_factors_tri<double>(n+1, a, b, c, H_abc);
+  structure_factors_tri<double>(n+1, a+1.0, b, c+1.0, H_a1bc1);
+  dxdy_mat_tri(a, b, c, H_abc, H_a1bc1, n_k, 0, D_a1bc1);
+  
+  double diff = infnorm(D_a1bc1, D_a1bc1_ref, N*N);
+  EXPECT_LT(diff, tol);
+  std::cout << "\nrelative infinity norm of diff = " << diff << "\n\n";
+
+  free(H_abc);
+  free(H_a1bc1);
+  free(D_a1bc1);
+  free(D_a1bc1_ref);
+}
+
+TEST(dyTriTest, TolCheck)
+{
+  double tol  = 1e-14;
+  unsigned int n = 14;
+  unsigned int n_k = n - 1; 
+  unsigned int N = static_cast<unsigned int>(0.5 * (n_k + 1) * (n_k + 2)); 
+  double a = 0.5; double b = 0.5; double c = 0.5;
+  double* H_abc = (double*) calloc((n+1)*(n+1), sizeof(double));
+  double* H_ab1c1 = (double*) calloc((n+1)*(n+1), sizeof(double));
+  double* D_ab1c1 = (double*) calloc(N*N, sizeof(double)); 
+  double* D_ab1c1_ref = (double*) calloc(N*N, sizeof(double)); 
+ 
+  std::ifstream D_ab1c1_ref_file("../testdata/Dy_ab1c1_ref.txt");
+  for (unsigned int i = 0; i < N*N; ++i) { D_ab1c1_ref_file >> D_ab1c1_ref[i]; } 
+  structure_factors_tri<double>(n+1, a, b, c, H_abc);
+  structure_factors_tri<double>(n+1, a, b+1.0, c+1.0, H_ab1c1);
+  dxdy_mat_tri(a, b, c, H_abc, H_ab1c1, n_k, 1, D_ab1c1);
+  
+  double diff = infnorm(D_ab1c1, D_ab1c1_ref, N*N);
+  EXPECT_LT(diff, tol);
+  std::cout << "\nrelative infinity norm of diff = " << diff << "\n\n";
+
+  free(H_abc);
+  free(H_ab1c1);
+  free(D_ab1c1);
+  free(D_ab1c1_ref);
+}
 
 } // end gtest namespace
 
