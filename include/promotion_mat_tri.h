@@ -10,7 +10,7 @@ inline void promotion_mat_tri(T a, T b, T c, const T* H, const T* H1, unsigned i
   // a + 1
   if (mode == 0)
   {
-    K[0] = 1; 
+    K[0] = 1.0; 
     unsigned int row, col; row = 2; col = 1;
     for (unsigned int blk = 1; blk <= n; ++blk)
     {

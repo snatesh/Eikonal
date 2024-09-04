@@ -2,9 +2,11 @@
 #include<fstream>
 #include<sstream>
 #include<vector>
+#include<cblas.h>
 #include"gtest/gtest.h"
 #include"structure_factors.h"
 #include"jPoly.h"
+#include"promotion_mat_tri.h"
 #include"../include/matplotlibcpp.h"
 
 
@@ -44,12 +46,13 @@ double twonorm(const double* A, const double* B, const unsigned int N)
 
 double vecdot(const double* A, const double* B, const unsigned int N)
 {
-  double sum = 0.0;
-  for (unsigned int i = 0; i < N; ++i)
-  {
-    sum += A[i] * B[i];
-  } 
-  return sum;
+  return cblas_ddot(N, A, 1, B, 1);
+  //double sum = 0.0;
+  //for (unsigned int i = 0; i < N; ++i)
+  //{
+  //  sum += A[i] * B[i];
+  //} 
+  //return sum;
 }
 
 double infnorm(const double* A, const double* Aref, const unsigned int N)
@@ -274,6 +277,34 @@ TEST(jPolyTriConvTest, PlotCheck)
   }
   plt::save("../testdata/intconv.png");
 }
+
+TEST(promMatA1Test, TolCheck)
+{
+  double tol  = 1e-14;
+  unsigned int n = 13;
+  unsigned int n_k = n - 1; 
+  unsigned int N = static_cast<unsigned int>(0.5 * (n_k + 1) * (n_k + 2)); 
+  double a = 0.5; double b = 0.5; double c = 0.5;
+  double* H_abc = (double*) calloc((n+1)*(n+1), sizeof(double));
+  double* H_a1bc = (double*) calloc((n+1)*(n+1), sizeof(double));
+  double* K_a1bc = (double*) calloc(N*N, sizeof(double)); 
+  double* K_a1bc_ref = (double*) calloc(N*N, sizeof(double)); 
+ 
+  std::ifstream K_a1bc_ref_file("../testdata/K_a1bc_ref.txt");
+  for (unsigned int i = 0; i < N*N; ++i) { K_a1bc_ref_file >> K_a1bc_ref[i]; }
+  structure_factors_tri<double>(n+1, a, b, c, H_abc);
+  structure_factors_tri<double>(n+1, a+1, b, c, H_a1bc);
+  promotion_mat_tri(a, b, c, H_abc, H_a1bc, n_k, 0, K_a1bc);
+  double diff = infnorm(K_a1bc, K_a1bc_ref, N*N);
+  EXPECT_LT(diff, tol);
+  std::cout << "\nrelative infinity norm of diff = " << diff << "\n\n";
+
+  free(H_abc);
+  free(H_a1bc);
+  free(K_a1bc);
+  free(K_a1bc_ref);
+}
+
 
 } // end gtest namespace
 

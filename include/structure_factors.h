@@ -1,5 +1,5 @@
-#ifndef _COMMON_H
-#define _COMMON_H
+#ifndef _STRUCTURE_FACTORS_H
+#define _STRUCTURE_FACTORS_H
 
 #include<cmath>
 #include<iostream>
