@@ -40,7 +40,7 @@ inline void jacobi_mat_ON_tri(unsigned int n, T a, T b, T c, T* Jn1, T* Jn2)
               (nn - kk1 + 2) * (kk1 + b - 0.5) * (kk1 + c -0.5) 
             ) /
             ( (2 * nn + kap + 0.5) * (2 * nn + kap + 1.5) * 
-              (2 * kk1 + b + c) * (2 * kk1 + b + c - 1) 
+              (2 * kk1 + b + c) * (2 * kk1 + b + c - 1.0) 
             );          
         }
       }
@@ -62,7 +62,7 @@ inline void jacobi_mat_ON_tri(unsigned int n, T a, T b, T c, T* Jn1, T* Jn2)
       } 
       
       D[kk + nn*(n+1)] = 
-        (H[kk+1 + nn*(nn+3)] / H[kk + nn*(n+3)]) * (nn + kk + kap + 0.5) *
+        (H[kk+1 + (nn+1)*(nn+3)] / H[kk + nn*(n+3)]) * (nn + kk + kap + 0.5) *
         (nn + kk + kap + 1.5) * (kk + 1) * (kk + b + c) /
         ( (2 * nn + kap + 0.5) * (2 * nn + kap + 1.5) * (2 * kk + b + c) * 
           (2 * kk + b + c + 1.0) );
@@ -73,74 +73,76 @@ inline void jacobi_mat_ON_tri(unsigned int n, T a, T b, T c, T* Jn1, T* Jn2)
         ( (2 * nn + kap - 0.5) * (2 * nn + kap + 1.5) * (2 * kk + b + c) * (2 * kk + b + c + 1.0));
     }
   }
- 
+// TODO: Figure out what's wrong with Jn2 
   unsigned int inds[2] = {1,1};
   unsigned int inds1[2];
-  T *A1, *A2, *B1, *B2;
-  for (unsigned int nn = 1; nn <= (n-1); ++nn)
+  for (unsigned int nn = 0; nn <= (n-1); ++nn)
   {
-    A1 = (T*) calloc(nn*(nn+1), sizeof(T));
-    A2 = (T*) calloc(nn*(nn+1), sizeof(T));
-    B1 = (T*) calloc(nn*nn, sizeof(T));
-    B2 = (T*) calloc(nn*nn, sizeof(T));
-
+    T* A1 = (T*) calloc((nn+1)*(nn+2), sizeof(T));
+    T* A2 = (T*) calloc((nn+1)*(nn+2), sizeof(T));
+    T* B1 = (T*) calloc((nn+1)*(nn+1), sizeof(T));
+    T* B2 = (T*) calloc((nn+1)*(nn+1), sizeof(T));
     for (unsigned int ii = 0; ii <= nn; ++ii) 
     { 
-      A1[ii + ii*nn] = A[ii + nn*(n+1)]; 
-      B1[ii + ii*nn] = B[ii + nn*(n+1)];
-      A2[ii + ii*nn] = E[ii + nn*(n+1)];
-      A2[ii + (ii+1)*nn] = D[ii + nn*(n+1)];
-      A2[ii+1 + ii*nn] = C[ii + nn*(n+1)];
-      B2[ii + ii*nn] = F[ii + nn*(n+1)];
-      B2[ii + (ii+1)*nn] = G[ii + nn*(n+1)];
-      B2[ii+1 + ii*nn] = G[ii + nn*(n+1)];
-    }
-
-    for (unsigned int row = inds[0]; row <= inds[1]; ++ row)
-    {
-      for (unsigned int col = inds[0]; col <= inds[1]; ++ col)
+      A1[ii + ii*(nn+1)]      = A[ii + nn*(n+1)]; 
+      B1[ii + ii*(nn+1)]      = B[ii + nn*(n+1)];
+      A2[ii + ii*(nn+1)]      = E[ii + nn*(n+1)];
+      A2[ii + (ii+1)*(nn+1)]  = D[ii + nn*(n+1)];
+      B2[ii + ii*(nn+1)]      = F[ii + nn*(n+1)];
+      if (ii < nn)
       {
-        Jn1[row + N*col] = B1[row + nn*col]; 
-        Jn2[row + N*col] = B2[row + nn*col]; 
+        A2[ii+1 + ii*(nn+1)]  = C[ii + nn*(n+1)];
+        B2[ii + (ii+1)*(nn+1)]= G[ii + nn*(n+1)];
+        B2[ii+1 + ii*(nn+1)]  = G[ii + nn*(n+1)];
       }
     }
-    inds1[0] = inds[0] + nn;
-    inds1[1] = inds[1] + nn + 1;
-    for (unsigned int row = inds[0]; row <= inds[1]; ++row)
+    if (nn < (n-1))
     {
-      for (unsigned int col = inds1[0]; col <= inds1[1]; ++col)
-      {
-        Jn1[row + N*col] = A1[row + nn*col];
-        Jn2[row + N*col] = A2[row + nn*col];
-      }
-    }
-    
-    for (unsigned int row = inds1[0]; row <= inds1[1]; ++row)
-    {
+      unsigned int i = 0;
       for (unsigned int col = inds[0]; col <= inds[1]; ++col)
       {
-        Jn1[row + N*col] = A1[col + (nn+1)*row];
-        Jn2[row + N*col] = A2[col + (nn+1)*row];
+        for (unsigned int row = inds[0]; row <= inds[1]; ++row)
+        {
+          Jn1[(row-1) + N*(col-1)] = B1[i]; 
+          Jn2[(row-1) + N*(col-1)] = B2[i];
+          i += 1; 
+        }
+      }
+      inds1[0] = inds[0] + nn + 1;
+      inds1[1] = inds[1] + nn + 2;
+      i = 0;
+      for (unsigned int col = inds1[0]; col <= inds1[1]; ++col)
+      {
+        for (unsigned int row = inds[0]; row <= inds[1]; ++row)
+        {
+          Jn1[(row-1) + N*(col-1)] = A1[i];
+          Jn1[(col-1) + N*(row-1)] = A1[i];
+          Jn2[(row-1) + N*(col-1)] = A2[i];
+          Jn2[(col-1) + N*(row-1)] = A2[i];
+          i += 1;
+        }
+      }
+      inds[0] += nn + 1;
+      inds[1] += nn + 2;
+    }
+    else if (nn == (n-1))
+    { 
+      unsigned int i = 0;
+      for (unsigned int col = inds[0]; col <= inds[1]; ++col)
+      {
+        for (unsigned int row = inds[0]; row <= inds[1]; ++row)
+        {
+          Jn1[(row-1) + N*(col-1)] = B1[i];
+          Jn2[(row-1) + N*(col-1)] = B2[i];
+          i += 1;
+        }
       }
     }
-    inds[0] += nn;
-    inds[1] += nn + 1;
-    
     free(A1);
     free(B1);
     free(A2);
-    free(B1);
+    free(B2);
   } 
-
-  for (unsigned int row = inds[0]; row <= inds[1]; ++row)
-  {
-    for (unsigned int col = inds1[0]; col <= inds1[1]; ++col)
-    {
-      Jn1[row + N*col] = B1[row + n*col];
-      Jn2[row + N*col] = B2[row + n*col];
-    }
-  }
-  
 
   free(H);
   free(A); 

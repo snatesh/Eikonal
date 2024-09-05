@@ -8,6 +8,7 @@
 #include"jPoly.h"
 #include"promotion_mat_tri.h"
 #include"dxdy_mat_tri.h"
+#include"jacobi_mat_ON_tri.h"
 #include"../include/matplotlibcpp.h"
 
 
@@ -202,7 +203,7 @@ TEST(jPolyTriTest, TolCheck)
 }
 
 namespace plt = matplotlibcpp;
-TEST(jPolyTriConvTest, convplotCheck)
+TEST(jPolyTriConvTest, ConvPlotCheck)
 {
   double tol = 1e-14;
   double (*farr[5])(double,double) = {ftest1, ftest2, ftest3, ftest4, ftest5};
@@ -416,6 +417,25 @@ TEST(dyTriTest, TolCheck)
   free(H_ab1c1);
   free(D_ab1c1);
   free(D_ab1c1_ref);
+}
+
+TEST(jacobiMatTriTest, TolCheck)
+{
+  double tol  = 1e-14;
+  unsigned int n = 3;
+  unsigned int N = static_cast<unsigned int>(0.5 * n * (n + 1)); 
+  double a = 0.5; double b = 0.5; double c = 0.5;
+  double* Jn1 = (double*) calloc(N*N, sizeof(double));
+  double* Jn2 = (double*) calloc(N*N, sizeof(double));
+ 
+  jacobi_mat_ON_tri<double>(n, a, b, c, Jn1, Jn2);
+
+  printMat(Jn1,N,N);
+  printMat(Jn2,N,N);
+  
+  free(Jn1);
+  free(Jn2);
+
 }
 
 } // end gtest namespace
