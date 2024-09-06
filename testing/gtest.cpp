@@ -9,8 +9,9 @@
 #include"promotion_mat_tri.h"
 #include"dxdy_mat_tri.h"
 #include"jacobi_mat_ON_tri.h"
+#ifdef PLOT
 #include"../include/matplotlibcpp.h"
-
+#endif
 
 /* 
   Top of file is reserved for test helper functions 
@@ -49,12 +50,6 @@ double twonorm(const double* A, const double* B, const unsigned int N)
 double vecdot(const double* A, const double* B, const unsigned int N)
 {
   return cblas_ddot(N, A, 1, B, 1);
-  //double sum = 0.0;
-  //for (unsigned int i = 0; i < N; ++i)
-  //{
-  //  sum += A[i] * B[i];
-  //} 
-  //return sum;
 }
 
 double infnorm(const double* A, const double* Aref, const unsigned int N)
@@ -202,7 +197,9 @@ TEST(jPolyTriTest, TolCheck)
   free(Vmref);
 }
 
+#ifdef PLOT
 namespace plt = matplotlibcpp;
+#endif
 TEST(jPolyTriConvTest, ConvPlotCheck)
 {
   double tol = 1e-14;
@@ -265,11 +262,12 @@ TEST(jPolyTriConvTest, ConvPlotCheck)
       free(f);
     }
 
+    #ifdef PLOT
     std::vector<unsigned int> Nsvec(Ns,Ns+14);
     std::vector<double> errsvec(errs,errs+14);
-
+    
     plt::semilogy(Nsvec, errsvec, "o--");
-
+    #endif
     ss.clear();
     free(Xkref);
     free(Ykref);
@@ -277,7 +275,9 @@ TEST(jPolyTriConvTest, ConvPlotCheck)
     free(fref);
     free(errs);
   }
+  #ifdef PLOT
   plt::save("../testdata/intconv.png");
+  #endif
 }
 
 TEST(promMatA1Test, TolCheck)
@@ -422,19 +422,35 @@ TEST(dyTriTest, TolCheck)
 TEST(jacobiMatTriTest, TolCheck)
 {
   double tol  = 1e-14;
-  unsigned int n = 3;
+  unsigned int n = 20;
   unsigned int N = static_cast<unsigned int>(0.5 * n * (n + 1)); 
   double a = 0.5; double b = 0.5; double c = 0.5;
   double* Jn1 = (double*) calloc(N*N, sizeof(double));
   double* Jn2 = (double*) calloc(N*N, sizeof(double));
- 
-  jacobi_mat_ON_tri<double>(n, a, b, c, Jn1, Jn2);
+  double* Jn1_ref = (double*) calloc(N*N, sizeof(double));
+  double* Jn2_ref = (double*) calloc(N*N, sizeof(double));
+  std::ifstream Jn1_ref_file("../testdata/Jn1_ref.txt");
+  std::ifstream Jn2_ref_file("../testdata/Jn2_ref.txt");
+  for (unsigned int i = 0; i < N*N; ++i) 
+  { 
+    Jn1_ref_file >> Jn1_ref[i];
+    Jn2_ref_file >> Jn2_ref[i];
+  } 
 
-  printMat(Jn1,N,N);
-  printMat(Jn2,N,N);
+  jacobi_mat_ON_tri<double>(n, a, b, c, Jn1, Jn2);
+  
+  double diff1 = infnorm(Jn1, Jn1_ref, N*N);  
+  double diff2 = infnorm(Jn2, Jn2_ref, N*N);  
+  
+  EXPECT_LT(diff1, tol);
+  EXPECT_LT(diff2, tol);
+  std::cout << "\nrelative infinity norm of diff for Jx = " << diff1 << "\n\n";
+  std::cout << "\nrelative infinity norm of diff for Jy = " << diff2 << "\n\n";
   
   free(Jn1);
   free(Jn2);
+  free(Jn1_ref);
+  free(Jn2_ref);
 
 }
 

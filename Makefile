@@ -7,7 +7,7 @@ export EIKONAL_BIN      = $(EIKONAL_ROOT)/bin
 export EIKONAL_TESTBIN     = $(EIKONAL_ROOT)/testing/bin
 # if True, compilation will use debug mode for cpu
 export DEBUG           ?= False
-
+export PLOT            ?= False
 ################################ END USER EDIT ##################################
 
 CURDIR                = $(shell pwd)
@@ -26,6 +26,7 @@ endif
 cblasINC                = /usr/include/x86_64-linux-gnu/openblas-openmp/cblas.h
 cblasLIBDIR             = /usr/lib/x86_64-linux-gnu/openblas-openmp/
 cblasLIB                = libopenblasp-r0.3.26.so
+SNOPT_INSTALL           = $(EIKONAL_ROOT)/snopt-interface/
 
 structureFactorINC        = include/structure_factors.h
 promotionMatINC           = include/promotion_mat_tri.h
@@ -71,13 +72,25 @@ $(EIKONAL_BIN)/test: $(testSRC) $(testINC) $(LIBS)
 	@mkdir -p $(EIKONAL_BIN)
 	$(CXX) -o $(EIKONAL_BIN)/test $(testSRC) $(CXXFLAGS_bin)
 
+
+ifeq ($(PLOT), True)
 $(EIKONAL_TESTBIN)/gtest: $(gtestSRC) $(gtestINC) $(LIBS) $(cblasLIBDIR)/$(cblasLIB)
 	@mkdir -p $(EIKONAL_TESTBIN)
 	$(CXX) -o $(EIKONAL_TESTBIN)/gtest $(gtestSRC) $(gtestINC) $(gtestLIB) $(CXXFLAGS_test) -I/usr/include/python3.12 -l:libpython3.12.so -DWITHOUT_NUMPY -L$(cblasLIBDIR) $(cblasINC) -l:$(cblasLIB) 
 	@cd $(EIKONAL_TESTBIN) && ./gtest && open ../testdata/intconv.png
+else
+$(EIKONAL_TESTBIN)/gtest: $(gtestSRC) $(gtestINC) $(LIBS) $(cblasLIBDIR)/$(cblasLIB)
+	@mkdir -p $(EIKONAL_TESTBIN)
+	$(CXX) -o $(EIKONAL_TESTBIN)/gtest $(gtestSRC) $(gtestINC) $(gtestLIB) $(CXXFLAGS_test) -L$(cblasLIBDIR) $(cblasINC) -l:$(cblasLIB) 
+	@cd $(EIKONAL_TESTBIN) && ./gtest 
+
+endif
 
 clean: 
 	rm -rf $(EIKONAL_LIB) $(EIKONAL_BIN) $(EIKONAL_TESTBIN) $(EIKONAL_TESTBIN)/*.png
+
+snopt:
+	cd $(SNOPT_INSTALL) && ./autogen.sh && ./configure --prefix=$(SNOPT_INSTALL) --with-blas="-L$(cblasLIBDIR) -l:$(cblasLIB)" --with-pic && make && make install
 
 
 #g++ modern.cpp -I/usr/include/python3.12 -l:libpython3.12.so -w -DWITHOUT_NUMPY
