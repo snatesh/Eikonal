@@ -27,6 +27,9 @@ cblasINC                = /usr/include/x86_64-linux-gnu/openblas-openmp/cblas.h
 cblasLIBDIR             = /usr/lib/x86_64-linux-gnu/openblas-openmp/
 cblasLIB                = libopenblasp-r0.3.26.so
 SNOPT_INSTALL           = $(EIKONAL_ROOT)/snopt-interface/
+nloptLIBDIR             = /usr/local/lib/
+nloptLIB                = libnlopt.so.0.12.0
+nloptINC                = /usr/local/include/nlopt.h
 
 structureFactorINC        = include/structure_factors.h
 promotionMatINC           = include/promotion_mat_tri.h
@@ -73,18 +76,18 @@ $(EIKONAL_BIN)/test: $(testSRC) $(testINC) $(LIBS)
 	$(CXX) -o $(EIKONAL_BIN)/test $(testSRC) $(CXXFLAGS_bin)
 
 
-ifeq ($(PLOT), True)
-$(EIKONAL_TESTBIN)/gtest: $(gtestSRC) $(gtestINC) $(LIBS) $(cblasLIBDIR)/$(cblasLIB)
+#ifeq ($(PLOT), True)
+#$(EIKONAL_TESTBIN)/gtest: $(gtestSRC) $(gtestINC) $(LIBS) $(cblasLIBDIR)/$(cblasLIB)
+#	@mkdir -p $(EIKONAL_TESTBIN)
+#	$(CXX) -o $(EIKONAL_TESTBIN)/gtest $(gtestSRC) $(gtestINC) $(gtestLIB) $(CXXFLAGS_test) -I/usr/include/python3.12 -l:libpython3.12.so -DWITHOUT_NUMPY -L$(cblasLIBDIR) $(cblasINC) -l:$(cblasLIB) 
+#	@cd $(EIKONAL_TESTBIN) && ./gtest && open ../testdata/intconv.png
+#else
+$(EIKONAL_TESTBIN)/gtest: $(gtestSRC) $(gtestINC) $(LIBS) $(cblasLIBDIR)/$(cblasLIB) $(nloptLIBDIR)/$(nloptLIB)
 	@mkdir -p $(EIKONAL_TESTBIN)
-	$(CXX) -o $(EIKONAL_TESTBIN)/gtest $(gtestSRC) $(gtestINC) $(gtestLIB) $(CXXFLAGS_test) -I/usr/include/python3.12 -l:libpython3.12.so -DWITHOUT_NUMPY -L$(cblasLIBDIR) $(cblasINC) -l:$(cblasLIB) 
-	@cd $(EIKONAL_TESTBIN) && ./gtest && open ../testdata/intconv.png
-else
-$(EIKONAL_TESTBIN)/gtest: $(gtestSRC) $(gtestINC) $(LIBS) $(cblasLIBDIR)/$(cblasLIB)
-	@mkdir -p $(EIKONAL_TESTBIN)
-	$(CXX) -o $(EIKONAL_TESTBIN)/gtest $(gtestSRC) $(gtestINC) $(gtestLIB) $(CXXFLAGS_test) -L$(cblasLIBDIR) $(cblasINC) -l:$(cblasLIB) 
+	$(CXX) -o $(EIKONAL_TESTBIN)/gtest $(gtestSRC) $(gtestINC) $(gtestLIB) $(CXXFLAGS_test) -L$(cblasLIBDIR) $(cblasINC) -L$(nloptLIBDIR) $(nloptINC) -l:$(cblasLIB) -l:$(nloptLIB) -lm 
 	@cd $(EIKONAL_TESTBIN) && ./gtest 
 
-endif
+#endif
 
 clean: 
 	rm -rf $(EIKONAL_LIB) $(EIKONAL_BIN) $(EIKONAL_TESTBIN) $(EIKONAL_TESTBIN)/*.png
