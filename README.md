@@ -6,7 +6,7 @@ A modal spectral method for the Eikonal equation on simplicial tesselations
 - build-essentials (particularly GNU `make` utility)
 - google testing framework (available via dpkg and apt as `libgtest-dev`)
 - `dh-autoreconf`,`autoreconf`,`autotools` for `SNOPT` installation
--  SNOPT to be replaced with NLOPT
+-  NLOPT (open source non linear optimization lib, `https://github.com/stevengj/nlopt.git`)
 
 ## NLOPT Installation ##
 The open-source nonlinear optimization libary which we use is `nlopt`, by our favorite `FFTW` co-creator Steven Johnson! For our purposes, it is used to generate near-optimal Gaussian-like quadrature on the triangle, and is to be investigated for use in solving non-linear PDEs/PDE-constrained optimization problems. 
