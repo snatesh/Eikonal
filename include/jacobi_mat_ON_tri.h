@@ -1,6 +1,6 @@
 #ifndef _JACOBI_MAT_ON_TRI_H
 #define _JAOCBI_MAT_ON_TRI_H
-#include"structure_factors.h"
+#include<structure_factors.h>
 #include<iomanip>
 
 /* TODO: use jacobi_mat_ON_tri below as constructor later */

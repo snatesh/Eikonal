@@ -26,6 +26,10 @@ endif
 cblasINC                = /usr/include/x86_64-linux-gnu/openblas-openmp/cblas.h
 cblasLIBDIR             = /usr/lib/x86_64-linux-gnu/openblas-openmp/
 cblasLIB                = libopenblasp-r0.3.26.so
+lapackINC               = /usr/include/lapacke.h
+lapackLIBDIR            = /usr/lib/x86_64-linux-gnu/
+lapackLIB               = liblapacke.so.3.12.0
+
 SNOPT_INSTALL           = $(EIKONAL_ROOT)/snopt-interface/
 nloptLIBDIR             = /usr/local/lib/
 nloptLIB                = libnlopt.so.0.12.0
@@ -38,11 +42,14 @@ jPolyINC                  = include/jPoly.h
 jacobiMatINC              = include/jacobi_mat_ON_tri.h
 testSRC                   = src/test.cpp
 testINC                   = include/structure_factors.h include/jPoly.h
+ngjquadoptSRC              = src/ngjquad_opt.cpp
+ngjquadoptINC              = $(structureFactorINC) $(jpolyINC) $(jacobiMatINC) $(nloptINC) $(lapackINC) 
+
 gtestSRC                  = testing/gtest.cpp
 gtestINC                  = include/structure_factors.h include/jPoly.h /usr/include/gtest/gtest.h
 LIBS_                     = libstructureFactor.so libjPoly.so libpromotionMat.so libdxdy.so libjacobiMat.so
 gtestLIB                  = /usr/lib/x86_64-linux-gnu/libgtest.a
-EXEC_                     = test 
+EXEC_                     = test ngjquad_opt 
 GTEST_                    = gtest
 LIBS                      = $(patsubst %,$(EIKONAL_LIB)/%,$(LIBS_))
 EXEC                      = $(patsubst %,$(EIKONAL_BIN)/%,$(EXEC_))
@@ -74,6 +81,10 @@ $(EIKONAL_LIB)/libjacobiMat.so: $(jacobiMatINC) $(structureFactorINC) $(EIKONAL_
 $(EIKONAL_BIN)/test: $(testSRC) $(testINC) $(LIBS)
 	@mkdir -p $(EIKONAL_BIN)
 	$(CXX) -o $(EIKONAL_BIN)/test $(testSRC) $(CXXFLAGS_bin)
+
+$(EIKONAL_BIN)/ngjquad_opt: $(ngjquadoptSRC) $(ngjquadoptINC) $(lapackLIBDIR)/$(lapackLIB) $(cblasLIBDIR)/$(cblasLIB) $(nloptLIBDIR)/$(nloptLIB)
+	@mkdir -p $(EIKONAL_BIN)
+	$(CXX) -o $(EIKONAL_BIN)/ngjquad_opt $(ngjquadoptSRC) $(ngjquadoptINC) $(CXXFLAGS_bin) -I$(lapackINC) -L$(lapackLIBDIR) $(lapackINC) -L$(cblasLIBDIR) $(cblasINC) -L$(nloptLIBDIR) $(nloptINC) -l:$(lapackLIB) -l:$(cblasLIB) -l:$(nloptLIB) -lm -I/usr/include/python3.12 -l:libpython3.12.so -DWITHOUT_NUMPY 
 
 
 #ifeq ($(PLOT), True)
