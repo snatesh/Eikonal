@@ -42,6 +42,11 @@ int main(int argc, char* argv[])
       alg = NLOPT_LN_COBYLA;
       std::cout << "ALGORITHM: COBYLA\n";
     }
+    else if (algtype == 2)
+    {
+      alg = NLOPT_LN_SBPLX;
+      std::cout << "ALGORITHM: SBPLX";
+    }
     n = std::stoi(argv[2]);
     m = std::stoi(argv[3]);
     tol = std::stod(argv[4]); 
