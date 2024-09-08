@@ -40,8 +40,7 @@ promotionMatINC           = include/promotion_mat_tri.h
 dxdyINC                   = include/dxdy_mat_tri.h
 jPolyINC                  = include/jPoly.h
 jacobiMatINC              = include/jacobi_mat_ON_tri.h
-testSRC                   = src/test.cpp
-testINC                   = include/structure_factors.h include/jPoly.h
+
 ngjquadoptSRC              = src/ngjquad_opt.cpp
 ngjquadoptINC              = $(structureFactorINC) $(jpolyINC) $(jacobiMatINC) $(nloptINC) $(lapackINC) 
 
@@ -49,7 +48,7 @@ gtestSRC                  = testing/gtest.cpp
 gtestINC                  = include/structure_factors.h include/jPoly.h /usr/include/gtest/gtest.h
 LIBS_                     = libstructureFactor.so libjPoly.so libpromotionMat.so libdxdy.so libjacobiMat.so
 gtestLIB                  = /usr/lib/x86_64-linux-gnu/libgtest.a
-EXEC_                     = test ngjquad_opt 
+EXEC_                     = ngjquad_opt 
 GTEST_                    = gtest
 LIBS                      = $(patsubst %,$(EIKONAL_LIB)/%,$(LIBS_))
 EXEC                      = $(patsubst %,$(EIKONAL_BIN)/%,$(EXEC_))
@@ -77,10 +76,6 @@ $(EIKONAL_LIB)/libdxdy.so: $(dxdyINC)
 $(EIKONAL_LIB)/libjacobiMat.so: $(jacobiMatINC) $(structureFactorINC) $(EIKONAL_LIB)/libstructureFactor.so
 	@mkdir -p $(EIKONAL_LIB)
 	$(CXX) -o $@ $(jacobiMatINC) $(CXXFLAGS_lib) -fPIC
-
-$(EIKONAL_BIN)/test: $(testSRC) $(testINC) $(LIBS)
-	@mkdir -p $(EIKONAL_BIN)
-	$(CXX) -o $(EIKONAL_BIN)/test $(testSRC) $(CXXFLAGS_bin)
 
 $(EIKONAL_BIN)/ngjquad_opt: $(ngjquadoptSRC) $(ngjquadoptINC) $(lapackLIBDIR)/$(lapackLIB) $(cblasLIBDIR)/$(cblasLIB) $(nloptLIBDIR)/$(nloptLIB)
 	@mkdir -p $(EIKONAL_BIN)
