@@ -72,7 +72,7 @@ inline void jPoly(T* x, unsigned int Nx, unsigned int Np, const T a, const T b, 
 }
 
 template<typename T>
-inline void jPoly_tri(T* X, T* Y, T* H, unsigned int Nx, unsigned int n, 
+inline void jPoly_tri(const T* X, const T* Y, T* H, unsigned int Nx, unsigned int n, 
                       T a, T b, T c, T* V)
 {
   // total num of polys up to degree n in d dimensions is nchoosek(n+d,n)
@@ -116,6 +116,9 @@ inline void jPoly_tri(T* X, T* Y, T* H, unsigned int Nx, unsigned int n,
     }
     ind = ind + nn + 1;
   }
+
+  free(ydx); free(x2m1); free(mxp1);
+  
 }
 
 #endif
