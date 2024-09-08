@@ -5,14 +5,14 @@ A modal spectral method for the Eikonal equation on simplicial tesselations
 It is likely most simple to install and use the libarary from within a `Docker` container. 
 For user convenience, a `Dockerfile` is provided which can generate a `Docker` image with
 all required dependencies and the `Eikonal` library installed. Note, the `Docker Engine` must
-be installed on your system (See https://docs.docker.com/engine/). 
+be installed on your system (See https://docs.docker.com/engine/), along with `ggt`.
 
-Once that dependency is met, executing (on `Linux` or `Unix` systems) the following commands will 
+Once those dependencies are met, executing (on `Linux` or `Unix` systems) the following commands will 
 build the Docker base image for the project and test the installation within a running 
 instance of the image (a `Docker` container):
 
 ```shell
-git@github.com:snatesh/Eikonal.git
+git clone git@github.com:snatesh/Eikonal.git
 cd Eikonal
 docker build -t ngj_tri_opt:latest .
 docker run -it ngj_tri_opt:latest bash
