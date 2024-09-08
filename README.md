@@ -21,9 +21,11 @@ make test
 ```
 Above, the `docker run` command with `bash` post-fixed will instantiate a 
 bash shell within the container, within which you can read/write/execute
-files as you please. 
+files as you please. The last two commands above change directory into
+the `Eikonal` folder within the container (`/Eikonal`), compile the 
+`gtest` code, and run the tests therein.
 
-For example, to generate Gaussian-like quadrature from order `n=4` Koornwinder 
+As another example, to generate Gaussian-like quadrature from order `n=4` Koornwinder 
 polynomials that can integrate order `m=6` polynomials exactly (`n` < `m`), 
 try (from the `Eikonal` directory)
 
@@ -32,7 +34,7 @@ cd bin
 ./ngj_quad_opt
 ```
 
-### Dependencies ###
+## Dependencies ##
 - `g++` compiler (tested on V13.2.0) 
 - `build-essentials` (particularly GNU `make` utility)
 - google testing framework (available via dpkg and apt as `libgtest-dev`)
@@ -45,7 +47,7 @@ sudo apt install libopenblas-openmp-dev liblapacke-dev
    which ensures the `C` wrapper to lapack (in headers `lapacke.h`) is 
    installed in a sane location.
 
-### NLOPT Installation ###
+## NLOPT Installation ##
 The open-source nonlinear optimization libary which we use is `nlopt`, by our favorite `FFTW` co-creator Steven Johnson! 
 For our purposes, it is used to generate near-optimal Gaussian-like quadrature on the triangle, and is to be investigated for 
 use in solving non-linear PDEs/PDE-constrained optimization problems. 
