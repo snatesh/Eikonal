@@ -24,23 +24,50 @@ int main(int argc, char* argv[])
 {
   unsigned int n, m;
   double tol, tolc;
-  bool wolfe = true;
-  if (argc == 6)
+  bool use_newton = true;
+  bool use_wolfe = true;
+  double alph;
+  nlopt_algorithm alg;
+  std::cout << "SEARCH FOR NEAR OPTIMAL GAUSS QUAD" << std::endl;
+  if (argc == 9)
   {
-    n = std::stoi(argv[1]);
-    m = std::stoi(argv[2]);
-    tol = std::stod(argv[3]); 
-    tolc = std::stod(argv[4]); 
-    wolfe = (bool) std::stoi(argv[5]);
+    unsigned int algtype = std::stoi(argv[1]);
+    if (algtype == 0) 
+    { 
+      alg = NLOPT_LN_NELDERMEAD;
+      std::cout << "ALGORITHM: NELDERMEAD\n";
+    }
+    else if (algtype == 1) 
+    {  
+      alg = NLOPT_LN_COBYLA;
+      std::cout << "ALGORITHM: COBYLA\n";
+    }
+    n = std::stoi(argv[2]);
+    m = std::stoi(argv[3]);
+    tol = std::stod(argv[4]); 
+    tolc = std::stod(argv[5]);
+    use_newton = (bool) std::stoi(argv[6]); 
+    use_wolfe = (bool) std::stoi(argv[7]);
+    alph = std::stod(argv[8]);
+    std::cout << "\nPARAMETERS:" << std::endl;
+    std::cout << std::setw(15) << "n          = " << n << std::endl;
+    std::cout << std::setw(15) << "m          = " << m << std::endl;
+    std::cout << std::setw(15) << "tol        = " << tol << std::endl;
+    std::cout << std::setw(15) << "tolc       = " << tolc << std::endl;
+    std::cout << std::setw(15) << "use_newton = " << use_newton << std::endl;
+    std::cout << std::setw(15) << "use_wolfe  = " << use_wolfe << std::endl;
+    std::cout << std::setw(15) << "alpha      = " << alph << std::endl;
   }
   else if (argc == 1)
   {
     n = 4; m = 6;
     tol = 1e-5; double tolc = 1e-5;
+    use_wolfe = false;
+    alg = NLOPT_LN_NELDERMEAD;
   }
   else
   {
-    std::cerr << "Incorrect number of command line arguments (n, m, tol, tolc, wolfe)\n";
+    std::cerr << "Incorrect number of command line arguments (algtype, n, m, tol, tolc, use_wolfe, alph)\n";
     std::cerr << "Only " << argc << " provided" << std::endl;
   }
   double a, b, c, kap; a = b = c = 0.5; kap = abs(a+b+c);
@@ -111,7 +138,7 @@ int main(int argc, char* argv[])
 
   /***************************** BEGIN NLOPT **************************/
   
-  std::cout <<"\n\n BEGIN NLOPT \n\n";
+  std::cout <<"\n BEGIN NLOPT \n";
 
   // x, y , w > 0
   double* lb = (double*) calloc(3*N, sizeof(double)); 
@@ -122,7 +149,7 @@ int main(int argc, char* argv[])
   for (unsigned int i = 0; i < 3*N; ++i) { ub[i] = 1; }
   for (unsigned int i = 0; i < 2*N; ++i) { tolieq[i] = tolc; }
 
-  nlopt_opt opt = nlopt_create(NLOPT_LN_NELDERMEAD, 3*N); 
+  nlopt_opt opt = nlopt_create(alg, 3*N); 
   nlopt_set_lower_bounds(opt, lb);
   nlopt_set_upper_bounds(opt, ub);
   nlopt_set_min_objective(opt, nloptF, d);
@@ -140,29 +167,23 @@ int main(int argc, char* argv[])
   }
   nlopt_destroy(opt);
 
-  std::cout <<"\n END NLOPT \n\n";
+  std::cout <<"END NLOPT \n\n";
  
   /************************** END NLOPT  *********************************/
-
-  /************************ BEGIN NEWTON *********************************/
-  //newton(F0, Vm, Hm, N, m, a, b, c, Z0, wolfe);
   double* Zk = Z0; double* Fk = F0; 
+  /************************ BEGIN NEWTON *********************************/
+  if (use_newton)
+  {
+    newton(F0, Vm, Hm, N, m, a, b, c, Z0, use_wolfe, alph);
+  }
+  /************************ END NEWTON *********************************/
+  double rcond;
   double sum = 0;
   for (unsigned int i = 0; i < N; ++i) { sum += Zk[2*N+i]; }
   std::cout << "final sum of weights : " << sum << std::endl;  
   std::cout << "final value of objective : " << nloptF(3*N, Z0, nullptr, d)  << std::endl;
   jPoly_tri<double>(Zk, Zk + N, Hm, N, m-1, a, b, c, Vm);
-  double rcond[1];
-  // inf norm of Vm
-  //double  normVm = LAPACKE_dlange(LAPACK_COL_MAJOR, '1', N, M, Vm, N);
-  // LU of A
-  //int* ipiv = (int*) malloc(N*sizeof(int));
-  //LAPACKE_dgetrf (LAPACK_COL_MAJOR, N, M, Vm, N, ipiv); free(ipiv);
-  //LAPACKE_dgecon(LAPACK_COL_MAJOR, '1', N, Vm, M, normVm, rcond );
-  //std::cout << "cond(Vm) : " << 1.0 / rcond[0] << std::endl;
-  /************************ END NEWTON *********************************/
-
-  
+  cond(Vm, N, M, &rcond);
   /******************************** BEGIN INTEGRATION TEST **************/
   double* Ftest = (double*) calloc(N, sizeof(double));
   for (unsigned int i = 0; i < N; ++i) { Ftest[i] = std::sin( pow(Zk[i], 2) + pow(Zk[i+N], 2) ); }
@@ -194,20 +215,3 @@ int main(int argc, char* argv[])
   free(lb); free(tolieq);
   return 0;
 }
-
-
-    // TODO: add below Wolf condition-based backtracking line search to newton()
-    //for (unsigned int iter_i = 0; iter_i < maxiter; ++iter_i)
-    //{
-    //  cblas_dgemv(CblasColMajor,  CblasNoTrans, M, 3*N, gam*alph, gradFk, M, dZk, 1, 1.0, Fk, 1);
-    //  wfnrm = cblas_dnrm2(M, Fk, 1);
-    //  std::cout << "wfnrm " << wfnrm << std::endl;
-    //  if (pk > wfnrm)
-    //  {
-    //    alph = rho*alph;
-    //    for (unsigned int i = 0; i < 3*N; ++i) { Zk[i] -= alph*dZk[i]; }
-    //    F(Zk, N, m, Hm, a, b, c, Fk);
-    //    pk = cblas_dnrm2(M, Fk, 1);
-    //  } 
-    //}
-    

@@ -24,7 +24,7 @@ typedef struct
 
 unsigned long count = 0;
 
-double nloptF(unsigned int n, const double* Zk, double* grad, void* data)
+inline double nloptF(unsigned int n, const double* Zk, double* grad, void* data)
 {
   ++count;
   nlopt_func_data* d = (nlopt_func_data*) data;
@@ -42,12 +42,26 @@ double nloptF(unsigned int n, const double* Zk, double* grad, void* data)
   for (unsigned int i =0; i < M; ++i) { Fk[i] = I0[i]; }
   free(I0);
   double norm2 = pow(cblas_dnrm2(M, Fk, 1),2);
-  if ( !(count % 1000) ) { std::cout << "Eval #" << count << " : F = " << norm2 << std::endl; }
+  if ( !(count % 100000) ) { std::cout << "Eval #" << count << " : F = " << norm2 << std::endl; }
   return norm2;
 }
 
+inline void cond(double* Vm, unsigned int N, unsigned int M, double* rcond)
+{
+  //  inf norm of Vm
+  double  normVm = LAPACKE_dlange(LAPACK_COL_MAJOR, '1', N, M, Vm, N);
+  // LU of A
+  int* ipiv = (int*) calloc(N, sizeof(int));
+  LAPACKE_dgetrf (LAPACK_COL_MAJOR, N, M, Vm, N, ipiv); 
+  free(ipiv);
+  LAPACKE_dgecon(LAPACK_COL_MAJOR, '1', N, Vm, M, normVm, rcond);
+  std::cout << "cond(Vm) : " << 1.0 / rcond[0] << std::endl;
+}
+
+
   
-void nloptieqC( unsigned int m, double *result, unsigned int n, const double* Zk, 
+
+inline void nloptieqC( unsigned int m, double *result, unsigned int n, const double* Zk, 
                 double* grad=nullptr, void* f_data=nullptr )
 {
   unsigned int N = static_cast<unsigned int>(n / 3.0);
@@ -57,7 +71,7 @@ void nloptieqC( unsigned int m, double *result, unsigned int n, const double* Zk
   }
 }
 
-double nlopteqC(  unsigned int n, const double* Zk, 
+inline double nlopteqC(  unsigned int n, const double* Zk, 
                   double* grad=nullptr, void* data=nullptr ) 
 {
   double sumw = 0.0;
@@ -67,7 +81,7 @@ double nlopteqC(  unsigned int n, const double* Zk,
 } 
 
 
-void F( double* Zk, double* Vm, unsigned int N, unsigned int m, 
+inline void F( double* Zk, double* Vm, unsigned int N, unsigned int m, 
         double* Hm, double a, double b, double c, double* Fk )
 {
   const double *Xk, *Yk, *Wk;
@@ -82,12 +96,16 @@ void F( double* Zk, double* Vm, unsigned int N, unsigned int m,
 
 
 
-void newton(double* Fk, double* Vm, double* Hm, unsigned int N, unsigned int m, double a, double b, double c, double* Zk, bool wolfe)
+inline void newton( double* Fk, double* Vm, double* Hm, 
+                    unsigned int N, unsigned int m, 
+                    double a, double b, double c, double* Zk, 
+                    bool use_wolfe, double alph = 0.01 )
 {
+  std::cout << "BEGIN NEWTON" << std::endl;
   double h = 1e-7; 
   double tol = 1e-7; 
   double tol_up = 1e5; 
-  unsigned int maxiter = 1000;
+  unsigned int maxiter = 100;
   unsigned int M = static_cast<unsigned int>(0.5 * m * (m + 1));
   double pk = cblas_dnrm2(M, Fk, 1);
   double* Fkph    = (double*) calloc(M, sizeof(double));
@@ -130,29 +148,28 @@ void newton(double* Fk, double* Vm, double* Hm, unsigned int N, unsigned int m, 
       std::cerr << "ERROR: Lapack dgelsd: Pseudoinverse" << std::endl;
     }
     // linesearch with Wolfe conditions
-    double alph = 0.0005; double wfnrm;
+    double wfnrm;
     for (unsigned int i = 0; i < 3*N; ++i) { Zk[i] -= alph*dZk[i]; }
     F(Zk, Vm, N, m, Hm, a, b, c, Fk);
     pk = cblas_dnrm2(M, Fk, 1);
-
-    if (wolfe)
+    if (use_wolfe)
     {
       for (unsigned int iter_i = 0; iter_i < maxiter; ++iter_i)
       {
         cblas_dgemv(CblasColMajor,  CblasNoTrans, M, 3*N, gam*alph, gradFk, M, dZk, 1, 1.0, Fk, 1);
         wfnrm = cblas_dnrm2(M, Fk, 1);
-        std::cout << wfnrm << std::endl;
         if (pk > wfnrm)
         {
           alph = rho*alph;
           for (unsigned int i = 0; i < 3*N; ++i) { Zk[i] -= alph*dZk[i]; }
           F(Zk, Vm, N, m, Hm, a, b, c, Fk);
           pk = cblas_dnrm2(M, Fk, 1);
+          if ( !(iter_i%10) ) { std::cout << "||F|| (wolfe): " << pk << std::endl; }
         } 
       }
     }
 
-    if ( !(iter%100) ) { std::cout << "objective norm : " << pk << std::endl; }
+    if ( !(iter%10) ) { std::cout << "||F| : " << pk << std::endl; }
   }
   free(Fkph);
   free(Fkmh);
@@ -161,6 +178,7 @@ void newton(double* Fk, double* Vm, double* Hm, unsigned int N, unsigned int m, 
   free(gradFk);
   free(dZk);
   free(S);
+  std::cout << "END NEWTON\n" << std::endl;
 }
 
 #endif
