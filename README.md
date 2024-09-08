@@ -28,12 +28,13 @@ the `/Eikonal` folder within the container, compile the
 As another example, to generate near optimal Gaussian-like quadrature with unit
 weight sum and nodes interior to the standard triangle from order `n=4` Koornwinder 
 polynomials that can integrate order `m=6` polynomials exactly 
-try (from the `Eikonal` directory)
+try:
 
 ```shell
-cd bin
-./ngj_quad_opt
+cd /Eikonal/bin && ./ngj_quad_opt
 ```
+
+The initial implemenation for such a task can be found in `/Eikonal/src/ngj_tri_opt.cpp`.
 
 ## Dependencies ##
 - `g++` compiler (tested on V13.2.0) 
