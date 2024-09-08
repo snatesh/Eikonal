@@ -324,6 +324,8 @@ int main(int argc, char* argv[])
   return 0;
 }
 
+
+    // TODO: add below Wolf condition-based backtracking line search to newton()
     //for (unsigned int iter_i = 0; iter_i < maxiter; ++iter_i)
     //{
     //  cblas_dgemv(CblasColMajor,  CblasNoTrans, M, 3*N, gam*alph, gradFk, M, dZk, 1, 1.0, Fk, 1);
