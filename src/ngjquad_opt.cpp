@@ -11,6 +11,7 @@
 #include<../include/matplotlibcpp.h>
 
 
+
 typedef double _Complex Complex;
 namespace plt = matplotlibcpp;
 
@@ -30,8 +31,11 @@ typedef struct
   unsigned int M = static_cast<unsigned int>(0.5 * m * (m + 1));
 } nlopt_func_data;
 
+unsigned long count = 0;
+
 double nloptF(unsigned int n, const double* Zk, double* grad, void* data)
 {
+  ++count;
   nlopt_func_data* d = (nlopt_func_data*) data;
   unsigned int m = d->m;
   unsigned int M = d->M;
@@ -46,7 +50,9 @@ double nloptF(unsigned int n, const double* Zk, double* grad, void* data)
   cblas_dgemv(CblasColMajor,  CblasTrans,  N, M, 1.0, Vm, N, Wk, 1, -1.0, I0, 1);
   for (unsigned int i =0; i < M; ++i) { Fk[i] = I0[i]; }
   free(I0);
-  return pow(cblas_dnrm2(M, Fk, 1),2);
+  double norm2 = pow(cblas_dnrm2(M, Fk, 1),2);
+  if ( !(count % 1000) ) { std::cout << "Eval #" << count << " : F = " << norm2 << std::endl; }
+  return norm2;
 }
 
   
@@ -90,7 +96,7 @@ void newton(double* Fk, double* Vm, double* Hm, unsigned int N, unsigned int m, 
   double h = 1e-7; 
   double tol = 1e-7; 
   double tol_up = 1e5; 
-  unsigned int maxiter = 100;
+  unsigned int maxiter = 1000;
   unsigned int M = static_cast<unsigned int>(0.5 * m * (m + 1));
   double pk = cblas_dnrm2(M, Fk, 1);
   double* Fkph    = (double*) calloc(M, sizeof(double));
@@ -133,12 +139,12 @@ void newton(double* Fk, double* Vm, double* Hm, unsigned int N, unsigned int m, 
       std::cerr << "ERROR: Lapack dgelsd: Pseudoinverse" << std::endl;
     }
     // linesearch with Wolfe conditions
-    double alph = 0.001; double wfnrm;
+    double alph = 0.0005; double wfnrm;
     for (unsigned int i = 0; i < 3*N; ++i) { Zk[i] -= alph*dZk[i]; }
     F(Zk, Vm, N, m, Hm, a, b, c, Fk);
     pk = cblas_dnrm2(M, Fk, 1);
 
-    if ( !(iter%10) ) { std::cout << "objective norm : " << pk << std::endl; }
+    if ( !(iter%100) ) { std::cout << "objective norm : " << pk << std::endl; }
   }
   free(Fkph);
   free(Fkmh);
