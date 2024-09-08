@@ -7,7 +7,17 @@ For user convenience, a `Dockerfile` is provided which can generate a `Docker` i
 all required dependencies and the `Eikonal` library installed. Note, the `Docker Engine` must
 be installed on your system (See https://docs.docker.com/engine/), along with `git`.
 
-Once those dependencies are met, executing (on `Linux` or `Unix` systems) the following commands will 
+Administrative privileges may be required to run `Docker` commands. On `Linux` systems, you must add your user to the  `Docker` group by executing:
+
+```shell
+sudo groupadd docker
+sudo usermod -aG docker <user> # replace <user> with your username
+newgrp docker # or log out and log back in
+```
+
+Since you need `root` privilege to execute the above commands, you could instead forgo their execution, and prefix `docker` commands with `sudo`.
+
+Once these dependencies are met, executing (on `Linux` or `Unix` systems) the following commands will 
 build the Docker base image for the project and test the installation within a running 
 instance of the image (a `Docker` container):
 

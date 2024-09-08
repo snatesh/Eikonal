@@ -13,6 +13,6 @@ COPY src Eikonal/src/
 RUN git clone https://github.com/stevengj/nlopt.git
 RUN cd nlopt && mkdir build && cd build && cmake .. && make && make install
 # sym link for shared lib to be picked up by g++ linker
-ln -s /usr/local/lib/libnlopt.so.0 /usr/lib/libnlopt.so.0
+RUN ln -s /usr/local/lib/libnlopt.so.0 /usr/lib/libnlopt.so.0
 # try building eikonal libs and exec
 RUN cd /Eikonal && make 
