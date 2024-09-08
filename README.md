@@ -10,6 +10,7 @@ A modal spectral method for the Eikonal equation on simplicial tesselations
 - cblas and lapack installation is easiest via package manager as:
 ```shell
 sudo apt install libopenblas-dev liblapacke-dev
+```
 
 ## NLOPT Installation ##
 The open-source nonlinear optimization libary which we use is `nlopt`, by our favorite `FFTW` co-creator Steven Johnson! For our purposes, it is used to generate near-optimal Gaussian-like quadrature on the triangle, and is to be investigated for use in solving non-linear PDEs/PDE-constrained optimization problems. 
