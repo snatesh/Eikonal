@@ -25,8 +25,9 @@ files as you please. The last two commands above change directory into
 the `/Eikonal` folder within the container, compile the 
 `gtest` code (located in `/Eikonal/testing/gtest.cpp`, and run the tests therein.
 
-As another example, to generate Gaussian-like quadrature from order `n=4` Koornwinder 
-polynomials that can integrate order `m=6` polynomials exactly (`n` < `m`), 
+As another example, to generate near optimal Gaussian-like quadrature with unit
+weight sum and nodes interior to the standard triangle from order `n=4` Koornwinder 
+polynomials that can integrate order `m=6` polynomials exactly 
 try (from the `Eikonal` directory)
 
 ```shell
