@@ -167,10 +167,8 @@ inline void jacobi_mat_ON_tri(unsigned int n, T a, T b, T c, T* Jn1, T* Jn2)
   
   for (unsigned int nn = 0; nn < n; ++nn)
   {
-    free(A1[nn]);
-    free(A2[nn]);
-    free(B1[nn]); 
-    free(B2[nn]);
+    free(A1[nn]); free(A2[nn]);
+    free(B1[nn]); free(B2[nn]);
   }
   free(A1); free(B1); 
   free(A2); free(B2); 

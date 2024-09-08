@@ -118,7 +118,7 @@ inline void jPoly_tri(const T* X, const T* Y, T* H, unsigned int Nx, unsigned in
   }
 
   free(ydx); free(x2m1); free(mxp1);
-  
+  free(Pk); free(Pnmk); 
 }
 
 #endif
