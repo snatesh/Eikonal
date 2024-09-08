@@ -42,11 +42,11 @@ jPolyINC                  = include/jPoly.h
 jacobiMatINC              = include/jacobi_mat_ON_tri.h
 
 ngjquadoptSRC              = src/ngjquad_opt.cpp
-ngjquadoptINC              = $(structureFactorINC) $(jpolyINC) $(jacobiMatINC) $(nloptINC) $(lapackINC) 
+ngjquadoptINC              = $(structureFactorINC) $(jpolyINC) $(jacobiMatINC) $(nloptINC) $(lapackINC) include/ngjquad_opt.h  
 
 gtestSRC                  = testing/gtest.cpp
 gtestINC                  = include/structure_factors.h include/jPoly.h /usr/include/gtest/gtest.h
-LIBS_                     = libstructureFactor.so libjPoly.so libpromotionMat.so libdxdy.so libjacobiMat.so
+LIBS_                     = libstructureFactor.so libjPoly.so libpromotionMat.so libdxdy.so libjacobiMat.so libngjquadOpt.so
 gtestLIB                  = /usr/lib/x86_64-linux-gnu/libgtest.a
 EXEC_                     = ngjquad_opt 
 GTEST_                    = gtest
@@ -77,7 +77,11 @@ $(EIKONAL_LIB)/libjacobiMat.so: $(jacobiMatINC) $(structureFactorINC) $(EIKONAL_
 	@mkdir -p $(EIKONAL_LIB)
 	$(CXX) -o $@ $(jacobiMatINC) $(CXXFLAGS_lib) -fPIC
 
-$(EIKONAL_BIN)/ngjquad_opt: $(ngjquadoptSRC) $(ngjquadoptINC) $(lapackLIBDIR)/$(lapackLIB) $(cblasLIBDIR)/$(cblasLIB) $(nloptLIBDIR)/$(nloptLIB)
+$(EIKONAL_LIB)/libngjquadOpt.so: $(ngjquadoptINC) $(EIKONAL_LIB)/libjacobiMat.so
+	@mkdir -p $(EIKONAL_LIB)
+	$(CXX) -o $@ $(ngjquadoptINC) $(CXXFLAGS_lib) -fPIC
+
+$(EIKONAL_BIN)/ngjquad_opt: $(ngjquadoptSRC) $(ngjquadoptINC) $(LIBS) $(lapackLIBDIR)/$(lapackLIB) $(cblasLIBDIR)/$(cblasLIB) $(nloptLIBDIR)/$(nloptLIB)
 	@mkdir -p $(EIKONAL_BIN)
 	$(CXX) -o $(EIKONAL_BIN)/ngjquad_opt $(ngjquadoptSRC) $(ngjquadoptINC) $(CXXFLAGS_bin) -I$(lapackINC) -L$(lapackLIBDIR) $(lapackINC) -L$(cblasLIBDIR) $(cblasINC) -L$(nloptLIBDIR) $(nloptINC) -l:$(lapackLIB) -l:$(cblasLIB) -l:$(nloptLIB) -lm -I/usr/include/python3.12 -l:libpython3.12.so -DWITHOUT_NUMPY 
 

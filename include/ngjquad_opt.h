@@ -82,7 +82,7 @@ void F( double* Zk, double* Vm, unsigned int N, unsigned int m,
 
 
 
-void newton(double* Fk, double* Vm, double* Hm, unsigned int N, unsigned int m, double a, double b, double c, double* Zk)
+void newton(double* Fk, double* Vm, double* Hm, unsigned int N, unsigned int m, double a, double b, double c, double* Zk, bool wolfe)
 {
   double h = 1e-7; 
   double tol = 1e-7; 
@@ -134,6 +134,23 @@ void newton(double* Fk, double* Vm, double* Hm, unsigned int N, unsigned int m, 
     for (unsigned int i = 0; i < 3*N; ++i) { Zk[i] -= alph*dZk[i]; }
     F(Zk, Vm, N, m, Hm, a, b, c, Fk);
     pk = cblas_dnrm2(M, Fk, 1);
+
+    if (wolfe)
+    {
+      for (unsigned int iter_i = 0; iter_i < maxiter; ++iter_i)
+      {
+        cblas_dgemv(CblasColMajor,  CblasNoTrans, M, 3*N, gam*alph, gradFk, M, dZk, 1, 1.0, Fk, 1);
+        wfnrm = cblas_dnrm2(M, Fk, 1);
+        std::cout << wfnrm << std::endl;
+        if (pk > wfnrm)
+        {
+          alph = rho*alph;
+          for (unsigned int i = 0; i < 3*N; ++i) { Zk[i] -= alph*dZk[i]; }
+          F(Zk, Vm, N, m, Hm, a, b, c, Fk);
+          pk = cblas_dnrm2(M, Fk, 1);
+        } 
+      }
+    }
 
     if ( !(iter%100) ) { std::cout << "objective norm : " << pk << std::endl; }
   }

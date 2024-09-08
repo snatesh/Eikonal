@@ -2,31 +2,11 @@
 #include<../include/matplotlibcpp.h>
 namespace plt = matplotlibcpp;
 
-void plot_tri(double* tri)
+void plot_tri(double* tri, std::string col)
 {
-  plt::plot((std::vector<double>) {tri[0],tri[1]}, (std::vector<double>) {tri[3],tri[4]},"b-");
-  plt::plot((std::vector<double>) {tri[1],tri[2]}, (std::vector<double>) {tri[4],tri[5]},"b-");
-  plt::plot((std::vector<double>) {tri[2],tri[0]}, (std::vector<double>) {tri[5],tri[3]},"b-");
-  if ( !(count % 1000) ) { std::cout << "Eval #" << count << " : F = " << norm2 << std::endl; }
-void newton(double* Fk, double* Vm, double* Hm, unsigned int N, unsigned int m, double a, double b, double c, double* Zk)
-  double* S       = (double*) calloc(M, sizeof(double));
-    double alph = 0.0005; double wfnrm;
-    if (wolfe)
-    {
-      for (unsigned int iter_i = 0; iter_i < maxiter; ++iter_i)
-      {
-        cblas_dgemv(CblasColMajor,  CblasNoTrans, M, 3*N, gam*alph, gradFk, M, dZk, 1, 1.0, Fk, 1);
-        wfnrm = cblas_dnrm2(M, Fk, 1);
-        std::cout << wfnrm << std::endl;
-        if (pk > wfnrm)
-        {
-          alph = rho*alph;
-          for (unsigned int i = 0; i < 3*N; ++i) { Zk[i] -= alph*dZk[i]; }
-          F(Zk, Vm, N, m, Hm, a, b, c, Fk);
-          pk = cblas_dnrm2(M, Fk, 1);
-        } 
-      }
-    }
+  plt::plot((std::vector<double>) {tri[0],tri[1]}, (std::vector<double>) {tri[3],tri[4]}, col);
+  plt::plot((std::vector<double>) {tri[1],tri[2]}, (std::vector<double>) {tri[4],tri[5]}, col);
+  plt::plot((std::vector<double>) {tri[2],tri[0]}, (std::vector<double>) {tri[5],tri[3]}, col);
 }
 
 /*  
@@ -199,9 +179,9 @@ int main(int argc, char* argv[])
   std::vector<double> Y_0(Y0, Y0+N);
   
   double tri[6] = {0, 1, 0, 0, 0, 1};
-  plot_tri(tri);
+  plot_tri(tri, "k-");
   plt::plot(X, Y, "ro");
-  plt::plot(X_0, Y_0, "b.");
+  plt::plot(X_0, Y_0, "ks");
   plt::show(); 
   /********************* END PLOT ****************************/
 
