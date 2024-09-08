@@ -9,7 +9,7 @@ A modal spectral method for the Eikonal equation on simplicial tesselations
 -  NLOPT (open source non linear optimization lib, `https://github.com/stevengj/nlopt.git`)
 - cblas and lapack installation is easiest via package manager as:
 ```shell
-sudo apt install libopenblas-dev liblapacke-dev
+sudo apt install libopenblas-openmp-dev liblapacke-dev
 ```
 
 ## NLOPT Installation ##
@@ -28,3 +28,16 @@ sudo make isntall
 
 which (on Linux systems) will by default install header and include files in
 `/usr/local/include` and `/usr/local/lib`.
+
+## Docker Containerization ##
+It is likely most simple to install and use the libarary from within a docker container. 
+For user convenience, a Dockerfile is provided which can generate a Docker image with
+all required dependencies and the Eikonal library installed. Note, the `Docker Engine` must
+be installed on your system (See https://docs.docker.com/engine/). 
+
+Once that dependency is met, executing (on Linux or Unix systems) the following commands will 
+build the Docker base image for the project and test the installation within a running 
+instance of the image (Docker container).
+```shell
+
+
