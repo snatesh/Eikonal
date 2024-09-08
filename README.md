@@ -22,8 +22,8 @@ make test
 Above, the `docker run` command with `bash` post-fixed will instantiate a 
 bash shell within the container, within which you can read/write/execute
 files as you please. The last two commands above change directory into
-the `Eikonal` folder within the container (`/Eikonal`), compile the 
-`gtest` code, and run the tests therein.
+the `/Eikonal` folder within the container, compile the 
+`gtest` code (located in `/Eikonal/testing/gtest.cpp`, and run the tests therein.
 
 As another example, to generate Gaussian-like quadrature from order `n=4` Koornwinder 
 polynomials that can integrate order `m=6` polynomials exactly (`n` < `m`), 
