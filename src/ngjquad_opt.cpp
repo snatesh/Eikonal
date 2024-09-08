@@ -51,7 +51,7 @@ double nloptF(unsigned int n, const double* Zk, double* grad, void* data)
   for (unsigned int i =0; i < M; ++i) { Fk[i] = I0[i]; }
   free(I0);
   double norm2 = pow(cblas_dnrm2(M, Fk, 1),2);
-  if ( !(count % 1000) ) { std::cout << "Eval #" << count << " : F = " << norm2 << std::endl; }
+  if ( !(count % 100) ) { std::cout << "Eval #" << count << " : F = " << norm2 << std::endl; }
   return norm2;
 }
 
@@ -91,7 +91,7 @@ void F( double* Zk, double* Vm, unsigned int N, unsigned int m,
 
 
 
-void newton(double* Fk, double* Vm, double* Hm, unsigned int N, unsigned int m, double a, double b, double c, double* Zk)
+void newton(double* Fk, double* Vm, double* Hm, unsigned int N, unsigned int m, double a, double b, double c, double* Zk, bool wolfe)
 {
   double h = 1e-7; 
   double tol = 1e-7; 
@@ -105,7 +105,7 @@ void newton(double* Fk, double* Vm, double* Hm, unsigned int N, unsigned int m, 
   double* Zkmh    = (double*) calloc(3*N, sizeof(double));
   double* gradFk  = (double*) calloc(M*3*N, sizeof(double)); 
   double* dZk     = (double*) calloc(3*N, sizeof(double)); 
-  double* S       = (double*) calloc(M, sizeof(double));
+  double* S       = (double*) calloc(3*N, sizeof(double));
 
   double rho = 0.9; double gam = 1e-4;
   unsigned int iter = 0; lapack_int rank[1];
@@ -139,11 +139,26 @@ void newton(double* Fk, double* Vm, double* Hm, unsigned int N, unsigned int m, 
       std::cerr << "ERROR: Lapack dgelsd: Pseudoinverse" << std::endl;
     }
     // linesearch with Wolfe conditions
-    double alph = 0.0005; double wfnrm;
+    double alph = 1.0; double wfnrm;
     for (unsigned int i = 0; i < 3*N; ++i) { Zk[i] -= alph*dZk[i]; }
     F(Zk, Vm, N, m, Hm, a, b, c, Fk);
     pk = cblas_dnrm2(M, Fk, 1);
-
+    if (wolfe)
+    {
+      for (unsigned int iter_i = 0; iter_i < maxiter; ++iter_i)
+      {
+        cblas_dgemv(CblasColMajor,  CblasNoTrans, M, 3*N, gam*alph, gradFk, M, dZk, 1, 1.0, Fk, 1);
+        wfnrm = cblas_dnrm2(M, Fk, 1);
+        std::cout << wfnrm << std::endl;
+        if (pk > wfnrm)
+        {
+          alph = rho*alph;
+          for (unsigned int i = 0; i < 3*N; ++i) { Zk[i] -= alph*dZk[i]; }
+          F(Zk, Vm, N, m, Hm, a, b, c, Fk);
+          pk = cblas_dnrm2(M, Fk, 1);
+        } 
+      }
+    }
     if ( !(iter%100) ) { std::cout << "objective norm : " << pk << std::endl; }
   }
   free(Fkph);
@@ -170,12 +185,14 @@ int main(int argc, char* argv[])
 {
   unsigned int n, m;
   double tol, tolc;
-  if (argc == 5)
+  bool wolfe = true;
+  if (argc == 6)
   {
     n = std::stoi(argv[1]);
     m = std::stoi(argv[2]);
     tol = std::stod(argv[3]); 
     tolc = std::stod(argv[4]); 
+    wolfe = (bool) std::stoi(argv[5]);
   }
   else if (argc == 1)
   {
@@ -184,7 +201,7 @@ int main(int argc, char* argv[])
   }
   else
   {
-    std::cerr << "Incorrect number of command line arguments (n, m, tol, tolc)\n";
+    std::cerr << "Incorrect number of command line arguments (n, m, tol, tolc, wolfe)\n";
     std::cerr << "Only " << argc << " provided" << std::endl;
   }
   double a, b, c, kap; a = b = c = 0.5; kap = abs(a+b+c);
@@ -231,7 +248,7 @@ int main(int argc, char* argv[])
 
   // solve least squares system for initial weights
   double* W0 = (double*) calloc(M, sizeof(double)); W0[0] = 1.0;
-  double* S = (double*) calloc(N, sizeof(double)); lapack_int rank[1];
+  double* S = (double*) calloc(M, sizeof(double)); lapack_int rank[1];
   if (LAPACKE_dgelsd(LAPACK_COL_MAJOR, M, N, 1, Vm_T, M, W0, M, S, -1.0, rank))
   {
     std::cerr << "ERROR: Lapack dgelsd: Pseudoinverse" << std::endl;
@@ -266,7 +283,7 @@ int main(int argc, char* argv[])
   for (unsigned int i = 0; i < 3*N; ++i) { ub[i] = 1; }
   for (unsigned int i = 0; i < 2*N; ++i) { tolieq[i] = tolc; }
 
-  nlopt_opt opt = nlopt_create(NLOPT_LN_COBYLA, 3*N); 
+  nlopt_opt opt = nlopt_create(NLOPT_LN_NELDERMEAD, 3*N); 
   nlopt_set_lower_bounds(opt, lb);
   nlopt_set_upper_bounds(opt, ub);
   nlopt_set_min_objective(opt, nloptF, d);
@@ -289,12 +306,21 @@ int main(int argc, char* argv[])
   /************************** END NLOPT  *********************************/
 
   /************************ BEGIN NEWTON *********************************/
-  newton(F0, Vm, Hm, N, m, a, b, c, Z0);
+  //newton(F0, Vm, Hm, N, m, a, b, c, Z0, wolfe);
   double* Zk = Z0; double* Fk = F0; 
   double sum = 0;
   for (unsigned int i = 0; i < N; ++i) { sum += Zk[2*N+i]; }
   std::cout << "final sum of weights : " << sum << std::endl;  
   std::cout << "final value of objective : " << nloptF(3*N, Z0, nullptr, d)  << std::endl;
+  jPoly_tri<double>(Zk, Zk + N, Hm, N, m-1, a, b, c, Vm);
+  double rcond[1];
+  // inf norm of Vm
+  //double  normVm = LAPACKE_dlange(LAPACK_COL_MAJOR, '1', N, M, Vm, N);
+  // LU of A
+  //int* ipiv = (int*) malloc(N*sizeof(int));
+  //LAPACKE_dgetrf (LAPACK_COL_MAJOR, N, M, Vm, N, ipiv); free(ipiv);
+  //LAPACKE_dgecon(LAPACK_COL_MAJOR, '1', N, Vm, M, normVm, rcond );
+  //std::cout << "cond(Vm) : " << 1.0 / rcond[0] << std::endl;
   /************************ END NEWTON *********************************/
 
   
