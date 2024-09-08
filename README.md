@@ -17,7 +17,7 @@ The open-source nonlinear optimization libary which we use is `nlopt`, by our fa
 
 To install NLOPT, simply execute
 
-```shell
+```shell```
 git clone https://github.com/stevengj/nlopt.git
 cd nlopt
 mkdir build && cd build
