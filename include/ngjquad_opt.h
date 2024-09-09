@@ -13,25 +13,139 @@
 
 typedef double _Complex Complex;
 
-typedef struct
+
+typedef struct nlopt_func_data
 {
-  double *Vm, *Hm, *Fk;
+  double *Vm, *Hm, *Fk, *Z0, *Jn1, *Jn2, *X0, *Y0;
+  double *Vm_T, *W0, *S, *F0;
+  Complex *Jn, *XY0;
   double a,b,c;
-  unsigned int N;
-  unsigned int m;
-  unsigned int M = static_cast<unsigned int>(0.5 * m * (m + 1));
-} nlopt_func_data;
+  unsigned int N, M, n, m;
+  
+  nlopt_func_data ( unsigned int _m, unsigned int _n, 
+                    double _a, double _b, double _c )
+    : n(_n), m(_m), a(_a), b(_b), c(_c)
+  {
+    this->N = static_cast<unsigned int>(0.5 * n * (n + 1)); 
+    this->M = static_cast<unsigned int>(0.5 * m * (m + 1));
+    // generate jacobi matrices for x,y 
+    this->Hm = (double*) calloc(m*m, sizeof(double));
+    this->Jn1 = (double*) calloc(N*N, sizeof(double));
+    this->Jn2 = (double*) calloc(N*N, sizeof(double));
+    this->Jn = (Complex*) calloc(N*N, sizeof(Complex));
+    this->XY0 = (Complex*) calloc(N, sizeof(Complex));
+    this->X0  = (double*) calloc(N, sizeof(double));
+    this->Y0  = (double*) calloc(N, sizeof(double));
+    this->Vm = (double*) calloc(N*M, sizeof(double));
+    this->Vm_T = (double*) calloc(M*N, sizeof(double));
+    this->W0 = (double*) calloc(M, sizeof(double)); W0[0] = 1.0;
+    this->S = (double*) calloc(M, sizeof(double)); 
+    this->Z0 = (double*) calloc(3*N, sizeof(double));
+    this->F0 = (double*) calloc(3*N, sizeof(double)); 
+    this->Fk = this->F0;
+  }
+
+  ~nlopt_func_data()
+  {
+    free(Jn1); free(Jn2); free(Jn);
+    free(XY0); free(X0); free(Y0);
+    free(Hm); free(Vm); free(Vm_T);
+    free(W0); free(F0); free(Z0); free(S); 
+    Jn1 = Jn2 = X0 = Y0 = 0; Jn = XY0 = 0;
+    Hm = Vm = Vm_T = W0 = F0 = Z0 = S = 0; 
+  }
+};
+
+inline void set_args  ( int argc, char* argv[], 
+                        nlopt_algorithm& alg, int& n, 
+                        int& m, double& tol, double& tolc, 
+                        bool& use_newton, bool& use_wolfe, 
+                        double& alph  )
+{
+  std::cout << "SEARCH FOR NEAR OPTIMAL GAUSS QUAD" << std::endl;
+  switch(argc)
+  {
+    case 9:
+    {
+      unsigned int algtype = std::stoi(argv[1]);
+      switch(algtype)
+      {
+        case 0:
+        { 
+          alg = NLOPT_LN_NELDERMEAD;
+          std::cout << "ALGORITHM: NELDERMEAD\n";
+          break;
+        }
+        case 1:
+        {
+          alg = NLOPT_LN_COBYLA;
+          std::cout << "ALGORITHM: COBYLA\n";
+          break;
+        }
+        case 2:
+        {  
+          alg = NLOPT_LN_SBPLX;
+          std::cout << "ALGORITHM: SBPLX";
+          break;
+        }
+        default:
+        {
+          std::cerr << "Algtype not supported" << std::endl;
+          break;
+        }
+      }
+      n = std::stoi(argv[2]);
+      m = std::stoi(argv[3]);
+      tol = std::stod(argv[4]); 
+      tolc = std::stod(argv[5]);
+      use_newton = (bool) std::stoi(argv[6]); 
+      use_wolfe = (bool) std::stoi(argv[7]);
+      alph = std::stod(argv[8]);
+      break;
+    }
+    case 1:
+    {
+      alg = NLOPT_LN_NELDERMEAD;
+      std::cout << "ALGORITHM: NELDERMEAD\n";
+      n = 4; m = 6;
+      tol = 1e-5;
+      tolc = 1e-5;
+      use_wolfe = false;
+      use_newton = false;
+      alph = 0;
+      break;
+    }
+    default:
+    {
+      std::cerr << 
+        "Usage: ./ngjquad_opt algtype, n m tol tolc use_newton use_wolfe alph\n";
+      std::cerr << "  algtype (int) - 0-2\n";
+      std::cerr << "  n,m (int) > 0\n";
+      std::cerr << "  tol,tolc (double) > 0\n";
+      std::cerr << "  use_newton, use_wolfe (int) - 0,1\n";
+      std::cerr << "  alph (double) > 0\n";
+      exit(1);
+    }
+  }
+  std::cout << "\nPARAMETERS:" << std::endl;
+  std::cout << std::setw(15) << "n          = " << n << std::endl;
+  std::cout << std::setw(15) << "m          = " << m << std::endl;
+  std::cout << std::setw(15) << "tol        = " << tol << std::endl;
+  std::cout << std::setw(15) << "tolc       = " << tolc << std::endl;
+  std::cout << std::setw(15) << "use_newton = " << use_newton << std::endl;
+  std::cout << std::setw(15) << "use_wolfe  = " << use_wolfe << std::endl;
+  std::cout << std::setw(15) << "alpha      = " << alph << std::endl;
+}
 
 unsigned long count = 0;
-
 inline double nloptF(unsigned int n, const double* Zk, double* grad, void* data)
 {
   ++count;
   nlopt_func_data* d = (nlopt_func_data*) data;
   unsigned int m = d->m;
   unsigned int M = d->M;
-  unsigned int N = static_cast<unsigned int>(n / 3.0);
-  double a, b, c; a = d->a; b = d->b; c = d->c;
+  unsigned int N = d->N;
+  double a = d->a, b = d->b, c = d->c;
   const double *Xk, *Yk, *Wk;
   double *Hm, *Vm, *Fk;
   Xk = Zk; Yk = Zk + N; Wk = Zk + 2*N;
@@ -58,9 +172,6 @@ inline void cond(double* Vm, unsigned int N, unsigned int M, double* rcond)
   std::cout << "cond(Vm) : " << 1.0 / rcond[0] << std::endl;
 }
 
-
-  
-
 inline void nloptieqC( unsigned int m, double *result, unsigned int n, const double* Zk, 
                 double* grad=nullptr, void* f_data=nullptr )
 {
@@ -80,7 +191,6 @@ inline double nlopteqC(  unsigned int n, const double* Zk,
   return sumw - 1.0;
 } 
 
-
 inline void F( double* Zk, double* Vm, unsigned int N, unsigned int m, 
         double* Hm, double a, double b, double c, double* Fk )
 {
@@ -94,14 +204,19 @@ inline void F( double* Zk, double* Vm, unsigned int N, unsigned int m,
   free(I0);
 }
 
-
-inline void initialize( unsigned int m, unsigned int n, unsigned int M,
-                        unsigned int N, double a, double b, double c,
-                        double* Jn1, double* Jn2, Complex* Jn, Complex* XY0,
-                        double* X0, double* Y0, double* Hm, double* Vm, 
-                        double* Vm_T, double* W0, double* S, double* Z0, 
-                        double* F0, nlopt_func_data* d )
+inline void init_opt  ( nlopt_func_data* d )
 {
+
+  unsigned int m = d->m; unsigned int n = d->n; 
+  unsigned int M = d->M; unsigned int N = d->N;
+  double* Jn1 = d->Jn1; double* Jn2 = d->Jn2;
+  Complex* Jn = d->Jn; Complex* XY0 = d->XY0;
+  double* X0 = d->X0; double* Y0 = d->Y0;
+  double* Hm = d->Hm; double* Vm = d->Vm;
+  double* Vm_T = d->Vm_T; double* W0 = d->W0;
+  double* S = d->S; double* Z0 = d->Z0; 
+  double* F0 = d->F0; 
+  double a = d->a, b = d->b, c = d->c;
   structure_factors_tri<double>(m, a, b, c, Hm);
   // generate jacobi matrices for x,y 
   jacobi_mat_ON_tri<double>(n, a, b, c, Jn1, Jn2);
@@ -141,10 +256,41 @@ inline void initialize( unsigned int m, unsigned int n, unsigned int M,
     Z0[i + 2*N] = W0[i];
   }
   F(Z0, Vm, N, m, Hm, a, b, c, F0);
-  // populate nlopt_opt aux data
-  d->Vm = Vm; d->Hm = Hm; d->Fk = F0;
-  d->a = a; d->b = b; d->c = c;
-  d->N = N; d->m = m; d->M = M;
+}
+
+inline void nlopt_run ( nlopt_algorithm alg, nlopt_func_data* d,
+                        double tol, double tolc )
+{
+  std::cout <<"\n BEGIN NLOPT \n"; 
+  unsigned int N = d->N; 
+  // x, y , w > 0
+  double* lb = (double*) calloc(3*N, sizeof(double)); 
+  // x, y , w < 1
+  double* ub = (double*) calloc(3*N, sizeof(double));
+  double* tolieq = (double*) calloc(2*N, sizeof(double));
+  for (unsigned int i = 0; i < 3*N; ++i) { ub[i] = 1; }
+  for (unsigned int i = 0; i < 2*N; ++i) { tolieq[i] = tolc; }
+
+  nlopt_opt opt = nlopt_create(alg, 3*N); 
+  nlopt_set_lower_bounds(opt, lb);
+  nlopt_set_upper_bounds(opt, ub);
+  nlopt_set_min_objective(opt, nloptF, d);
+  nlopt_add_equality_constraint(opt, nlopteqC, NULL, tolc);
+  nlopt_add_inequality_mconstraint(opt, 2*N, nloptieqC, NULL, tolieq);
+  nlopt_set_stopval(opt, tol);
+  double minF;
+  if (nlopt_optimize(opt, d->Z0, &minF) < 0) 
+  {
+    std::cerr << "NLOPT failed!" << std::endl;
+  }
+  else 
+  {
+    std::cout << "found minimum with objective val = " << minF << std::endl;
+  }
+  nlopt_destroy(opt);
+  free(lb); free(ub);
+  free(tolieq);
+  std::cout <<"END NLOPT \n\n";
 }
 
 inline void newton( double* Fk, double* Vm, double* Hm, 
@@ -215,12 +361,12 @@ inline void newton( double* Fk, double* Vm, double* Hm,
           for (unsigned int i = 0; i < 3*N; ++i) { Zk[i] -= alph*dZk[i]; }
           F(Zk, Vm, N, m, Hm, a, b, c, Fk);
           pk = cblas_dnrm2(M, Fk, 1);
-          if ( !(iter_i%10) ) { std::cout << "||F|| (wolfe): " << pk << std::endl; }
+          if ( !(iter_i%10) ) { std::cout << "norm(F) (wolfe): " << pk << std::endl; }
         } 
       }
     }
 
-    if ( !(iter%10) ) { std::cout << "||F| : " << pk << std::endl; }
+    if ( !(iter%10) ) { std::cout << "norm(F) : " << pk << std::endl; }
   }
   free(Fkph);
   free(Fkmh);
