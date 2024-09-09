@@ -15,12 +15,12 @@ At the time of writing, the following capabilities exist:
 - differentiation up to any order via promotion and ladder operators acting only on modes of a function
 - evaluation at a point in real space of a function represented in the modal basis (coefficients). This could be accelerated with Clenshaw's algorithm, generalized to 2D.
 - Implementation of analytical entries to the Jacobi matrices appearing in the 2D-recurrence relation for the orthogonal Koornwinder polynomials, generalized for any choice of parameters.
-- Quadrature discovery with optimization parameters from `nlopt` exposed for such use. In particular, I developed an interlaced scheme where first a constrained non-linear optimization problem is solved, then, if needed, a newton relaxation, followed by another non-linear problem with a different objective, and a last on-demand newton relaxation.
+- Quadrature discovery with optimization parameters from `nlopt` exposed for such use. In particular, I developed an interlaced scheme where first a constrained non-linear optimization problem is solved, then, if needed, a Newton relaxation, followed by another non-linear problem with a different objective, and a last on-demand Newton relaxation.
 
    - The gist is:
-      With z=(x,y,w) in R^(3N), minimize over z norm(P(x,y).w - e1)^2, where e1 is the first basis vector in R^M with N < M, P(x,y) is the NxM Vandermonde matrix, (x,y) is constrained to lie within the triangle, and sum(w) is constrained to 1, followed by a newton relaxation to find roots of P(z).w - e1 = 0. Then the argmin is passed to another constrained non-linear problem, wherein we try to minimize cond(P(x,y)) with w fixed, and constrain norm(P(x,y).w-e1) to be at most the objective minimum from the first optimization problem. This seems to find Gaussian-like quad rules at the limit proposed by Vioreanu and Rokhlin (in terms of how much N < M), but with the added benefit of O(1) condition number for the interpolation matrix. This latter feature is important for modal discretizations of PDEs, as when we impose boundary conditions *n*odally, the interpolation operator on those nodes must be well conditioned if we hope for the assembled systems to be invertible.
+      With z=(x,y,w) in R^(3N), minimize over z norm(P(x,y).w - e1)^2, where e1 is the first basis vector in R^M with N < M, P(x,y) is the NxM Vandermonde matrix, (x,y) is constrained to lie within the triangle, and sum(w) is constrained to 1, followed by a Newton relaxation to find roots of P(z).w - e1 = 0. Then the argmin is passed to another constrained non-linear problem, wherein we try to minimize cond(P(x,y)) with w fixed, and constrain norm(P(x,y).w-e1) to be at most the objective minimum from the first optimization problem. This seems to find Gaussian-like quad rules at the limit proposed by Vioreanu and Rokhlin (in terms of how much N < M), but with the added benefit of O(1) condition number for the interpolation matrix. This latter feature is important for modal discretizations of PDEs, as when we impose boundary conditions *n*odally, the interpolation operator on those nodes must be well conditioned if we hope for the assembled systems to be invertible.
 
-For example, the image below depicts the output when attempting to generate a 45 (n = 9) node quadrature rule which can exactly integerate 120 polynomials (m = 14).
+For example, the image below depicts the output when attempting to generate a 45 (n = 9) node quadrature rule which can exactly integerate 120 polynomials (m = 14). In this case, we do not employ any Newton relaxation.
  
 ![alt text](https://github.com/snatesh/Eikonal/blob/main/testing/testdata/output.png?raw=true)
 
@@ -58,7 +58,7 @@ cd Eikonal
 make test
 ```
 Above, the `docker run` command with `bash` post-fixed will instantiate a 
-bash shell within the container, within which you can read/write/execute
+`bash` shell running in the container, within which you can read/write/execute
 files as you please. The last two commands above change directory into
 the `/Eikonal` folder within the container, compile the 
 `gtest` code (located in `/Eikonal/testing/gtest.cpp`, and run the tests therein.
