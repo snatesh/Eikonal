@@ -42,24 +42,53 @@ int main(int argc, char* argv[])
   nlopt_func_data* d = new nlopt_func_data(m, n, a, b, c);
   init_opt(d);
   // run nlopt
-  nlopt_run ( alg, d, tol, tolc ); 
+  nlopt_run ( alg, d, tol, tolc );
   // newton relaxation
   if (use_newton)
   {
     newton(d->F0, d->Vm, d->Hm, d->N, d->m, a, b, c, d->Z0, use_wolfe, alph);
   }
-  // integration test on result Zk
-  double* Zk = d->Z0; double* Fk = d->F0; double rcond; double sum = 0;
-  for (unsigned int i = 0; i < N; ++i) { sum += Zk[2*N+i]; }
+  // integration test on result d->Z0
+  double rcond; double sum = 0;
+  for (unsigned int i = 0; i < N; ++i) { sum += d->Z0[2*N+i]; }
   std::cout << "final sum of weights : " << sum << std::endl;  
   std::cout << "final value of objective : " << nloptF(3*N, d->Z0, nullptr, d)  << std::endl;
-  jPoly_tri<double>(Zk, Zk + N, d->Hm, N, m-1, a, b, c, d->Vm); cond(d->Vm, N, M, &rcond);
+  jPoly_tri<double>(d->Z0, d->Z0 + N, d->Hm, N, m-1, a, b, c, d->Vm); 
+  cond(d->Vm, N, M, &rcond);
+  std::cout << "cond(Vm) : " << 1.0 / rcond << std::endl;
   double* Ftest = (double*) calloc(N, sizeof(double));
-  for (unsigned int i = 0; i < N; ++i) { Ftest[i] = std::sin( pow(Zk[i], 2) + pow(Zk[i+N], 2) ); }
-  double Ival = cblas_ddot(N, Zk + 2*N, 1, Ftest, 1) / wabc;
+  for (unsigned int i = 0; i < N; ++i) { Ftest[i] = std::sin( pow(d->Z0[i], 2) + pow(d->Z0[i+N], 2) ); }
+  double Ival = cblas_ddot(N, d->Z0 + 2*N, 1, Ftest, 1) / wabc;
   std::cout << "Integral val : " << std::setw(10) << Ival << std::endl;
+
+  for (unsigned int i = 0; i < N; ++i)
+  {
+    if (d->Z0[i] < 0 || d->Z0[i+N] < 0 || d->Z0[i] + d->Z0[i+N] - 1 > 0)
+    {
+      std::cerr << "ERROR: nodes outside of triangle!" << std::endl; 
+      exit(1); 
+    }
+  }
+  // run nlopt on next objective
+  nlopt_run1 (alg, d, tol, tolc ); 
+  // newton relaxation
+  if (use_newton)
+  {
+    newton(d->F0, d->Vm, d->Hm, d->N, d->m, a, b, c, d->Z0, use_wolfe, alph);
+  }
+  // integration test on result d->Z0
+  sum = 0.0;
+  for (unsigned int i = 0; i < N; ++i) { sum += d->Z0[2*N+i]; }
+  std::cout << "final sum of weights : " << sum << std::endl;  
+  std::cout << "final value of objective : " << nloptF1(2*N, d->Z0, nullptr, d)  << std::endl;
+  jPoly_tri<double>(d->Z0, d->Z0 + N, d->Hm, N, m-1, a, b, c, d->Vm); 
+  cond(d->Vm, N, M, &rcond);
+  std::cout << "cond(Vm) : " << 1.0 / rcond << std::endl;
+  Ival = cblas_ddot(N, d->Z0 + 2*N, 1, Ftest, 1) / wabc;
+  std::cout << "Integral val : " << std::setw(10) << Ival << std::endl;
+  
   // plot resulting quadrature nodes
-  std::vector<double> X(Zk, Zk+N); std::vector<double> Y(Zk+N, Zk+2*N);
+  std::vector<double> X(d->Z0, d->Z0+N); std::vector<double> Y(d->Z0+N, d->Z0+2*N);
   std::vector<double> X_0(d->X0, d->X0+N); std::vector<double> Y_0(d->Y0, d->Y0+N);
   double tri[6] = {0, 1, 0, 0, 0, 1}; 
   plot_tri(tri, "k-");

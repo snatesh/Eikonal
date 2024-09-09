@@ -21,10 +21,12 @@ typedef struct nlopt_func_data
   Complex *Jn, *XY0;
   double a,b,c;
   unsigned int N, M, n, m;
-  
+  bool run0; 
+  double minf, minf1;
+ 
   nlopt_func_data ( unsigned int _m, unsigned int _n, 
                     double _a, double _b, double _c )
-    : n(_n), m(_m), a(_a), b(_b), c(_c)
+    : n(_n), m(_m), a(_a), b(_b), c(_c), run0(true)
   {
     this->N = static_cast<unsigned int>(0.5 * n * (n + 1)); 
     this->M = static_cast<unsigned int>(0.5 * m * (m + 1));
@@ -156,24 +158,56 @@ inline double nloptF(unsigned int n, const double* Zk, double* grad, void* data)
   for (unsigned int i =0; i < M; ++i) { Fk[i] = I0[i]; }
   free(I0);
   double norm2 = pow(cblas_dnrm2(M, Fk, 1),2);
-  if ( !(count % 100000) ) { std::cout << "Eval #" << count << " : F = " << norm2 << std::endl; }
+  if ( !(count % 100000) && d->run0 ) 
+  { 
+    std::cout << "Eval #" << count << " : F = " << norm2 << std::endl; 
+  }
   return norm2;
 }
 
-inline void cond(double* Vm, unsigned int N, unsigned int M, double* rcond)
+inline void cond(double* Vm, unsigned int N, unsigned int M, double* rcond, bool norm2=true)
 {
-  //  inf norm of Vm
-  double  normVm = LAPACKE_dlange(LAPACK_COL_MAJOR, '1', N, M, Vm, N);
-  // LU of A
-  int* ipiv = (int*) calloc(N, sizeof(int));
-  LAPACKE_dgetrf (LAPACK_COL_MAJOR, N, M, Vm, N, ipiv); 
-  free(ipiv);
-  LAPACKE_dgecon(LAPACK_COL_MAJOR, '1', N, Vm, M, normVm, rcond);
-  std::cout << "cond(Vm) : " << 1.0 / rcond[0] << std::endl;
+  if (norm2)
+  {
+    unsigned int dimS = (N <= M) ? N : M;
+    double* S = (double*) calloc(dimS, sizeof(double));
+    double* superb = (double*) calloc(dimS, sizeof(double));
+    LAPACKE_dgesvd(LAPACK_COL_MAJOR, 'N','N', N, M, Vm, N, S, nullptr, 1, nullptr, 1, superb);
+    rcond[0] = S[dimS-1] / S[0];
+    free(S); free(superb);
+  }
+  else
+  {
+    //  inf norm of Vm
+    double  normVm = LAPACKE_dlange(LAPACK_COL_MAJOR, '1', N, M, Vm, N);
+    // LU of A
+    int* ipiv = (int*) calloc(N, sizeof(int));
+    LAPACKE_dgetrf (LAPACK_COL_MAJOR, N, M, Vm, N, ipiv); 
+    free(ipiv);
+    LAPACKE_dgecon(LAPACK_COL_MAJOR, '1', N, Vm, M, normVm, rcond);
+  }
 }
 
-inline void nloptieqC( unsigned int m, double *result, unsigned int n, const double* Zk, 
-                double* grad=nullptr, void* f_data=nullptr )
+unsigned long count1 = 0;
+inline double nloptF1(unsigned int n, const double* Zk, double* grad, void* data)
+{
+  ++count1;
+  nlopt_func_data* d = (nlopt_func_data*) data;
+  const double *Xk = Zk; 
+  const double *Yk = Zk + d->N;
+  jPoly_tri<double>(Xk, Yk, d->Hm, d->N, d->m-1, d->a, d->b, d->c, d->Vm);
+  double rcond[1];
+  cond(d->Vm, d->N, d->M, rcond);
+  if ( !(count1 % 100000) ) 
+  { 
+    std::cout << "Eval #" << count << " : F = " << 1.0 / rcond[0] << std::endl; 
+  }
+  return 1.0 / rcond[0];
+}
+
+inline void nloptieqC ( unsigned int m, double *result, unsigned int n, 
+                        const double* Zk, double* grad=nullptr, 
+                        void* f_data=nullptr )
 {
   unsigned int N = static_cast<unsigned int>(n / 3.0);
   for (unsigned int i = 0; i < m-1; ++i)
@@ -182,14 +216,34 @@ inline void nloptieqC( unsigned int m, double *result, unsigned int n, const dou
   }
 }
 
-inline double nlopteqC(  unsigned int n, const double* Zk, 
-                  double* grad=nullptr, void* data=nullptr ) 
+inline void nloptieqC1 (  unsigned int m, double *result, unsigned int n, 
+                          const double* Zk, double* grad=nullptr, 
+                          void* f_data=nullptr )
+{
+  unsigned int N = static_cast<unsigned int>(n / 2.0);
+  for (unsigned int i = 0; i < m-1; ++i)
+  {
+    result[i] = Zk[i] + Zk[i + N] - 1.0; 
+  }
+}
+
+inline double nlopteqC( unsigned int n, const double* Zk, 
+                        double* grad=nullptr, void* data=nullptr ) 
 {
   double sumw = 0.0;
   unsigned int N = static_cast<unsigned int>(n / 3.0);
   for (unsigned int i = 2*N; i < n; ++i) { sumw += Zk[i]; }
   return sumw - 1.0;
 } 
+
+inline double nlopteqC1 ( unsigned int n, const double* Zk,
+                          double* grad, void* data) 
+{
+  nlopt_func_data* d = (nlopt_func_data*) data;
+  d->run0 = false;
+  return nloptF(d->n, Zk, nullptr, d) - d->minf;
+  
+}  
 
 inline void F( double* Zk, double* Vm, unsigned int N, unsigned int m, 
         double* Hm, double a, double b, double c, double* Fk )
@@ -261,7 +315,7 @@ inline void init_opt  ( nlopt_func_data* d )
 inline void nlopt_run ( nlopt_algorithm alg, nlopt_func_data* d,
                         double tol, double tolc )
 {
-  std::cout <<"\n BEGIN NLOPT \n"; 
+  std::cout <<"\n BEGIN NLOPT 0 \n"; 
   unsigned int N = d->N; 
   // x, y , w > 0
   double* lb = (double*) calloc(3*N, sizeof(double)); 
@@ -289,6 +343,43 @@ inline void nlopt_run ( nlopt_algorithm alg, nlopt_func_data* d,
   }
   nlopt_destroy(opt);
   free(lb); free(ub);
+  free(tolieq);
+  d->minf = minF;
+  std::cout <<"END NLOPT \n\n";
+}
+
+inline void nlopt_run1 ( nlopt_algorithm alg, nlopt_func_data* d,
+                         double tol, double tolc )
+{
+  std::cout <<"\n BEGIN NLOPT 1 \n"; 
+  unsigned int N = d->N; 
+  // x, y > 0
+  double* lb = (double*) calloc(2*N, sizeof(double)); 
+  // x, y < 1
+  double* ub = (double*) calloc(2*N, sizeof(double));
+  double* tolieq = (double*) calloc(2*N, sizeof(double));
+  for (unsigned int i = 0; i < 2*N; ++i) { ub[i] = 1; }
+  for (unsigned int i = 0; i < 2*N; ++i) { tolieq[i] = tolc; }
+
+  nlopt_opt opt = nlopt_create(alg, 2*N); 
+  nlopt_set_lower_bounds(opt, lb);
+  nlopt_set_upper_bounds(opt, ub);
+  nlopt_set_min_objective(opt, nloptF1, d);
+  nlopt_add_equality_constraint(opt, nlopteqC1, NULL, tolc);
+  nlopt_add_inequality_mconstraint(opt, 2*N, nloptieqC1, NULL, tolieq);
+  nlopt_set_stopval(opt, tol);
+  double minF;
+  if (nlopt_optimize(opt, d->Z0, &minF) < 0) 
+  {
+    std::cerr << "NLOPT failed!" << std::endl;
+  }
+  else 
+  {
+    std::cout << "found minimum with objective val = " << minF << std::endl;
+  }
+  nlopt_destroy(opt);
+  free(lb); free(ub);
+  d->minf1 = minF;
   free(tolieq);
   std::cout <<"END NLOPT \n\n";
 }
