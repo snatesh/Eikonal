@@ -1,13 +1,8 @@
 #include<ngjquad_opt.h>
 #include<../include/matplotlibcpp.h>
-namespace plt = matplotlibcpp;
 
-void plot_tri(double* tri, std::string col)
-{
-  plt::plot((std::vector<double>) {tri[0],tri[1]}, (std::vector<double>) {tri[3],tri[4]}, col);
-  plt::plot((std::vector<double>) {tri[1],tri[2]}, (std::vector<double>) {tri[4],tri[5]}, col);
-  plt::plot((std::vector<double>) {tri[2],tri[0]}, (std::vector<double>) {tri[5],tri[3]}, col);
-}
+namespace plt = matplotlibcpp;
+void plot_tri(double* tri, std::string col);
 
 /*  
   - n is max poly degree in source basis 
@@ -22,121 +17,111 @@ void plot_tri(double* tri, std::string col)
 
 int main(int argc, char* argv[])
 {
-  unsigned int n, m;
-  double tol, tolc;
-  bool use_newton = true;
-  bool use_wolfe = true;
-  double alph;
-  nlopt_algorithm alg;
+  unsigned int n, m; double tol, tolc;
+  bool use_newton = true; bool use_wolfe = true;
+  double alph; nlopt_algorithm alg;
   std::cout << "SEARCH FOR NEAR OPTIMAL GAUSS QUAD" << std::endl;
-  if (argc == 9)
+  switch(argc)
   {
-    unsigned int algtype = std::stoi(argv[1]);
-    if (algtype == 0) 
-    { 
+    case 9:
+    {
+      unsigned int algtype = std::stoi(argv[1]);
+      switch(algtype)
+      {
+        case 0:
+        { 
+          alg = NLOPT_LN_NELDERMEAD;
+          std::cout << "ALGORITHM: NELDERMEAD\n";
+          break;
+        }
+        case 1:
+        {
+          alg = NLOPT_LN_COBYLA;
+          std::cout << "ALGORITHM: COBYLA\n";
+          break;
+        }
+        case 2:
+        {  
+          alg = NLOPT_LN_SBPLX;
+          std::cout << "ALGORITHM: SBPLX";
+          break;
+        }
+        default:
+        {
+          std::cerr << "Algtype not supported" << std::endl;
+          break;
+        }
+      }
+      n = std::stoi(argv[2]);
+      m = std::stoi(argv[3]);
+      tol = std::stod(argv[4]); 
+      tolc = std::stod(argv[5]);
+      use_newton = (bool) std::stoi(argv[6]); 
+      use_wolfe = (bool) std::stoi(argv[7]);
+      alph = std::stod(argv[8]);
+      break;
+    }
+    case 1:
+    {
       alg = NLOPT_LN_NELDERMEAD;
       std::cout << "ALGORITHM: NELDERMEAD\n";
+      n = 4; m = 6;
+      tol = 1e-5;
+      tolc = 1e-5;
+      use_wolfe = false;
+      use_newton = false;
+      alph = 0;
+      break;
     }
-    else if (algtype == 1) 
-    {  
-      alg = NLOPT_LN_COBYLA;
-      std::cout << "ALGORITHM: COBYLA\n";
-    }
-    else if (algtype == 2)
+    default:
     {
-      alg = NLOPT_LN_SBPLX;
-      std::cout << "ALGORITHM: SBPLX";
+      std::cerr << 
+        "Usage: ./ngjquad_opt algtype, n m tol tolc use_newton use_wolfe alph\n";
+      std::cerr << "  algtype (int) - 0-2\n";
+      std::cerr << "  n,m (int) > 0\n";
+      std::cerr << "  tol,tolc (double) > 0\n";
+      std::cerr << "  use_newton, use_wolfe (int) - 0,1\n";
+      std::cerr << "  alph (double) > 0\n";
+      return 1;
     }
-    n = std::stoi(argv[2]);
-    m = std::stoi(argv[3]);
-    tol = std::stod(argv[4]); 
-    tolc = std::stod(argv[5]);
-    use_newton = (bool) std::stoi(argv[6]); 
-    use_wolfe = (bool) std::stoi(argv[7]);
-    alph = std::stod(argv[8]);
-    std::cout << "\nPARAMETERS:" << std::endl;
-    std::cout << std::setw(15) << "n          = " << n << std::endl;
-    std::cout << std::setw(15) << "m          = " << m << std::endl;
-    std::cout << std::setw(15) << "tol        = " << tol << std::endl;
-    std::cout << std::setw(15) << "tolc       = " << tolc << std::endl;
-    std::cout << std::setw(15) << "use_newton = " << use_newton << std::endl;
-    std::cout << std::setw(15) << "use_wolfe  = " << use_wolfe << std::endl;
-    std::cout << std::setw(15) << "alpha      = " << alph << std::endl;
   }
-  else if (argc == 1)
-  {
-    n = 4; m = 6;
-    tol = 1e-5; double tolc = 1e-5;
-    use_wolfe = false;
-    alg = NLOPT_LN_NELDERMEAD;
-  }
-  else
-  {
-    std::cerr << "Incorrect number of command line arguments (algtype, n, m, tol, tolc, use_wolfe, alph)\n";
-    std::cerr << "Only " << argc << " provided" << std::endl;
-  }
-  double a, b, c, kap; a = b = c = 0.5; kap = abs(a+b+c);
-  double wabc = tgamma(kap+1.5) / ( tgamma(a+0.5) * tgamma(b+0.5) * tgamma(c+0.5) );
-  double* Hm = (double*) calloc(m*m, sizeof(double));
-  structure_factors_tri<double>(m, a, b, c, Hm);
-  unsigned int N = static_cast<unsigned int>(0.5 * n * (n + 1)); 
-  unsigned int M = static_cast<unsigned int>(0.5 * m * (m + 1));
+  std::cout << "\nPARAMETERS:" << std::endl;
+  std::cout << std::setw(15) << "n          = " << n << std::endl;
+  std::cout << std::setw(15) << "m          = " << m << std::endl;
+  std::cout << std::setw(15) << "tol        = " << tol << std::endl;
+  std::cout << std::setw(15) << "tolc       = " << tolc << std::endl;
+  std::cout << std::setw(15) << "use_newton = " << use_newton << std::endl;
+  std::cout << std::setw(15) << "use_wolfe  = " << use_wolfe << std::endl;
+  std::cout << std::setw(15) << "alpha      = " << alph << std::endl;
 
 
   /**************************** BEGIN OPT INITIALIZATION *******************/
+  double a, b, c, kap; a = b = c = 0.5; kap = abs(a+b+c);
+  double wabc = tgamma(kap+1.5) / ( tgamma(a+0.5) * tgamma(b+0.5) * tgamma(c+0.5) );
+  unsigned int N = static_cast<unsigned int>(0.5 * n * (n + 1)); 
+  unsigned int M = static_cast<unsigned int>(0.5 * m * (m + 1));
   // generate jacobi matrices for x,y 
+  double* Hm = (double*) calloc(m*m, sizeof(double));
   double* Jn1 = (double*) calloc(N*N, sizeof(double));
   double* Jn2 = (double*) calloc(N*N, sizeof(double));
   Complex* Jn = (Complex*) calloc(N*N, sizeof(Complex));
-  jacobi_mat_ON_tri<double>(n, a, b, c, Jn1, Jn2);
-  // compute initial nodes and weights from eigenvalues of Jn
-  for (unsigned int i = 0; i < N*N; ++i) { Jn[i] = Jn1[i] + I*Jn2[i]; }
   Complex* XY0 = (Complex*) calloc(N, sizeof(Complex));
   double* X0  = (double*) calloc(N, sizeof(double));
   double* Y0  = (double*) calloc(N, sizeof(double));
-  if (LAPACKE_zgeev(LAPACK_COL_MAJOR, 'N', 'N', N, Jn, N, XY0, NULL, N, NULL, N))
-  {
-    std::cerr << "ERROR: Lapack ZGEEV: Eigenvalues" << std::endl;
-  }
-  for (unsigned int i = 0; i < N; ++i) 
-  { 
-    X0[i] = creal(XY0[i]); 
-    Y0[i] = cimag(XY0[i]); 
-  } 
-  // evaluate Vandermonde on initial nodes
   double* Vm = (double*) calloc(N*M, sizeof(double));
   double* Vm_T = (double*) calloc(M*N, sizeof(double));
-  jPoly_tri<double>(X0, Y0, Hm, N, m-1, a, b, c, Vm);
-  unsigned int i = 0;
-  for (unsigned int col = 0; col < M; ++col)
-  {
-    for (unsigned int row = 0; row < N; ++row)
-    {
-      Vm_T[col + row*M] = Vm[i];
-      i += 1;
-    }
-  }
-
-  // solve least squares system for initial weights
   double* W0 = (double*) calloc(M, sizeof(double)); W0[0] = 1.0;
-  double* S = (double*) calloc(M, sizeof(double)); lapack_int rank[1];
-  if (LAPACKE_dgelsd(LAPACK_COL_MAJOR, M, N, 1, Vm_T, M, W0, M, S, -1.0, rank))
-  {
-    std::cerr << "ERROR: Lapack dgelsd: Pseudoinverse" << std::endl;
-  }
+  double* S = (double*) calloc(M, sizeof(double)); 
   double* Z0 = (double*) calloc(3*N, sizeof(double));
-  for (unsigned int i = 0; i < N; ++i)
-  {
-    Z0[i]       = X0[i];
-    Z0[i + N]   = Y0[i];
-    Z0[i + 2*N] = W0[i];
-  }
   double* F0 = (double*) calloc(3*N, sizeof(double));
-  F(Z0, Vm, N, m, Hm, a, b, c, F0);
   nlopt_func_data* d = (nlopt_func_data*) malloc(sizeof(nlopt_func_data));
-  d->Vm = Vm; d->Hm = Hm; d->Fk = F0;
-  d->a = a; d->b = b; d->c = c;
-  d->N = N; d->m = m; d->M = M;
+
+  initialize(
+              m, n, M, N, a, b, c,
+              Jn1, Jn2, Jn, XY0,
+              X0, Y0, Hm, Vm, Vm_T, 
+              W0, S, Z0, F0, d 
+            );
   
   /*************************** END INITIALIZATION **********************/
 
@@ -219,4 +204,19 @@ int main(int argc, char* argv[])
   free(S); free(d); free(ub); 
   free(lb); free(tolieq);
   return 0;
+}
+
+namespace plt = matplotlibcpp;
+
+void plot_tri(double* tri, std::string col)
+{
+  std::vector<double> x1( {tri[0], tri[1]} );
+  std::vector<double> y1( {tri[3], tri[4]} );
+  std::vector<double> x2( {tri[1], tri[2]} );
+  std::vector<double> y2( {tri[4], tri[5]} );
+  std::vector<double> x3( {tri[2], tri[0]} );
+  std::vector<double> y3( {tri[5], tri[3]} );
+  plt::plot(x1, y1, col);
+  plt::plot(x2, y2, col);
+  plt::plot(x3, y3, col);
 }

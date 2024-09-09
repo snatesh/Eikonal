@@ -95,6 +95,57 @@ inline void F( double* Zk, double* Vm, unsigned int N, unsigned int m,
 }
 
 
+inline void initialize( unsigned int m, unsigned int n, unsigned int M,
+                        unsigned int N, double a, double b, double c,
+                        double* Jn1, double* Jn2, Complex* Jn, Complex* XY0,
+                        double* X0, double* Y0, double* Hm, double* Vm, 
+                        double* Vm_T, double* W0, double* S, double* Z0, 
+                        double* F0, nlopt_func_data* d )
+{
+  structure_factors_tri<double>(m, a, b, c, Hm);
+  // generate jacobi matrices for x,y 
+  jacobi_mat_ON_tri<double>(n, a, b, c, Jn1, Jn2);
+  // compute initial nodes and weights from eigenvalues of Jn
+  for (unsigned int i = 0; i < N*N; ++i) { Jn[i] = Jn1[i] + I*Jn2[i]; }
+  if (LAPACKE_zgeev(LAPACK_COL_MAJOR, 'N', 'N', N, Jn, N, XY0, NULL, N, NULL, N))
+  {
+    std::cerr << "ERROR: Lapack ZGEEV: Eigenvalues" << std::endl;
+  }
+  for (unsigned int i = 0; i < N; ++i) 
+  { 
+    X0[i] = creal(XY0[i]); 
+    Y0[i] = cimag(XY0[i]); 
+  } 
+  // evaluate Vandermonde on initial nodes
+  jPoly_tri<double>(X0, Y0, Hm, N, m-1, a, b, c, Vm);
+  unsigned int i = 0;
+  for (unsigned int col = 0; col < M; ++col)
+  {
+    for (unsigned int row = 0; row < N; ++row)
+    {
+      Vm_T[col + row*M] = Vm[i];
+      i += 1;
+    }
+  }
+  lapack_int rank[1]; 
+  // solve least squares system for initial weights
+  if (LAPACKE_dgelsd(LAPACK_COL_MAJOR, M, N, 1, Vm_T, M, W0, M, S, -1.0, rank))
+  {
+    std::cerr << "ERROR: Lapack dgelsd: Pseudoinverse" << std::endl;
+  }
+  // copy into Z0 for opt routines
+  for (unsigned int i = 0; i < N; ++i)
+  {
+    Z0[i]       = X0[i];
+    Z0[i + N]   = Y0[i];
+    Z0[i + 2*N] = W0[i];
+  }
+  F(Z0, Vm, N, m, Hm, a, b, c, F0);
+  // populate nlopt_opt aux data
+  d->Vm = Vm; d->Hm = Hm; d->Fk = F0;
+  d->a = a; d->b = b; d->c = c;
+  d->N = N; d->m = m; d->M = M;
+}
 
 inline void newton( double* Fk, double* Vm, double* Hm, 
                     unsigned int N, unsigned int m, 
