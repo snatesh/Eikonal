@@ -60,7 +60,7 @@ int main(int argc, char* argv[])
   double* Ftest = (double*) calloc(N, sizeof(double));
   for (unsigned int i = 0; i < N; ++i) { Ftest[i] = std::sin( pow(d->Z0[i], 2) + pow(d->Z0[i+N], 2) ); }
   double Ival = cblas_ddot(N, d->Z0 + 2*N, 1, Ftest, 1) / wabc;
-  std::cout << "Integral val : " << std::setw(10) << Ival << std::endl;
+  printf("Integral_T sin(x^2+y^2) : %5.16f \n", Ival);
 
   for (unsigned int i = 0; i < N; ++i)
   {
@@ -92,8 +92,8 @@ int main(int argc, char* argv[])
   jPoly_tri<double>(d->Z0, d->Z0 + N, d->Hm, N, m-1, a, b, c, d->Vm); 
   cond(d->Vm, N, M, &rcond); std::cout << "cond(Vm) : " << 1.0 / rcond << std::endl;
   Ival = cblas_ddot(N, d->Z0 + 2*N, 1, Ftest, 1) / wabc;
-  std::cout << "Integral val : " << std::setw(10) << Ival << std::endl;
-  
+  printf("Integral_T sin(x^2+y^2) : %5.16f \n", Ival);
+ 
   // plot resulting quadrature nodes
   std::vector<double> X(d->Z0, d->Z0+N); std::vector<double> Y(d->Z0+N, d->Z0+2*N);
   std::vector<double> X_0(d->X0, d->X0+N); std::vector<double> Y_0(d->Y0, d->Y0+N);
