@@ -1,5 +1,24 @@
 # Eikonal
-A modal spectral method for the Eikonal equation on simplicial tesselations
+A modal spectral method for the Eikonal equation on simplicial tesselations. 
+
+## About
+The implementation offers a backend library for computing near-optimal Gaussian-like quadratures on the triangle (see `ngjquad_opt.cpp` for driver code), built on top of `NLOPT`, `BLAS` and `LAPACK`, my own work, theoretical results due to Koornwinder regarding a family of orthogonal polynomials on the triangle, and numerical results due to Vioreanu and Rokhlin on constructing near-optimal Gaussian-like quadratures over convex regions (VR-quadrature). 
+
+I term the VR-quadrature approach "Discretize-Orthogonalize-Optimize" (DOO), while my approach is more "Orthogonalize-Discretize-Optimize" (ODO). This nomenclature draws analogy from similar jargon in variational/infinite-dimensional optimzation - Discretize-then-Optimize (DtO) or Optimize-then-Discretize (OtD) - as both concern a choice of an analytical or numerical first step.
+
+The generatable quadrature rules are used to represent to high accuracy and with high efficiency functions appearing in Eikonal models under the Koornwinder polynomial basis family. 
+
+Recent results by Townsend, Oliver and Vasil enable the construction of sparse differential operators on the standard triangle, interoperating within the Koornwinder polynomial family parameter space, and leading to low-storage, banded discrete operators. 
+
+At the time of writing, the following capabilities exist:
+- representing and manipulating functions in a modal sense under Koornwinder polynomial expansions (global approximation)
+- differentiation up to any order via promotion and ladder operators acting only on modes of a function
+- evaluation at a point in real space of a function represented in the modal basis (coefficients). This could be accelerated with Clenshaw's algorithm, generalized to 2D.
+- Implementation of analytical entries to the Jacobi matrices appearing in the 2D-recurrence relation for the orthogonal Koornwinder polynomials, given any choice of parameters.
+- Quadrature discovery with optimization parameters exposed for such use. In particular, I use an interlaced scheme where first a constrained non-linear optimization problem is solved, then, if needed, a newton relaxation, followed by another non-linear problem with a different objective, and a last on-demand newton relaxation.
+
+   - The gist is:
+      With z=(x,y,w) in R^(3N), minimize over z norm(P(x,y).w - e1)^2, where e1 is the first basis vector in R^M with N < M, P(x,y) is the Vandermonde matrix (NxM, (x,y) is constrained to lie within the triangle, and sum(w) is constrained to 1), followed by a newton relaxation to find roots of P(z).w - e1 = 0. Then the argmin is passed to another constrained non-linear problem, wherein we try to minimize cond(P(x,y)) with w fixed, and constrain norm(P(x,y).w-e1) to be at most the objective minimum from the first optimization problem. This seems to find Gaussian-like quad rules at the limit proposed by Vioreanu and Rokhlin (in terms of how much N < M), but with the added benefit of O(1) condition number for the interpolation matrix. This latter feature is important for modal discretizations of PDEs, as if we imposed boundary conditions *n*odally, the interpolation operator on those nodes must be well conditioned if we hope for the assembled systems to be invertible.
 
 ## Docker Containerization ##
 It is likely most simple to install and use the libarary from within a `Docker` container. 
