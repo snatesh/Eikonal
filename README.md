@@ -56,7 +56,7 @@ the `/Eikonal` folder within the container, compile the
 
 As another example, to generate near optimal Gaussian-like quadrature with unit
 weight sum and nodes interior to the standard triangle from order `n=4` Koornwinder 
-polynomials that can integrate order `m=6` polynomials exactly 
+polynomials that can integrate order `m=6` polynomials exactly, 
 try:
 
 ```shell
