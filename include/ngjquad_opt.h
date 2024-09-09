@@ -372,6 +372,7 @@ inline void nlopt_run1 ( nlopt_algorithm alg, nlopt_func_data* d,
   nlopt_set_min_objective(opt, nloptF1, d);
   nlopt_add_equality_constraint(opt, nlopteqC1, NULL, tolc);
   nlopt_add_inequality_mconstraint(opt, 2*N, nloptieqC1, NULL, tolieq);
+  nlopt_set_xtol_rel(opt, tol);
   nlopt_set_stopval(opt, tol);
   double minF;
   if (nlopt_optimize(opt, d->Z0, &minF) < 0) 
