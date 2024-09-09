@@ -14,8 +14,8 @@ CURDIR                = $(shell pwd)
 CXX                   = g++ 
 
 ifneq ($(DEBUG), True)
-  CXXFLAGS_lib            = -I$(CURDIR)/include -w -O3 -march=native -shared -L$(EIKONAL_LIB)
-  CXXFLAGS_bin            = -I$(CURDIR)/include -w -O3 -march=native -L$(EIKONAL_LIB)
+  CXXFLAGS_lib            = -I$(CURDIR)/include -w -O3 -march=native -shared -L$(EIKONAL_LIB) -fopenmp
+  CXXFLAGS_bin            = -I$(CURDIR)/include -w -O3 -march=native -L$(EIKONAL_LIB) -fopenmp
   CXXFLAGS_test           = -I$(CURDIR)/include -I /usr/include/gtest/ -w -O3 -march=native -L$(EIKONAL_LIB)
 else
   CXXFLAGS_lib            = -I$(CURDIR)/include -w -shared -g -O0 -DDEBUG -L$(EIKONAL_LIB)

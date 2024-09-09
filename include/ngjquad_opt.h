@@ -155,6 +155,7 @@ inline double nloptF(unsigned int n, const double* Zk, double* grad, void* data)
   double* I0 = (double*) calloc(M, sizeof(double)); I0[0] = 1;  
   jPoly_tri<double>(Xk, Yk, Hm, N, m-1, a, b, c, Vm);
   cblas_dgemv(CblasColMajor,  CblasTrans,  N, M, 1.0, Vm, N, Wk, 1, -1.0, I0, 1);
+  #pragma omp parallel for
   for (unsigned int i =0; i < M; ++i) { Fk[i] = I0[i]; }
   free(I0);
   double norm2 = pow(cblas_dnrm2(M, Fk, 1),2);
@@ -210,6 +211,7 @@ inline void nloptieqC ( unsigned int m, double *result, unsigned int n,
                         void* f_data=nullptr )
 {
   unsigned int N = static_cast<unsigned int>(n / 3.0);
+  #pragma omp parallel for
   for (unsigned int i = 0; i < m-1; ++i)
   {
     result[i] = Zk[i] + Zk[i + N] - 1.0; 
@@ -221,6 +223,7 @@ inline void nloptieqC1 (  unsigned int m, double *result, unsigned int n,
                           void* f_data=nullptr )
 {
   unsigned int N = static_cast<unsigned int>(n / 2.0);
+  #pragma omp parallel for
   for (unsigned int i = 0; i < m-1; ++i)
   {
     result[i] = Zk[i] + Zk[i + N] - 1.0; 
@@ -232,6 +235,7 @@ inline double nlopteqC( unsigned int n, const double* Zk,
 {
   double sumw = 0.0;
   unsigned int N = static_cast<unsigned int>(n / 3.0);
+  #pragma omp parallel for
   for (unsigned int i = 2*N; i < n; ++i) { sumw += Zk[i]; }
   return sumw - 1.0;
 } 
@@ -331,6 +335,7 @@ inline void nlopt_run ( nlopt_algorithm alg, nlopt_func_data* d,
   nlopt_set_min_objective(opt, nloptF, d);
   nlopt_add_equality_constraint(opt, nlopteqC, NULL, tolc);
   nlopt_add_inequality_mconstraint(opt, 2*N, nloptieqC, NULL, tolieq);
+  nlopt_set_xtol_rel(opt, tol);
   nlopt_set_stopval(opt, tol);
   double minF;
   if (nlopt_optimize(opt, d->Z0, &minF) < 0) 
@@ -459,6 +464,7 @@ inline void newton( double* Fk, double* Vm, double* Hm,
 
     if ( !(iter%10) ) { std::cout << "norm(F) : " << pk << std::endl; }
   }
+
   free(Fkph);
   free(Fkmh);
   free(Zkph);

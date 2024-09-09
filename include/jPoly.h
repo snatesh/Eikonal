@@ -3,6 +3,7 @@
 #include<cstddef>
 #include<iostream>
 #include<cmath>
+#include<omp.h>
 
 using std::pow;
 
@@ -84,6 +85,8 @@ inline void jPoly_tri(const T* X, const T* Y, T* H, unsigned int Nx, unsigned in
   T* ydx  = (T*) calloc(Nx, sizeof(T));
   T* x2m1 = (T*) calloc(Nx, sizeof(T));
   T* mxp1 = (T*) calloc(Nx, sizeof(T));
+  
+  #pragma omp parallel for 
   for (unsigned int i = 0; i < Nx; ++i)
   {
     ydx[i]  = 2.0 * Y[i] / (1 - X[i]) - 1;
@@ -95,6 +98,7 @@ inline void jPoly_tri(const T* X, const T* Y, T* H, unsigned int Nx, unsigned in
   jPoly<T>(ydx, Nx, n + 1, c - 0.5, b - 0.5, Pk);
 
   T* Pnmk = (T*) calloc(Nx*(n+1)*(n+1), sizeof(T));
+  #pragma omp parallel for
   for (unsigned int kk = 0; kk <= n; ++kk) 
   {
     T* pnmk = &Pnmk[Nx*(n+1)*kk];
@@ -108,6 +112,7 @@ inline void jPoly_tri(const T* X, const T* Y, T* H, unsigned int Nx, unsigned in
     {
       T* v = &V[Nx*(ind+kk-1)];
       T* pnmk = &Pnmk[Nx*(n+1)*kk];
+      #pragma omp parallel for
       for (unsigned int i = 0; i < Nx; ++i)
       {
         v[i] = 1.0 / H[kk + (n+1)*nn] * pnmk[i + Nx*(nn-kk)] * 

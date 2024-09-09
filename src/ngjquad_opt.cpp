@@ -1,4 +1,5 @@
 #include<ngjquad_opt.h>
+#include<fstream>
 #include<../include/matplotlibcpp.h>
 namespace plt = matplotlibcpp;
 void plot_tri(double* tri, std::string col);
@@ -76,14 +77,20 @@ int main(int argc, char* argv[])
   {
     newton(d->F0, d->Vm, d->Hm, d->N, d->m, a, b, c, d->Z0, use_wolfe, alph);
   }
+
+  
+  std::stringstream ss; ss << "triquadLeg_" << n << "_" << m << ".txt";
+  std::ofstream ofile(ss.str());
+  for (unsigned int i = 0; i < 3*N; ++i) { ofile << d->Z0[i]; }
+
+
   // integration test on result d->Z0
   sum = 0.0;
   for (unsigned int i = 0; i < N; ++i) { sum += d->Z0[2*N+i]; }
   std::cout << "final sum of weights : " << sum << std::endl;  
   std::cout << "final value of objective : " << nloptF1(2*N, d->Z0, nullptr, d)  << std::endl;
   jPoly_tri<double>(d->Z0, d->Z0 + N, d->Hm, N, m-1, a, b, c, d->Vm); 
-  cond(d->Vm, N, M, &rcond);
-  std::cout << "cond(Vm) : " << 1.0 / rcond << std::endl;
+  cond(d->Vm, N, M, &rcond); std::cout << "cond(Vm) : " << 1.0 / rcond << std::endl;
   Ival = cblas_ddot(N, d->Z0 + 2*N, 1, Ftest, 1) / wabc;
   std::cout << "Integral val : " << std::setw(10) << Ival << std::endl;
   

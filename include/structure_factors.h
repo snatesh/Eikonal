@@ -3,6 +3,7 @@
 
 #include<cmath>
 #include<iostream>
+#include<omp.h>
 
 using std::tgamma;
 using std::pow;

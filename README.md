@@ -20,6 +20,13 @@ At the time of writing, the following capabilities exist:
    - The gist is:
       With z=(x,y,w) in R^(3N), minimize over z norm(P(x,y).w - e1)^2, where e1 is the first basis vector in R^M with N < M, P(x,y) is the NxM Vandermonde matrix, (x,y) is constrained to lie within the triangle, and sum(w) is constrained to 1, followed by a newton relaxation to find roots of P(z).w - e1 = 0. Then the argmin is passed to another constrained non-linear problem, wherein we try to minimize cond(P(x,y)) with w fixed, and constrain norm(P(x,y).w-e1) to be at most the objective minimum from the first optimization problem. This seems to find Gaussian-like quad rules at the limit proposed by Vioreanu and Rokhlin (in terms of how much N < M), but with the added benefit of O(1) condition number for the interpolation matrix. This latter feature is important for modal discretizations of PDEs, as when we impose boundary conditions *n*odally, the interpolation operator on those nodes must be well conditioned if we hope for the assembled systems to be invertible.
 
+For example, the image below depicts the output when attempting to generate a 45 (n = 9) node quadrature rule which can exactly integerate 120 polynomials (m = 14).
+ 
+![alt text](https://github.com/snatesh/Eikonal/blob/main/testing/testdata/output.png?raw=true)
+
+The red nodes are our new found abscissa, while the black ones are the initial points. We see the new nodes are well conditioned, and we correctly integrate the test functio
+sin(x^2+y^2) over the standard right triangle with vertices (0,0), (0,1), (1,0) (plug it into Wolfram alpha for reference). 
+
 There remains much to be done for this project, on both paper and metal! 
 
 ## Docker Containerization ##
