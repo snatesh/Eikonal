@@ -70,7 +70,7 @@ The initial implemenation for such a task can be found in `/Eikonal/src/ngj_tri_
 - `build-essentials` (particularly GNU `make` utility)
 - google testing framework (available via dpkg and apt as `libgtest-dev`)
 - `dh-autoreconf`,`autoreconf`,`autotools` for `SNOPT` installation (currently not used)
--  `NLOPT` (open source non linear optimization librarh, `https://github.com/stevengj/nlopt.git`)
+-  `NLOPT` (open source non linear optimization library, `https://github.com/stevengj/nlopt.git`)
 - `cblas` and `lapack` - Installation is easiest via package manager as:
 ```shell
 sudo apt install libopenblas-openmp-dev liblapacke-dev
