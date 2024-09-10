@@ -52,11 +52,11 @@ int main(int argc, char* argv[])
   // integration test on result d->Z0
   double rcond; double sum = 0;
   for (unsigned int i = 0; i < N; ++i) { sum += d->Z0[2*N+i]; }
-  std::cout << "final sum of weights : " << sum << std::endl;  
-  std::cout << "final value of objective : " << nloptF(3*N, d->Z0, nullptr, d)  << std::endl;
+  std::cout << "Sum of weights : " << sum << std::endl;  
+  std::cout << "Objective value at argmin: " << nloptF(3*N, d->Z0, nullptr, d)  << std::endl;
   jPoly_tri<double>(d->Z0, d->Z0 + N, d->Hm, N, m-1, a, b, c, d->Vm); 
   cond(d->Vm, N, M, &rcond);
-  std::cout << "cond(Vm) : " << 1.0 / rcond << std::endl;
+  std::cout << "Conditioning of interpolation operator: " << 1.0 / rcond << std::endl;
   double* Ftest = (double*) calloc(N, sizeof(double));
   for (unsigned int i = 0; i < N; ++i) { Ftest[i] = std::sin( pow(d->Z0[i], 2) + pow(d->Z0[i+N], 2) ); }
   double Ival = cblas_ddot(N, d->Z0 + 2*N, 1, Ftest, 1) / wabc;
@@ -90,10 +90,9 @@ int main(int argc, char* argv[])
   // integration test on result d->Z0
   sum = 0.0;
   for (unsigned int i = 0; i < N; ++i) { sum += d->Z0[2*N+i]; }
-  std::cout << "final sum of weights : " << sum << std::endl;  
-  std::cout << "final value of objective : " << nloptF1(2*N, d->Z0, nullptr, d)  << std::endl;
+  std::cout << "Sum of weights : " << sum << std::endl;  
+  std::cout << "Conditioning of interpolation operator : " << nloptF1(2*N, d->Z0, nullptr, d)  << std::endl;
   jPoly_tri<double>(d->Z0, d->Z0 + N, d->Hm, N, m-1, a, b, c, d->Vm); 
-  cond(d->Vm, N, M, &rcond); std::cout << "cond(Vm) : " << 1.0 / rcond << std::endl;
   Ival = cblas_ddot(N, d->Z0 + 2*N, 1, Ftest, 1) / wabc;
   printf("Integral_T sin(x^2+y^2) : %5.16f \n", Ival);
  
