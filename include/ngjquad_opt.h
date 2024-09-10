@@ -28,7 +28,7 @@ typedef struct nlopt_func_data
                     double _a, double _b, double _c )
     : n(_n), m(_m), a(_a), b(_b), c(_c), run0(true)
   {
-    std::cout << "BEGIN INITIALIZATION\n;
+    std::cout << "\nBEGIN INITIALIZATION\n";
     this->N = static_cast<unsigned int>(0.5 * n * (n + 1)); 
     this->M = static_cast<unsigned int>(0.5 * m * (m + 1));
     // generate jacobi matrices for x,y 
@@ -48,8 +48,8 @@ typedef struct nlopt_func_data
     this->Fk = this->F0;
     std::cout << "ORDER OF SOURCE BASIS : " << n-1 << std::endl;
     std::cout << "ORDER OF TARGET BASIS : " << m-1 << std::endl;
-    std::cout << "\nSEARCHING FOR QUADRATURE RULE OF SIZE N = " << N << std::end;
-              << "TO EXACTLY INTEGRATE M = " << M << "POLYNOMIALS\n"
+    std::cout << "\nSEARCHING FOR QUADRATURE RULE OF SIZE N = " << N << std::endl;
+    std::cout << "TO EXACTLY INTEGRATE M = " << M << " POLYNOMIALS\n"
               << "WITH TOTAL DEGREE m = " << 0 << " .. " << m - 1 << "\n";
     std::cout << "INITIALIZATION COMPLETE\n";
   }
@@ -71,7 +71,7 @@ inline void set_args  ( int argc, char* argv[],
                         bool& use_newton, bool& use_wolfe, 
                         double& alph  )
 {
-  std::cout << "SEARCH FOR NEAR OPTIMAL GAUSS QUAD" << std::endl;
+  std::cout << "\nSEARCH FOR NEAR OPTIMAL GAUSSIAN QUADRATURE\n";
   switch(argc)
   {
     case 9:
