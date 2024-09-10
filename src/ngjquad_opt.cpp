@@ -61,7 +61,6 @@ int main(int argc, char* argv[])
   for (unsigned int i = 0; i < N; ++i) { Ftest[i] = std::sin( pow(d->Z0[i], 2) + pow(d->Z0[i+N], 2) ); }
   double Ival = cblas_ddot(N, d->Z0 + 2*N, 1, Ftest, 1) / wabc;
   printf("Integral_T sin(x^2+y^2) : %5.16f \n", Ival);
-
   for (unsigned int i = 0; i < N; ++i)
   {
     if (d->Z0[i] < 0 || d->Z0[i+N] < 0 || d->Z0[i] + d->Z0[i+N] - 1 > 0)
@@ -70,6 +69,7 @@ int main(int argc, char* argv[])
       exit(1); 
     }
   }
+  
   // run nlopt on next objective
   nlopt_run1 (alg, d, tol, tolc ); 
   // newton relaxation
@@ -81,7 +81,10 @@ int main(int argc, char* argv[])
   
   std::stringstream ss; ss << "triquadLeg_" << n << "_" << m << ".txt";
   std::ofstream ofile(ss.str());
-  for (unsigned int i = 0; i < 3*N; ++i) { ofile << d->Z0[i]; }
+  for (unsigned int i = 0; i < 3*N; ++i) 
+  { 
+    ofile << std::setprecision(std::numeric_limits<double>::max_digits10) 
+          << d->Z0[i] << std::endl; }
 
 
   // integration test on result d->Z0

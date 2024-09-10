@@ -28,6 +28,7 @@ typedef struct nlopt_func_data
                     double _a, double _b, double _c )
     : n(_n), m(_m), a(_a), b(_b), c(_c), run0(true)
   {
+    std::cout << "BEGIN INITIALIZATION\n;
     this->N = static_cast<unsigned int>(0.5 * n * (n + 1)); 
     this->M = static_cast<unsigned int>(0.5 * m * (m + 1));
     // generate jacobi matrices for x,y 
@@ -40,11 +41,17 @@ typedef struct nlopt_func_data
     this->Y0  = (double*) calloc(N, sizeof(double));
     this->Vm = (double*) calloc(N*M, sizeof(double));
     this->Vm_T = (double*) calloc(M*N, sizeof(double));
-    this->W0 = (double*) calloc(M, sizeof(double)); W0[0] = 1.0;
+    this->W0 = (double*) calloc((N >= M ? N : M), sizeof(double)); W0[0] = 1.0;
     this->S = (double*) calloc(M, sizeof(double)); 
     this->Z0 = (double*) calloc(3*N, sizeof(double));
     this->F0 = (double*) calloc(3*N, sizeof(double)); 
     this->Fk = this->F0;
+    std::cout << "ORDER OF SOURCE BASIS : " << n-1 << std::endl;
+    std::cout << "ORDER OF TARGET BASIS : " << m-1 << std::endl;
+    std::cout << "\nSEARCHING FOR QUADRATURE RULE OF SIZE N = " << N << std::end;
+              << "TO EXACTLY INTEGRATE M = " << M << "POLYNOMIALS\n"
+              << "WITH TOTAL DEGREE m = " << 0 << " .. " << m - 1 << "\n";
+    std::cout << "INITIALIZATION COMPLETE\n";
   }
 
   ~nlopt_func_data()
@@ -302,7 +309,7 @@ inline void init_opt  ( nlopt_func_data* d )
   }
   lapack_int rank[1]; 
   // solve least squares system for initial weights
-  if (LAPACKE_dgelsd(LAPACK_COL_MAJOR, M, N, 1, Vm_T, M, W0, M, S, -1.0, rank))
+  if (LAPACKE_dgelsd(LAPACK_COL_MAJOR, M, N, 1, Vm_T, M, W0, (N >= M ? N : M), S, -1.0, rank))
   {
     std::cerr << "ERROR: Lapack dgelsd: Pseudoinverse" << std::endl;
   }
