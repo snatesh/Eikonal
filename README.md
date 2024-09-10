@@ -103,7 +103,7 @@ make
 sudo make isntall 
 ```
 
-which (on `Linux` systems) will by default install header and include files in
+which (on `Linux` systems) will by default install header and shared library files in
 `/usr/local/include` and `/usr/local/lib`.
 
 
