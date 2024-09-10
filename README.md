@@ -69,10 +69,10 @@ polynomials that can integrate order `m=6` polynomials exactly,
 try:
 
 ```shell
-cd /Eikonal/bin && ./ngj_quad_opt
+cd /Eikonal/bin && ./ngjquad_opt
 ```
 
-The initial implemenation for such a task can be found in `/Eikonal/src/ngj_tri_opt.cpp`.
+The initial implemenation for such a task can be found in `/Eikonal/src/ngjquad_opt.cpp`.
 
 ## Dependencies ##
 - `g++` compiler (tested on V13.2.0) 
