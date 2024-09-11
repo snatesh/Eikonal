@@ -512,6 +512,40 @@ TEST(nloptExampleTest, runCheck)
   nlopt_destroy(opt);
 }
 
+TEST(jacobigenTEST, tolCheck)
+{
+
+  double tol  = 1e-14;
+  unsigned int n = 12;
+  unsigned int N = static_cast<unsigned int>(0.5 * n * (n + 1)); 
+  double a = 0.5; double b = 0.5; double c = 0.5;
+  double* Jn1 = (double*) calloc(N*N, sizeof(double));
+  double* Jn2 = (double*) calloc(N*N, sizeof(double));
+  double* Jn1_ref = (double*) calloc(N*N, sizeof(double));
+  double* Jn2_ref = (double*) calloc(N*N, sizeof(double));
+  double* Z = (double*) calloc(3*N, sizeof(double));
+  double* D = (double*) calloc(N*N, sizeof(double)); 
+  double* V = (double*) calloc(N*N, sizeof(double));
+  // need to figure out N pts and num polys needed for Pn (not Pn-1) 
+  std::cout << 3*N << std::endl; 
+  std::ifstream Z_file("../testdata/triquadLeg_15_24.txt");
+  for (unsigned int i = 0; i < 3*N; ++i) 
+  { 
+    Z_file >> Z[i]; std::cout << Z[i] << std::endl; 
+  }
+ 
+  jacobi_mat_ON_tri<double>(n, a, b, c, Jn1, Jn2);
+
+  //double diff1 = infnorm(Jn1, Jn1_ref, N*N);  
+  //double diff2 = infnorm(Jn2, Jn2_ref, N*N);  
+  //
+  //EXPECT_LT(diff1, tol);
+  //EXPECT_LT(diff2, tol);
+
+  free(Jn1); free(Jn2);
+  free(Jn1_ref); free(Jn2_ref);
+
+}
 
 } // end gtest namespace
 
