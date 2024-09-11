@@ -2,7 +2,7 @@
 FROM ubuntu:24.04
 
 # update aptitude and install dependencies available therein
-RUN apt update && apt install -y python3 python3-numpy python3-matplotlib gcc g++ build-essential make cmake libgtest-dev libopenblas-dev liblapacke-dev git openssh-client python3-pip libopenblas-openmp-dev
+RUN apt update && apt install -y python3 python3-numpy python3-matplotlib gcc g++ build-essential make cmake libgtest-dev libopenblas-dev liblapacke-dev git openssh-client python3-pip libomp-dev libopenblas-openmp-dev
 # copy local version of Eikonal repo
 RUN mkdir Eikonal
 COPY LICENSE README.md Makefile Eikonal/
