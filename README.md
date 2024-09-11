@@ -87,6 +87,41 @@ sudo apt install libopenblas-openmp-dev liblapacke-dev
    which ensures the `C` wrapper to lapack (in headers `lapacke.h`) is 
    installed in a sane location.
 
+-  Thje c++ compoiler should have support for the `OpenMP` shared memory parallelization library, and
+   the library must exist on your system. That is, `omp.h` and `libomp.so` must exist somewhere in the filesystem,
+   the compiler must understand openMP directives, and the linker should be able to find and link to `libomp`
+   given the `-fopenmp` flag. Most modern compilers will ship with the header and library files,
+   as well as support for `OpenMP` directives. In case the files don't make it, you can use (on `Linux` with `dpkg`)
+```shell
+sudo apt install libomp-dev
+```
+### Thread settings for OpenMP ###
+An example threading config file `cpuconfig.sh` is included to show some of the environment variables that `OpenMP` exposes 
+for users to set from the shell. In general, using the number of physical cores on the system improves the performance of
+most algorithsm that `Eikonal` uses (over hyperthreading), while the binding of threads spawned by OpenMP to those physical core IDs is
+something with which you should experiment on your system by setting the `OMP_PROC_BIND` and `OMP_PLACES` environement variables. 
+Proc-binding essentially disables hyperthreading when you set the number of threads to less than or equal to the number of cores per socket.
+
+I find that enabling threads significantly reduces the convergence time for quadrature search when `n,m` are large enough (>~10), so using and playing around with `OpenMP` settings is well worth the effort if you need high order quadrature.
+
+```shell
+# number of threads for OpenMP
+num_threads=6
+
+# let the shell use the maximum amount of stack memory
+ulimit -s unlimited
+# set mem for thread stack
+export OMP_STACKSIZE=256m
+
+#thread pinning settings
+export OMP_PLACES="{0}:${num_threads}:1"
+export OMP_PROC_BIND=true
+export OMP_DISPLAY_ENV=true
+export OMP_NUM_THREADS=${num_threads}
+```
+
+Note, the `OMP_NUM_THREADS` variable is set here, though this will change. It is not advisable to set such an environmental variable if you link to other programs which also use `OpenMP`. They may have their own tested/working heuristics for setting the number of threads. and fixing it in the shell context can mess up the performance of their threaded functions when called from within the same context. The `num_threads` variable set above will eventually be passed to the program at runtime (set by calling `omp_set_num_threads`), while `OMP_NUM_THREADS` will be unset/empty.
+
 ## NLOPT Installation ##
 The open-source nonlinear optimization libary which we use is `nlopt`, by our favorite `FFTW` co-creator Steven Johnson! 
 For our purposes, it is used to generate near-optimal Gaussian-like quadrature on the triangle, and is to be investigated for 
@@ -106,5 +141,7 @@ sudo make isntall
 which (on `Linux` systems) will by default install header and shared library files in
 `/usr/local/include` and `/usr/local/lib`.
 
+### Threading in `nlopt` ###
+Following the discussion of threading with `OpenMP` above, it seems that `NLOPT` is threaded using the lower level `pthreads` library, but responds to the `OMP_NUM_THREADS` variable setting (i.e. if `num_threads=6`, CPU utilization will not exceed 600%). I have yet to test whether this response is in favor of performance, in terms of time or memory use. The faster we can go, the farther we can push the order of generated quadratures, so this is worth looking into at some point.
 
 
