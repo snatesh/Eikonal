@@ -13,7 +13,7 @@ struct Jn
   T **A1, **A2, **B1, **B2;
   T a, b, c, kap;
 
-  Jn  ( unsigned int _n, T_a, T _b, T _c )
+  Jn  ( unsigned int _n, T _a, T _b, T _c )
     : n(_n), a(_a), b(_b), c(_c)
   {
     N = static_cast<unsigned int>(0.5 * n * (n + 1)); 
