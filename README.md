@@ -100,7 +100,7 @@ sudo apt install libopenblas-openmp-dev liblapacke-dev
    which ensures the `C` wrapper to lapack (in headers `lapacke.h`) is 
    installed in a sane location.
 
--  Thje c++ compoiler should have support for the `OpenMP` shared memory parallelization library, and
+-  The c++ compoiler should have support for the `OpenMP` shared memory parallelization library, and
    the library must exist on your system. That is, `omp.h` and `libomp.so` must exist somewhere in the filesystem,
    the compiler must understand `OpenMP` directives, and the linker should be able to find and link to `libomp`
    given the `-fopenmp` flag. Most modern compilers will ship with the header and library files,
