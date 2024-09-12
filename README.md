@@ -74,7 +74,7 @@ Above, the `docker run` command with `bash` post-fixed will instantiate a
 `bash` shell running in the container, within which you can read/write/execute
 files as you please. The last two commands above change directory into
 the `/Eikonal` folder in the container context, compile the 
-`gtest` code (located in `/Eikonal/testing/gtest.cpp`, and run the tests therein.
+`gtest` code (located in `/Eikonal/testing/gtest.cpp`), and run the tests therein.
 
 As another example, to generate near optimal Gaussian-like quadrature with unit
 weight sum and nodes interior to the standard triangle from order `n=4` Koornwinder 
