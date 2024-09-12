@@ -66,7 +66,14 @@ int main(int argc, char* argv[])
     if (d->Z0[i] < 0 || d->Z0[i+N] < 0 || d->Z0[i] + d->Z0[i+N] - 1 > 0)
     {
       std::cerr << "ERROR: nodes outside of triangle!" << std::endl; 
-      exit(1); 
+      std::stringstream ss; ss << "triquadLeg_" << n << "_" << m << ".txt";
+      std::ofstream ofile(ss.str());
+      for (unsigned int i = 0; i < 3*N; ++i) 
+      { 
+        ofile << std::setprecision(std::numeric_limits<double>::max_digits10) 
+              << d->Z0[i] << std::endl; 
+      }
+          exit(1); 
     }
   }
   
@@ -84,7 +91,8 @@ int main(int argc, char* argv[])
   for (unsigned int i = 0; i < 3*N; ++i) 
   { 
     ofile << std::setprecision(std::numeric_limits<double>::max_digits10) 
-          << d->Z0[i] << std::endl; }
+          << d->Z0[i] << std::endl; 
+  }
 
 
   // integration test on result d->Z0
