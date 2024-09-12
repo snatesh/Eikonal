@@ -10,7 +10,7 @@ I term the VR-quadrature approach "Discretize-Orthogonalize-Optimize" (DOO), whi
 
 The generatable quadrature rules are used to represent to high accuracy and with high efficiency functions appearing in Eikonal models under the Koornwinder polynomial basis family. 
 
-Recent results by Townsend, Oliver and Vasil enable the construction of sparse differential operators on the standard triangle, interoperating within the Koornwinder polynomial family parameter space, and leading to low-storage, banded discrete operators. 
+Recent results by Townsend, Oliver and Vasil enable the construction of sparse differential operators on the standard triangle, interoperating within the Koornwinder polynomial family parameter space, and leading to low-storage, banded discrete differential operators. The library provides an implementation of these discrete PDOs. They can be composed together to form solvers for a variety of linear PDEs of arbitrary order, even with variable coefficients (coming soon (i hope)). Non-linearity is handled by passing an appropriately defined problem to `nlopt` in terms of these operators acting on minimization variables (solution coefficients under in a Koornwinder expansion).
 
 At the time of writing, the following capabilities exist:
 - representing and manipulating functions in a modal sense under Koornwinder polynomial expansions (global approximation)
