@@ -1,9 +1,9 @@
-#ifndef _D1_TRI_H
-#define _D1_TRI_H
+#ifndef _DMAT_H
+#define _DMAT_H
 #include<iostream>
 
 template<typename T>
-inline void dxdy_mat_tri(T a, T b, T c, const T* H, const T* H1, unsigned int n, unsigned int mode, T* D)
+inline void dMat(T a, T b, T c, const T* H, const T* H1, unsigned int n, unsigned int mode, T* D)
 {
   a = a - 0.5; b = b - 0.5; c = c - 0.5;
   unsigned int N = static_cast<unsigned int>(0.5 * (n + 1) * (n + 2)); 
@@ -64,7 +64,13 @@ inline void dxdy_mat_tri(T a, T b, T c, const T* H, const T* H1, unsigned int n,
   else
   {
     std::cerr << "invalid mode (0,1)" << std::endl;
+    exit(1);
   }
 }
+
+template void dMat<double>  ( double a, double b, double c, 
+                              const double* H, const double* H1, 
+                              unsigned int n, unsigned int mode, 
+                              double* D );
 
 #endif

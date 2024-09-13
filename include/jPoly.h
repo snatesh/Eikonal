@@ -4,8 +4,7 @@
 #include<iostream>
 #include<cmath>
 #include<omp.h>
-
-using std::pow;
+#include<sFactors.h>
 
 /*
   Generate the Jacobi (a,b) Vandermonde matrix
@@ -28,8 +27,9 @@ using std::pow;
       - NOTE: these are not normalizez. One must call structure_factors()
       -       to obtain the normalization coefficients. 
 */
-template<typename T>
-inline void jPoly(T* x, unsigned int Nx, unsigned int Np, const T a, const T b, T* V)
+
+template<typename T> inline void jpoly  ( T* x, unsigned int Nx, unsigned int Np, 
+                                          const T a, const T b, T* V  )
 {
   T apb = a + b; 
   T aa  = a * a; 
@@ -73,7 +73,7 @@ inline void jPoly(T* x, unsigned int Nx, unsigned int Np, const T a, const T b, 
 }
 
 template<typename T>
-inline void jPoly_tri(const T* X, const T* Y, T* H, unsigned int Nx, unsigned int n, 
+inline void jpoly_tri(const T* X, const T* Y, T* H, unsigned int Nx, unsigned int n, 
                       T a, T b, T c, T* V)
 {
   // total num of polys up to degree n in d dimensions is nchoosek(n+d,n)
@@ -95,14 +95,14 @@ inline void jPoly_tri(const T* X, const T* Y, T* H, unsigned int Nx, unsigned in
   }
 
   T* Pk = (T*) calloc(Nx*(n+1), sizeof(T));
-  jPoly<T>(ydx, Nx, n + 1, c - 0.5, b - 0.5, Pk);
+  jpoly<T>(ydx, Nx, n + 1, c - 0.5, b - 0.5, Pk);
 
   T* Pnmk = (T*) calloc(Nx*(n+1)*(n+1), sizeof(T));
   #pragma omp parallel for
   for (unsigned int kk = 0; kk <= n; ++kk) 
   {
     T* pnmk = &Pnmk[Nx*(n+1)*kk];
-    jPoly<T>(x2m1, Nx, n + 1, 2.0 * kk + b + c, a - 0.5, pnmk);
+    jpoly<T>(x2m1, Nx, n + 1, 2.0 * kk + b + c, a - 0.5, pnmk);
   }  
 
   unsigned int ind = 1;
@@ -125,5 +125,107 @@ inline void jPoly_tri(const T* X, const T* Y, T* H, unsigned int Nx, unsigned in
   free(ydx); free(x2m1); free(mxp1);
   free(Pk); free(Pnmk); 
 }
+
+template<typename T>
+class jPoly
+{
+  public:
+    unsigned int Nx, Np, n; 
+    T a, b, c;
+    T *X, *Y, *H, *V;
+    unsigned int nthreads;
+
+    void init  ()
+    {
+      this->Np = static_cast<unsigned int>(0.5 * (n + 1) * (n + 2));
+      this->V = (double*) calloc(Nx*Np, sizeof(double));
+      this->H = (double*) calloc((n+1)*(n+1), sizeof(double));
+      sFactors(n+1, a, b, c, this->H);
+      this->ydx  = (T*) calloc(Nx, sizeof(T));
+      this->x2m1 = (T*) calloc(Nx, sizeof(T));
+      this->mxp1 = (T*) calloc(Nx, sizeof(T));
+      this->Pk = (T*) calloc(Nx*(n+1), sizeof(T));
+      this->Pnmk = (T*) calloc(Nx*(n+1)*(n+1), sizeof(T));
+    }
+    
+    void computeV(T* _X, T* _Y)
+    {
+      this->X = _X; this->Y = _Y;
+      #pragma omp parallel num_threads(nthreads)
+      {
+        #pragma omp for
+        for (unsigned int i = 0; i < Nx; ++i)
+        {
+          ydx[i]  = 2.0 * Y[i] / (1 - X[i]) - 1;
+          x2m1[i] = 2.0 * X[i] - 1;
+          mxp1[i] = 1.0 - X[i];
+        }
+
+        #pragma omp for
+        for (unsigned int kk = 0; kk <= n; ++kk) 
+        {
+          T* pnmk = &Pnmk[Nx*(n+1)*kk];
+          jpoly<T>(x2m1, Nx, n + 1, 2.0 * kk + b + c, a - 0.5, pnmk);
+        }
+      }  
+      jpoly<T>(this->ydx, Nx, n + 1, c - 0.5, b - 0.5, this->Pk);
+      
+      unsigned int ind = 1;
+      for (unsigned int nn = 0; nn <= n; ++nn)
+      {
+        #pragma omp parallel for schedule(dynamic) num_threads(nthreads)
+        for (unsigned int kk = 0; kk <= nn; ++kk)
+        {
+          T* v = &V[Nx*(ind+kk-1)];
+          T* pnmk = &Pnmk[Nx*(n+1)*kk];
+          #pragma omp simd
+          for (unsigned int i = 0; i < Nx; ++i)
+          {
+            v[i] = 1.0 / H[kk + (n+1)*nn] * pnmk[i + Nx*(nn-kk)] * 
+                   std::pow(mxp1[i],kk) * Pk[i + Nx*kk];
+          }
+        }
+        ind = ind + nn + 1;
+      }
+    }
+
+    jPoly ( unsigned int _Nx, unsigned int _n,
+            T _a, T _b, T _c, unsigned int _nthreads  )
+      : Nx(_Nx), n(_n), 
+        a(_a), b(_b), c(_c), 
+        nthreads(_nthreads) { init(); }
+
+
+
+    jPoly ( T* _X, T* _Y, 
+            unsigned int _Nx, 
+            unsigned int _n,
+            T _a, T _b, T _c, 
+            unsigned int _nthreads  )
+      : X(_X), Y(_Y), Nx(_Nx), 
+        a(_a), b(_b), c(_c), 
+        nthreads(_nthreads) 
+    {
+      init();
+      computeV(this->X, this->Y);
+    }
+
+    ~jPoly  ()
+    {
+      free(H); free(V);
+      free(ydx); free(x2m1); free(mxp1);
+      free(Pk); free(Pnmk); 
+    }
+
+  private: 
+    T *ydx, *x2m1, *mxp1;
+    T *Pk, *Pnmk;
+
+};
+
+template void jpoly<double> ( double* x, unsigned int Nx, unsigned int Np, 
+                              const double a, const double b, double* V );
+template class jPoly<double>;
+
 
 #endif

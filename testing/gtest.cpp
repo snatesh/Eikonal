@@ -4,11 +4,12 @@
 #include<vector>
 #include<cblas.h>
 #include<gtest/gtest.h>
-#include<structure_factors.h>
+#include<sFactors.h>
 #include<jPoly.h>
-#include<promotion_mat_tri.h>
-#include<dxdy_mat_tri.h>
-#include<jacobi_mat_ON_tri.h>
+#include<kMat.h>
+#include<dMat.h>
+#include<jMat.h>
+#include<omp.h>
 
 #ifdef PLOT
 #include<../include/matplotlibcpp.h>
@@ -142,8 +143,6 @@ double myconstraint(unsigned n, const double *x, double *grad, void *data)
 namespace
 {
 
-
-
 TEST(structureFactorTest, TolCheck)
 {
   double tol  = 1e-15;
@@ -157,7 +156,7 @@ TEST(structureFactorTest, TolCheck)
     Hfile >> Href[i];
 
   }
-  structure_factors_tri<double>(Np, a, b, c, H);
+  sFactors(Np, a, b, c, H);
   double diff = infnorm(H,Href,Np*Np);
   EXPECT_LT(diff, tol);
   //printMat(H,Np,Np);
@@ -184,7 +183,7 @@ TEST(jPolyTest, TolCheck)
   {
     x[i] = -1.0 + h*i;
   }
-  jPoly<double>(x, Nx, Np, 0.5, 0.5, V);  
+  jpoly<double>(x, Nx, Np, 0.5, 0.5, V);  
   double diff = infnorm(V,Vref,Nx*Np);
   EXPECT_LT(diff, tol);
   //printMat(V,Nx,Np);
@@ -195,6 +194,7 @@ TEST(jPolyTest, TolCheck)
 
 TEST(jPolyTriTest, TolCheck)
 {
+
   double tol  = 1e-12;
   double a = 0.5; double b = 0.5; double c = 0.5; 
   unsigned int N = 136;
@@ -202,26 +202,27 @@ TEST(jPolyTriTest, TolCheck)
   unsigned int Np = static_cast<unsigned int>(0.5 * m * (m + 1));
   double* Xk = (double*) calloc(N, sizeof(double));
   double* Yk = (double*) calloc(N, sizeof(double));
-  double* Vm = (double*) calloc(N*Np, sizeof(double));
   double* Vmref = (double*) calloc(N*Np, sizeof(double));
-  double* Hm = (double*) calloc(m*m, sizeof(double));
   // read in test data
   std::ifstream Zkfile("../testdata/Zkref.txt");
   std::ifstream Vmfile("../testdata/Vmref.txt");
   for (unsigned int i = 0; i < N; ++i) { Zkfile >> Xk[i]; }
   for (unsigned int i = 0; i < N; ++i) { Zkfile >> Yk[i]; }
   for (unsigned int i = 0; i < N*Np; ++i) { Vmfile >> Vmref[i]; }
-  structure_factors_tri(m, a, b, c, Hm);
-  jPoly_tri<double>(Xk, Yk, Hm, N, m-1, a, b, c, Vm);
-  double diff = infnorm(Vm, Vmref, N*Np);
+
+  jPoly<double>* Vm = new jPoly(N, m-1, a, b, c, 6);
+  Vm->computeV(Xk, Yk);
+  double diff = infnorm(Vm->V, Vmref, N*Np);
   EXPECT_LT(diff, tol);
   std::cout << "\nrelative infinity norm of diff = " << diff << "\n\n";
-  free(Hm);
-  free(Vm);
+  
+  delete Vm;
+  free(Vmref);
   free(Xk);
   free(Yk);
-  free(Vmref);
+
 }
+
 
 #ifdef PLOT
 namespace plt = matplotlibcpp;
@@ -330,9 +331,9 @@ TEST(promMatA1Test, TolCheck)
  
   std::ifstream K_a1bc_ref_file("../testdata/K_a1bc_ref.txt");
   for (unsigned int i = 0; i < N*N; ++i) { K_a1bc_ref_file >> K_a1bc_ref[i]; }
-  structure_factors_tri<double>(n+1, a, b, c, H_abc);
-  structure_factors_tri<double>(n+1, a+1, b, c, H_a1bc);
-  promotion_mat_tri(a, b, c, H_abc, H_a1bc, n_k, 0, K_a1bc);
+  sFactors(n+1, a, b, c, H_abc);
+  sFactors(n+1, a+1, b, c, H_a1bc);
+  kMat(a, b, c, H_abc, H_a1bc, n_k, 0, K_a1bc);
   double diff = infnorm(K_a1bc, K_a1bc_ref, N*N);
   EXPECT_LT(diff, tol);
   std::cout << "\nrelative infinity norm of diff = " << diff << "\n\n";
@@ -357,9 +358,9 @@ TEST(promMatB1Test, TolCheck)
  
   std::ifstream K_ab1c_ref_file("../testdata/K_ab1c_ref.txt");
   for (unsigned int i = 0; i < N*N; ++i) { K_ab1c_ref_file >> K_ab1c_ref[i]; } 
-  structure_factors_tri<double>(n+1, a, b, c, H_abc);
-  structure_factors_tri<double>(n+1, a, b+1.0, c, H_ab1c);
-  promotion_mat_tri(a, b, c, H_abc, H_ab1c, n_k, 1, K_ab1c);
+  sFactors(n+1, a, b, c, H_abc);
+  sFactors(n+1, a, b+1.0, c, H_ab1c);
+  kMat(a, b, c, H_abc, H_ab1c, n_k, 1, K_ab1c);
   
   double diff = infnorm(K_ab1c, K_ab1c_ref, N*N);
   EXPECT_LT(diff, tol);
@@ -385,9 +386,9 @@ TEST(promMatC1Test, TolCheck)
  
   std::ifstream K_abc1_ref_file("../testdata/K_abc1_ref.txt");
   for (unsigned int i = 0; i < N*N; ++i) { K_abc1_ref_file >> K_abc1_ref[i]; } 
-  structure_factors_tri<double>(n+1, a, b, c, H_abc);
-  structure_factors_tri<double>(n+1, a, b+1.0, c, H_abc1);
-  promotion_mat_tri(a, b, c, H_abc, H_abc1, n_k, 2, K_abc1);
+  sFactors(n+1, a, b, c, H_abc);
+  sFactors(n+1, a, b+1.0, c, H_abc1);
+  kMat(a, b, c, H_abc, H_abc1, n_k, 2, K_abc1);
   
   double diff = infnorm(K_abc1, K_abc1_ref, N*N);
   EXPECT_LT(diff, tol);
@@ -413,9 +414,9 @@ TEST(dxTriTest, TolCheck)
  
   std::ifstream D_a1bc1_ref_file("../testdata/Dx_a1bc1_ref.txt");
   for (unsigned int i = 0; i < N*N; ++i) { D_a1bc1_ref_file >> D_a1bc1_ref[i]; } 
-  structure_factors_tri<double>(n+1, a, b, c, H_abc);
-  structure_factors_tri<double>(n+1, a+1.0, b, c+1.0, H_a1bc1);
-  dxdy_mat_tri(a, b, c, H_abc, H_a1bc1, n_k, 0, D_a1bc1);
+  sFactors(n+1, a, b, c, H_abc);
+  sFactors(n+1, a+1.0, b, c+1.0, H_a1bc1);
+  dMat(a, b, c, H_abc, H_a1bc1, n_k, 0, D_a1bc1);
   
   double diff = infnorm(D_a1bc1, D_a1bc1_ref, N*N);
   EXPECT_LT(diff, tol);
@@ -441,9 +442,9 @@ TEST(dyTriTest, TolCheck)
  
   std::ifstream D_ab1c1_ref_file("../testdata/Dy_ab1c1_ref.txt");
   for (unsigned int i = 0; i < N*N; ++i) { D_ab1c1_ref_file >> D_ab1c1_ref[i]; } 
-  structure_factors_tri<double>(n+1, a, b, c, H_abc);
-  structure_factors_tri<double>(n+1, a, b+1.0, c+1.0, H_ab1c1);
-  dxdy_mat_tri(a, b, c, H_abc, H_ab1c1, n_k, 1, D_ab1c1);
+  sFactors(n+1, a, b, c, H_abc);
+  sFactors(n+1, a, b+1.0, c+1.0, H_ab1c1);
+  dMat(a, b, c, H_abc, H_ab1c1, n_k, 1, D_ab1c1);
   
   double diff = infnorm(D_ab1c1, D_ab1c1_ref, N*N);
   EXPECT_LT(diff, tol);
@@ -455,14 +456,13 @@ TEST(dyTriTest, TolCheck)
   free(D_ab1c1_ref);
 }
 
-TEST(jacobiMatTriTest, TolCheck)
+TEST(jMatTriTest, TolCheck)
 {
   double tol  = 1e-14;
   unsigned int n = 20;
-  unsigned int N = static_cast<unsigned int>(0.5 * n * (n + 1)); 
   double a = 0.5; double b = 0.5; double c = 0.5;
-  double* Jn1 = (double*) calloc(N*N, sizeof(double));
-  double* Jn2 = (double*) calloc(N*N, sizeof(double));
+  jMat<double>* Jn = new jMat(n, a, b, c);
+  unsigned int N = Jn->N;
   double* Jn1_ref = (double*) calloc(N*N, sizeof(double));
   double* Jn2_ref = (double*) calloc(N*N, sizeof(double));
   std::ifstream Jn1_ref_file("../testdata/Jn1_ref.txt");
@@ -472,19 +472,16 @@ TEST(jacobiMatTriTest, TolCheck)
     Jn1_ref_file >> Jn1_ref[i];
     Jn2_ref_file >> Jn2_ref[i];
   } 
-
-  jacobi_mat_ON_tri<double>(n, a, b, c, Jn1, Jn2);
   
-  double diff1 = infnorm(Jn1, Jn1_ref, N*N);  
-  double diff2 = infnorm(Jn2, Jn2_ref, N*N);  
+  double diff1 = infnorm(Jn->Jn1, Jn1_ref, N*N);  
+  double diff2 = infnorm(Jn->Jn2, Jn2_ref, N*N);  
   
   EXPECT_LT(diff1, tol);
   EXPECT_LT(diff2, tol);
   std::cout << "\nrelative infinity norm of diff for Jx = " << diff1 << "\n\n";
   std::cout << "\nrelative infinity norm of diff for Jy = " << diff2 << "\n\n";
   
-  free(Jn1);
-  free(Jn2);
+  delete Jn;
   free(Jn1_ref);
   free(Jn2_ref);
 
@@ -510,41 +507,6 @@ TEST(nloptExampleTest, runCheck)
       printf("found minimum at f(%g,%g) = %0.10g\n", x[0], x[1], minf);
   }
   nlopt_destroy(opt);
-}
-
-TEST(jacobigenTEST, tolCheck)
-{
-
-  double tol  = 1e-14;
-  unsigned int n = 12;
-  unsigned int N = static_cast<unsigned int>(0.5 * n * (n + 1)); 
-  double a = 0.5; double b = 0.5; double c = 0.5;
-  double* Jn1 = (double*) calloc(N*N, sizeof(double));
-  double* Jn2 = (double*) calloc(N*N, sizeof(double));
-  double* Jn1_ref = (double*) calloc(N*N, sizeof(double));
-  double* Jn2_ref = (double*) calloc(N*N, sizeof(double));
-  double* Z = (double*) calloc(3*N, sizeof(double));
-  double* D = (double*) calloc(N*N, sizeof(double)); 
-  double* V = (double*) calloc(N*N, sizeof(double));
-  // need to figure out N pts and num polys needed for Pn (not Pn-1) 
-  std::cout << 3*N << std::endl; 
-  std::ifstream Z_file("../testdata/triquadLeg_15_24.txt");
-  for (unsigned int i = 0; i < 3*N; ++i) 
-  { 
-    Z_file >> Z[i]; std::cout << Z[i] << std::endl; 
-  }
- 
-  jacobi_mat_ON_tri<double>(n, a, b, c, Jn1, Jn2);
-
-  //double diff1 = infnorm(Jn1, Jn1_ref, N*N);  
-  //double diff2 = infnorm(Jn2, Jn2_ref, N*N);  
-  //
-  //EXPECT_LT(diff1, tol);
-  //EXPECT_LT(diff2, tol);
-
-  free(Jn1); free(Jn2);
-  free(Jn1_ref); free(Jn2_ref);
-
 }
 
 } // end gtest namespace

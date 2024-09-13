@@ -35,20 +35,20 @@ nloptLIBDIR             = /usr/local/lib/
 nloptLIB                = libnlopt.so.0.12.0
 nloptINC                = /usr/local/include/nlopt.h
 
-structureFactorINC        = include/structure_factors.h
-promotionMatINC           = include/promotion_mat_tri.h
-dxdyINC                   = include/dxdy_mat_tri.h
+sFactorsINC               = include/sFactors.h
+kMatINC                   = include/kMat.h
+dMatINC                   = include/dMat.h
 jPolyINC                  = include/jPoly.h
-jacobiMatINC              = include/jacobi_mat_ON_tri.h
+jMatINC                   = include/jMat.h
 
-ngjquadoptSRC              = src/ngjquad_opt.cpp
-ngjquadoptINC              = $(structureFactorINC) $(jpolyINC) $(jacobiMatINC) $(nloptINC) $(lapackINC) include/ngjquad_opt.h  
+ngjquadeigzSRC              = src/ngjquad_zgeev.cpp
+ngjquadeigzINC              = $(sFactorsINC) $(jpolyINC) $(jMatINC) $(nloptINC) $(lapackINC) include/ngjquad_zgeev.h  
 
 gtestSRC                  = testing/gtest.cpp
-gtestINC                  = include/structure_factors.h include/jPoly.h /usr/include/gtest/gtest.h
-LIBS_                     = libstructureFactor.so libjPoly.so libpromotionMat.so libdxdy.so libjacobiMat.so libngjquadOpt.so
+gtestINC                  = include/sFactors.h include/jPoly.h /usr/include/gtest/gtest.h
+LIBS_                     = libsFactors.so libjPoly.so libkMat.so libdMat.so libjMat.so libngjquadEigz.so
 gtestLIB                  = /usr/lib/x86_64-linux-gnu/libgtest.a
-EXEC_                     = ngjquad_opt 
+EXEC_                     = ngjquad_zgeev 
 GTEST_                    = gtest
 LIBS                      = $(patsubst %,$(EIKONAL_LIB)/%,$(LIBS_))
 EXEC                      = $(patsubst %,$(EIKONAL_BIN)/%,$(EXEC_))
@@ -57,47 +57,38 @@ GTEST                     = $(patsubst %,$(EIKONAL_TESTBIN)/%,$(GTEST_))
 all: $(LIBS) $(EXEC) 
 test: $(GTEST) 
 
-$(EIKONAL_LIB)/libstructureFactor.so: $(structureFactorINC) 
+$(EIKONAL_LIB)/libsFactors.so: $(sFactorsINC) 
 	@mkdir -p $(EIKONAL_LIB)
-	$(CXX) -o $@ $(structureFactorINC) $(CXXFLAGS_lib) -fPIC
+	$(CXX) -o $@ $(sFactorsINC) $(CXXFLAGS_lib) -fPIC
 
-$(EIKONAL_LIB)/libjPoly.so: $(jPolyINC) 
+$(EIKONAL_LIB)/libjPoly.so: $(jPolyINC) $(sFactorsINC) $(EIKONAL_LIB)/libsFactors.so 
 	@mkdir -p $(EIKONAL_LIB)
 	$(CXX) -o $@ $(jPolyINC) $(CXXFLAGS_lib) -fPIC
 
-$(EIKONAL_LIB)/libpromotionMat.so: $(promotionMatINC) 
+$(EIKONAL_LIB)/libkMat.so: $(kMatINC) 
 	@mkdir -p $(EIKONAL_LIB)
-	$(CXX) -o $@ $(promotionMatINC) $(CXXFLAGS_lib) -fPIC
+	$(CXX) -o $@ $(kMatINC) $(CXXFLAGS_lib) -fPIC
 
-$(EIKONAL_LIB)/libdxdy.so: $(dxdyINC) 
+$(EIKONAL_LIB)/libdMat.so: $(dMatINC) 
 	@mkdir -p $(EIKONAL_LIB)
-	$(CXX) -o $@ $(dxdyINC) $(CXXFLAGS_lib) -fPIC
+	$(CXX) -o $@ $(dMatINC) $(CXXFLAGS_lib) -fPIC
 
-$(EIKONAL_LIB)/libjacobiMat.so: $(jacobiMatINC) $(structureFactorINC) $(EIKONAL_LIB)/libstructureFactor.so
+$(EIKONAL_LIB)/libjMat.so: $(jMatINC) $(sFactorsINC) $(EIKONAL_LIB)/libsFactors.so
 	@mkdir -p $(EIKONAL_LIB)
-	$(CXX) -o $@ $(jacobiMatINC) $(CXXFLAGS_lib) -fPIC
+	$(CXX) -o $@ $(jMatINC) $(CXXFLAGS_lib) -fPIC
 
-$(EIKONAL_LIB)/libngjquadOpt.so: $(ngjquadoptINC) $(EIKONAL_LIB)/libjacobiMat.so
+$(EIKONAL_LIB)/libngjquadEigz.so: $(ngjquadeigzINC) $(EIKONAL_LIB)/libjMat.so
 	@mkdir -p $(EIKONAL_LIB)
-	$(CXX) -o $@ $(ngjquadoptINC) $(CXXFLAGS_lib) -fPIC
+	$(CXX) -o $@ $(ngjquadeigzINC) $(CXXFLAGS_lib) -fPIC
 
-$(EIKONAL_BIN)/ngjquad_opt: $(ngjquadoptSRC) $(ngjquadoptINC) $(LIBS) $(lapackLIBDIR)/$(lapackLIB) $(cblasLIBDIR)/$(cblasLIB) $(nloptLIBDIR)/$(nloptLIB)
+$(EXEC): $(ngjquadeigzSRC) $(ngjquadeigzINC) $(LIBS) $(lapackLIBDIR)/$(lapackLIB) $(cblasLIBDIR)/$(cblasLIB) $(nloptLIBDIR)/$(nloptLIB)
 	@mkdir -p $(EIKONAL_BIN)
-	$(CXX) -o $(EIKONAL_BIN)/ngjquad_opt $(ngjquadoptSRC) $(ngjquadoptINC) $(CXXFLAGS_bin) -I$(lapackINC) -L$(lapackLIBDIR) $(lapackINC) -L$(cblasLIBDIR) $(cblasINC) -L$(nloptLIBDIR) $(nloptINC) -l:$(lapackLIB) -l:$(cblasLIB) -l:$(nloptLIB) -lm -I/usr/include/python3.12 -l:libpython3.12.so -DWITHOUT_NUMPY 
+	$(CXX) -o $(EXEC) $(ngjquadeigzSRC) $(ngjquadeigzINC) $(CXXFLAGS_bin) -I$(lapackINC) -L$(lapackLIBDIR) $(lapackINC) -L$(cblasLIBDIR) $(cblasINC) -L$(nloptLIBDIR) $(nloptINC) -l:$(lapackLIB) -l:$(cblasLIB) -l:$(nloptLIB) -lm -I/usr/include/python3.12 -l:libpython3.12.so -DWITHOUT_NUMPY 
 
-
-#ifeq ($(PLOT), True)
-#$(EIKONAL_TESTBIN)/gtest: $(gtestSRC) $(gtestINC) $(LIBS) $(cblasLIBDIR)/$(cblasLIB)
-#	@mkdir -p $(EIKONAL_TESTBIN)
-#	$(CXX) -o $(EIKONAL_TESTBIN)/gtest $(gtestSRC) $(gtestINC) $(gtestLIB) $(CXXFLAGS_test) -I/usr/include/python3.12 -l:libpython3.12.so -DWITHOUT_NUMPY -L$(cblasLIBDIR) $(cblasINC) -l:$(cblasLIB) 
-#	@cd $(EIKONAL_TESTBIN) && ./gtest && open ../testdata/intconv.png
-#else
 $(EIKONAL_TESTBIN)/gtest: $(gtestSRC) $(gtestINC) $(LIBS) $(cblasLIBDIR)/$(cblasLIB) $(nloptLIBDIR)/$(nloptLIB)
 	@mkdir -p $(EIKONAL_TESTBIN)
 	$(CXX) -o $(EIKONAL_TESTBIN)/gtest $(gtestSRC) $(gtestINC) $(gtestLIB) $(CXXFLAGS_test) -L$(cblasLIBDIR) $(cblasINC) -L$(nloptLIBDIR) $(nloptINC) -l:$(cblasLIB) -l:$(nloptLIB) -lm 
 	@cd $(EIKONAL_TESTBIN) && ./gtest 
-
-#endif
 
 clean: 
 	rm -rf $(EIKONAL_LIB) $(EIKONAL_BIN) $(EIKONAL_TESTBIN) $(EIKONAL_TESTBIN)/*.png

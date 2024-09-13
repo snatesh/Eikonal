@@ -1,10 +1,11 @@
-#include<ngjquad_opt.h>
+#include<ngjquad_zgeev.h>
 #include<fstream>
 #include<../include/matplotlibcpp.h>
 namespace plt = matplotlibcpp;
 void plot_tri(double* tri, std::string col);
 
 /*
+
   Usage: ./ngjquad_opt algtype, n m tol tolc use_newton use_wolfe alph
     -  algtype (int) - 0-2 
         (0 - NELDERMEAD, 1 - COBYLA, 2 - SBPLX)
@@ -24,6 +25,10 @@ void plot_tri(double* tri, std::string col);
    
    There are M polys up to total degree m in target basis 
    we seek quad rules of size N < M 
+
+   This routine calls LAPACK complex eigenvalue routine
+   ZGEEV to compute initial nodes for optimization
+ 
 */
 int main(int argc, char* argv[])
 {
@@ -54,7 +59,7 @@ int main(int argc, char* argv[])
   for (unsigned int i = 0; i < N; ++i) { sum += d->Z0[2*N+i]; }
   std::cout << "Sum of weights : " << sum << std::endl;  
   std::cout << "Objective value at argmin: " << nloptF(3*N, d->Z0, nullptr, d)  << std::endl;
-  jPoly_tri<double>(d->Z0, d->Z0 + N, d->Hm, N, m-1, a, b, c, d->Vm); 
+  jpoly_tri<double>(d->Z0, d->Z0 + N, d->Hm, N, m-1, a, b, c, d->Vm); 
   cond(d->Vm, N, M, &rcond);
   std::cout << "Conditioning of interpolation operator: " << 1.0 / rcond << std::endl;
   double* Ftest = (double*) calloc(N, sizeof(double));
@@ -100,7 +105,7 @@ int main(int argc, char* argv[])
   for (unsigned int i = 0; i < N; ++i) { sum += d->Z0[2*N+i]; }
   std::cout << "Sum of weights : " << sum << std::endl;  
   std::cout << "Conditioning of interpolation operator : " << nloptF1(2*N, d->Z0, nullptr, d)  << std::endl;
-  jPoly_tri<double>(d->Z0, d->Z0 + N, d->Hm, N, m-1, a, b, c, d->Vm); 
+  jpoly_tri<double>(d->Z0, d->Z0 + N, d->Hm, N, m-1, a, b, c, d->Vm); 
   Ival = cblas_ddot(N, d->Z0 + 2*N, 1, Ftest, 1) / wabc;
   printf("Integral_T sin(x^2+y^2) : %5.16f \n", Ival);
  

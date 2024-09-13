@@ -1,9 +1,11 @@
-#ifndef _PROMOTION_MAT_TRI_H 
-#define _PROMOTION_MAT_TRI_H
+#ifndef _KMAT_H 
+#define _KMAT_H
 #include<iostream>
 
 template<typename T>
-inline void promotion_mat_tri(T a, T b, T c, const T* H, const T* H1, unsigned int n, unsigned int mode, T* K)
+inline void kMat  ( T a, T b, T c, const T* H,
+                    const T* H1, unsigned int n, 
+                    unsigned int mode, T* K )
 {
   a = a - 0.5; b = b - 0.5; c = c - 0.5;
   unsigned int N = static_cast<unsigned int>(0.5 * (n + 1) * (n + 2)); 
@@ -167,6 +169,13 @@ inline void promotion_mat_tri(T a, T b, T c, const T* H, const T* H1, unsigned i
   else
   {
     std::cerr << "invalid mode (0,1,2)" << std::endl; 
+    exit(1);
   }
 }
+
+template void kMat<double>( double a, double b, double c, 
+                            const double* H, const double* H1, 
+                            unsigned int n, unsigned int mode, 
+                            double* K );
+
 #endif

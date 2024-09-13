@@ -1,5 +1,5 @@
-#ifndef _STRUCTURE_FACTORS_H
-#define _STRUCTURE_FACTORS_H
+#ifndef _SFACTORS_H
+#define _SFACTORS_H
 
 #include<cmath>
 #include<iostream>
@@ -31,13 +31,14 @@ using std::sqrt;
       - NOTE: stored in column major order 
 */   
 template<typename T>
-inline void structure_factors_tri(const unsigned int N,
-                              const T a, const T b, const T c, 
-                              T* H)
+inline void sFactors (  const unsigned int N,
+                        const T a, const T b, const T c, 
+                        T* H  )
 {
   if (!H || N == 0)
   {
-    std::cerr << "scale array must not be empty, and N cannot be 0! Exiting ...\n";
+    std::cerr << "scale array must not be empty";
+    std::cerr << " and N cannot be 0! Exiting ...\n";
     exit(1);
   }
 
@@ -80,5 +81,9 @@ inline void structure_factors(const unsigned int N,
          tgamma(a+b+2);
 }
 
+
+template void sFactors<double>  ( const unsigned int N,
+                                  const double a, const double b, 
+                                  const double c, double* H  );
 
 #endif

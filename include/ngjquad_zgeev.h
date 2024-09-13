@@ -8,17 +8,23 @@
 #include<cblas.h>
 #include<lapacke.h>
 #include<nlopt.h>
-#include<jacobi_mat_ON_tri.h>
+#include<jMat.h>
 #include<jPoly.h>
 
 typedef double _Complex Complex;
 
+/* 
+   Use complexification trick J = Jx + iJy and 
+   complex eigenvalue routine from LAPACK ZGEEV
+   to compute initial nodes for optimization 
+*/
 
 typedef struct nlopt_func_data
 {
   double *Vm, *Hm, *Fk, *Z0, *Jn1, *Jn2, *X0, *Y0;
   double *Vm_T, *W0, *S, *F0;
-  Complex *Jn, *XY0;
+  Complex *Jnz, *XY0;
+  jMat<double>* Jn;
   double a,b,c;
   unsigned int N, M, n, m;
   bool run0; 
@@ -32,10 +38,11 @@ typedef struct nlopt_func_data
     this->N = static_cast<unsigned int>(0.5 * n * (n + 1)); 
     this->M = static_cast<unsigned int>(0.5 * m * (m + 1));
     // generate jacobi matrices for x,y 
+    this->Jn = new jMat(n, a, b, c);
     this->Hm = (double*) calloc(m*m, sizeof(double));
-    this->Jn1 = (double*) calloc(N*N, sizeof(double));
-    this->Jn2 = (double*) calloc(N*N, sizeof(double));
-    this->Jn = (Complex*) calloc(N*N, sizeof(Complex));
+    this->Jn1 = Jn->Jn1;
+    this->Jn2 = Jn->Jn2;
+    this->Jnz = (Complex*) calloc(N*N, sizeof(Complex));
     this->XY0 = (Complex*) calloc(N, sizeof(Complex));
     this->X0  = (double*) calloc(N, sizeof(double));
     this->Y0  = (double*) calloc(N, sizeof(double));
@@ -56,11 +63,11 @@ typedef struct nlopt_func_data
 
   ~nlopt_func_data()
   {
-    free(Jn1); free(Jn2); free(Jn);
-    free(XY0); free(X0); free(Y0);
+    delete Jn; Jn = 0;
+    free(Jnz); free(XY0); free(X0); free(Y0);
     free(Hm); free(Vm); free(Vm_T);
-    free(W0); free(F0); free(Z0); free(S); 
-    Jn1 = Jn2 = X0 = Y0 = 0; Jn = XY0 = 0;
+    free(W0); free(F0); free(Z0); free(S);
+    Jn1 = Jn2 = X0 = Y0 = 0; Jnz = XY0 = 0;
     Hm = Vm = Vm_T = W0 = F0 = Z0 = S = 0; 
   }
 };
@@ -160,7 +167,7 @@ inline double nloptF(unsigned int n, const double* Zk, double* grad, void* data)
   Xk = Zk; Yk = Zk + N; Wk = Zk + 2*N;
   Hm = d->Hm; Vm = d->Vm; Fk = d->Fk;
   double* I0 = (double*) calloc(M, sizeof(double)); I0[0] = 1;  
-  jPoly_tri<double>(Xk, Yk, Hm, N, m-1, a, b, c, Vm);
+  jpoly_tri<double>(Xk, Yk, Hm, N, m-1, a, b, c, Vm);
   cblas_dgemv(CblasColMajor,  CblasTrans,  N, M, 1.0, Vm, N, Wk, 1, -1.0, I0, 1);
   #pragma omp parallel for
   for (unsigned int i =0; i < M; ++i) { Fk[i] = I0[i]; }
@@ -203,7 +210,7 @@ inline double nloptF1(unsigned int n, const double* Zk, double* grad, void* data
   nlopt_func_data* d = (nlopt_func_data*) data;
   const double *Xk = Zk; 
   const double *Yk = Zk + d->N;
-  jPoly_tri<double>(Xk, Yk, d->Hm, d->N, d->m-1, d->a, d->b, d->c, d->Vm);
+  jpoly_tri<double>(Xk, Yk, d->Hm, d->N, d->m-1, d->a, d->b, d->c, d->Vm);
   double rcond[1];
   cond(d->Vm, d->N, d->M, rcond);
   if ( !(count1 % 100000) ) 
@@ -263,7 +270,7 @@ inline void F( double* Zk, double* Vm, unsigned int N, unsigned int m,
   Xk = Zk; Yk = Zk + N; Wk = Zk + 2*N;
   unsigned int M = static_cast<unsigned int>(0.5 * m * (m + 1));
   double* I0 = (double*) calloc(M, sizeof(double)); I0[0] = 1;  
-  jPoly_tri<double>(Xk, Yk, Hm, N, m-1, a, b, c, Vm);
+  jpoly_tri<double>(Xk, Yk, Hm, N, m-1, a, b, c, Vm);
   cblas_dgemv(CblasColMajor,  CblasTrans,  N, M, 1.0, Vm, N, Wk, 1, -1.0, I0, 1);
   for (unsigned int i =0; i < M; ++i) { Fk[i] = I0[i]; }
   free(I0);
@@ -275,16 +282,14 @@ inline void init_opt  ( nlopt_func_data* d )
   unsigned int m = d->m; unsigned int n = d->n; 
   unsigned int M = d->M; unsigned int N = d->N;
   double* Jn1 = d->Jn1; double* Jn2 = d->Jn2;
-  Complex* Jn = d->Jn; Complex* XY0 = d->XY0;
+  Complex* Jn = d->Jnz; Complex* XY0 = d->XY0;
   double* X0 = d->X0; double* Y0 = d->Y0;
   double* Hm = d->Hm; double* Vm = d->Vm;
   double* Vm_T = d->Vm_T; double* W0 = d->W0;
   double* S = d->S; double* Z0 = d->Z0; 
   double* F0 = d->F0; 
   double a = d->a, b = d->b, c = d->c;
-  structure_factors_tri<double>(m, a, b, c, Hm);
-  // generate jacobi matrices for x,y 
-  jacobi_mat_ON_tri<double>(n, a, b, c, Jn1, Jn2);
+  sFactors<double>(m, a, b, c, Hm);
   // compute initial nodes and weights from eigenvalues of Jn
   for (unsigned int i = 0; i < N*N; ++i) { Jn[i] = Jn1[i] + I*Jn2[i]; }
   if (LAPACKE_zgeev(LAPACK_COL_MAJOR, 'N', 'N', N, Jn, N, XY0, NULL, N, NULL, N))
@@ -297,7 +302,7 @@ inline void init_opt  ( nlopt_func_data* d )
     Y0[i] = cimag(XY0[i]); 
   } 
   // evaluate Vandermonde on initial nodes
-  jPoly_tri<double>(X0, Y0, Hm, N, m-1, a, b, c, Vm);
+  jpoly_tri<double>(X0, Y0, Hm, N, m-1, a, b, c, Vm);
   unsigned int i = 0;
   for (unsigned int col = 0; col < M; ++col)
   {
