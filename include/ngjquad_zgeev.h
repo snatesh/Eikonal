@@ -21,32 +21,38 @@ typedef double _Complex Complex;
 
 typedef struct nlopt_func_data
 {
-  double *Vm, *Hm, *Fk, *Z0, *Jn1, *Jn2, *X0, *Y0;
+  double *Vm, *Hm, *Fk, *Z0;
+  double *Jn1, *Jn2, *X0, *Y0;
   double *Vm_T, *W0, *S, *F0;
   Complex *Jnz, *XY0;
   jMat<double>* Jn;
+  jPoly<double>* Pm;
   double a,b,c;
   unsigned int N, M, n, m;
   bool run0; 
   double minf, minf1;
+  unsigned int nthreads;
  
   nlopt_func_data ( unsigned int _m, unsigned int _n, 
-                    double _a, double _b, double _c )
-    : n(_n), m(_m), a(_a), b(_b), c(_c), run0(true)
+                    double _a, double _b, double _c, 
+                    unsigned int _nthreads )
+    : n(_n), m(_m), a(_a), b(_b), c(_c), 
+      run0(true), nthreads(_nthreads)
   {
     std::cout << "\nBEGIN INITIALIZATION\n";
     this->N = static_cast<unsigned int>(0.5 * n * (n + 1)); 
     this->M = static_cast<unsigned int>(0.5 * m * (m + 1));
     // generate jacobi matrices for x,y 
     this->Jn = new jMat(n, a, b, c);
-    this->Hm = (double*) calloc(m*m, sizeof(double));
+    this->Pm = new jPoly(N, m-1, a, b, c, nthreads); 
+    this->Hm = Pm->H;
+    this->Vm = Pm->V;
     this->Jn1 = Jn->Jn1;
     this->Jn2 = Jn->Jn2;
     this->Jnz = (Complex*) calloc(N*N, sizeof(Complex));
     this->XY0 = (Complex*) calloc(N, sizeof(Complex));
     this->X0  = (double*) calloc(N, sizeof(double));
     this->Y0  = (double*) calloc(N, sizeof(double));
-    this->Vm = (double*) calloc(N*M, sizeof(double));
     this->Vm_T = (double*) calloc(M*N, sizeof(double));
     this->W0 = (double*) calloc((N >= M ? N : M), sizeof(double)); W0[0] = 1.0;
     this->S = (double*) calloc(M, sizeof(double)); 
@@ -64,11 +70,11 @@ typedef struct nlopt_func_data
   ~nlopt_func_data()
   {
     delete Jn; Jn = 0;
-    free(Jnz); free(XY0); free(X0); free(Y0);
-    free(Hm); free(Vm); free(Vm_T);
+    delete Pm; Pm = 0;
+    free(X0); free(Y0); free(Vm_T); 
     free(W0); free(F0); free(Z0); free(S);
-    Jn1 = Jn2 = X0 = Y0 = 0; Jnz = XY0 = 0;
-    Hm = Vm = Vm_T = W0 = F0 = Z0 = S = 0; 
+    Jn1 = Jn2 = X0 = Y0 = Hm = Vm = Vm_T = 0; 
+    W0 = F0 = Z0 = S = 0; 
   }
 };
 
@@ -76,13 +82,14 @@ inline void set_args  ( int argc, char* argv[],
                         nlopt_algorithm& alg, int& n, 
                         int& m, double& tol, double& tolc, 
                         bool& use_newton, bool& use_wolfe, 
-                        double& alph  )
+                        double& alph, unsigned int& nthreads )
 {
   std::cout << "\nSEARCH FOR NEAR OPTIMAL GAUSSIAN QUADRATURE\n";
   switch(argc)
   {
-    case 9:
+    case 10:
     {
+      nthreads = std::stoi(argv[9]);
       unsigned int algtype = std::stoi(argv[1]);
       switch(algtype)
       {
@@ -121,6 +128,7 @@ inline void set_args  ( int argc, char* argv[],
     }
     case 1:
     {
+      nthreads = 1;
       alg = NLOPT_LN_NELDERMEAD;
       std::cout << "ALGORITHM: NELDERMEAD\n";
       n = 4; m = 6;
@@ -140,6 +148,7 @@ inline void set_args  ( int argc, char* argv[],
       std::cerr << "  tol,tolc (double) > 0\n";
       std::cerr << "  use_newton, use_wolfe (int) - 0,1\n";
       std::cerr << "  alph (double) > 0\n";
+      std::cerr << "  nthreads (int) > 0\n";
       exit(1);
     }
   }
@@ -151,10 +160,12 @@ inline void set_args  ( int argc, char* argv[],
   std::cout << std::setw(15) << "use_newton = " << use_newton << std::endl;
   std::cout << std::setw(15) << "use_wolfe  = " << use_wolfe << std::endl;
   std::cout << std::setw(15) << "alpha      = " << alph << std::endl;
+  std::cout << std::setw(15) << "nthreads   = " << alph << std::endl;
 }
 
 unsigned long count = 0;
-inline double nloptF(unsigned int n, const double* Zk, double* grad, void* data)
+inline double nloptF  ( unsigned int n, const double* Zk, 
+                        double* grad, void* data  )
 {
   ++count;
   nlopt_func_data* d = (nlopt_func_data*) data;
@@ -166,10 +177,10 @@ inline double nloptF(unsigned int n, const double* Zk, double* grad, void* data)
   double *Hm, *Vm, *Fk;
   Xk = Zk; Yk = Zk + N; Wk = Zk + 2*N;
   Hm = d->Hm; Vm = d->Vm; Fk = d->Fk;
+  d->Pm->computeV(Xk, Yk);
   double* I0 = (double*) calloc(M, sizeof(double)); I0[0] = 1;  
-  jpoly_tri<double>(Xk, Yk, Hm, N, m-1, a, b, c, Vm);
   cblas_dgemv(CblasColMajor,  CblasTrans,  N, M, 1.0, Vm, N, Wk, 1, -1.0, I0, 1);
-  #pragma omp parallel for
+  #pragma omp parallel for 
   for (unsigned int i =0; i < M; ++i) { Fk[i] = I0[i]; }
   free(I0);
   double norm2 = pow(cblas_dnrm2(M, Fk, 1),2);
@@ -180,7 +191,9 @@ inline double nloptF(unsigned int n, const double* Zk, double* grad, void* data)
   return norm2;
 }
 
-inline void cond(double* Vm, unsigned int N, unsigned int M, double* rcond, bool norm2=true)
+inline void cond  ( double* Vm, unsigned int N, 
+                    unsigned int M, double* rcond, 
+                    bool norm2=true )
 {
   if (norm2)
   {
@@ -204,13 +217,14 @@ inline void cond(double* Vm, unsigned int N, unsigned int M, double* rcond, bool
 }
 
 unsigned long count1 = 0;
-inline double nloptF1(unsigned int n, const double* Zk, double* grad, void* data)
+inline double nloptF1 ( unsigned int n, const double* Zk, 
+                        double* grad, void* data  )
 {
   ++count1;
   nlopt_func_data* d = (nlopt_func_data*) data;
   const double *Xk = Zk; 
   const double *Yk = Zk + d->N;
-  jpoly_tri<double>(Xk, Yk, d->Hm, d->N, d->m-1, d->a, d->b, d->c, d->Vm);
+  d->Pm->computeV(Xk, Yk);
   double rcond[1];
   cond(d->Vm, d->N, d->M, rcond);
   if ( !(count1 % 100000) ) 
@@ -234,18 +248,18 @@ inline void nloptieqC ( unsigned int m, double *result, unsigned int n,
 
 inline void nloptieqC1 (  unsigned int m, double *result, unsigned int n, 
                           const double* Zk, double* grad=nullptr, 
-                          void* f_data=nullptr )
+                          void* f_data=nullptr)
 {
   unsigned int N = static_cast<unsigned int>(n / 2.0);
-  #pragma omp parallel for
+  #pragma omp parallel for 
   for (unsigned int i = 0; i < m-1; ++i)
   {
     result[i] = Zk[i] + Zk[i + N] - 1.0; 
   }
 }
 
-inline double nlopteqC( unsigned int n, const double* Zk, 
-                        double* grad=nullptr, void* data=nullptr ) 
+inline double nlopteqC  ( unsigned int n, const double* Zk, 
+                          double* grad=nullptr, void* data=nullptr ) 
 {
   double sumw = 0.0;
   unsigned int N = static_cast<unsigned int>(n / 3.0);
@@ -263,17 +277,19 @@ inline double nlopteqC1 ( unsigned int n, const double* Zk,
   
 }  
 
-inline void F( double* Zk, double* Vm, unsigned int N, unsigned int m, 
-        double* Hm, double a, double b, double c, double* Fk )
+inline void F(  double* Zk, double* Vm, unsigned int N, unsigned int m, 
+                double* Hm, double a, double b, double c, double* Fk, 
+                unsigned int nthreads = 1 )
 {
   const double *Xk, *Yk, *Wk;
   Xk = Zk; Yk = Zk + N; Wk = Zk + 2*N;
   unsigned int M = static_cast<unsigned int>(0.5 * m * (m + 1));
-  double* I0 = (double*) calloc(M, sizeof(double)); I0[0] = 1;  
-  jpoly_tri<double>(Xk, Yk, Hm, N, m-1, a, b, c, Vm);
-  cblas_dgemv(CblasColMajor,  CblasTrans,  N, M, 1.0, Vm, N, Wk, 1, -1.0, I0, 1);
+  double* I0 = (double*) calloc(M, sizeof(double)); I0[0] = 1; 
+  jPoly<double>* Pm = new jPoly(Xk, Yk, N, m-1, a, b, c, nthreads);
+  cblas_dgemv(CblasColMajor,  CblasTrans,  N, M, 1.0, Pm->V, N, Wk, 1, -1.0, I0, 1);
   for (unsigned int i =0; i < M; ++i) { Fk[i] = I0[i]; }
   free(I0);
+  delete Pm;
 }
 
 inline void init_opt  ( nlopt_func_data* d )
@@ -289,7 +305,6 @@ inline void init_opt  ( nlopt_func_data* d )
   double* S = d->S; double* Z0 = d->Z0; 
   double* F0 = d->F0; 
   double a = d->a, b = d->b, c = d->c;
-  sFactors<double>(m, a, b, c, Hm);
   // compute initial nodes and weights from eigenvalues of Jn
   for (unsigned int i = 0; i < N*N; ++i) { Jn[i] = Jn1[i] + I*Jn2[i]; }
   if (LAPACKE_zgeev(LAPACK_COL_MAJOR, 'N', 'N', N, Jn, N, XY0, NULL, N, NULL, N))
@@ -302,7 +317,7 @@ inline void init_opt  ( nlopt_func_data* d )
     Y0[i] = cimag(XY0[i]); 
   } 
   // evaluate Vandermonde on initial nodes
-  jpoly_tri<double>(X0, Y0, Hm, N, m-1, a, b, c, Vm);
+  d->Pm->computeV(X0, Y0);
   unsigned int i = 0;
   for (unsigned int col = 0; col < M; ++col)
   {
@@ -325,7 +340,8 @@ inline void init_opt  ( nlopt_func_data* d )
     Z0[i + N]   = Y0[i];
     Z0[i + 2*N] = W0[i];
   }
-  F(Z0, Vm, N, m, Hm, a, b, c, F0);
+  F(Z0, Vm, N, m, Hm, a, b, c, F0, d->nthreads);
+  free(Jn); free(XY0);
 }
 
 inline void nlopt_run ( nlopt_algorithm alg, nlopt_func_data* d,

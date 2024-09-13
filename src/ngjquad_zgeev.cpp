@@ -33,19 +33,23 @@ void plot_tri(double* tri, std::string col);
 int main(int argc, char* argv[])
 {
 
+  unsigned int nthreads;
+
   // parse command line args
   nlopt_algorithm alg; 
   int n, m; 
   double tol, tolc, alph;
   bool use_newton, use_wolfe; 
   set_args( argc, argv, alg, n, m, tol, tolc, 
-            use_newton, use_wolfe, alph );
+            use_newton, use_wolfe, alph, nthreads);
+  // TODO: remove set_nthreads
+  omp_set_num_threads(nthreads);
   // initialize opt routines
   double a, b, c, kap; a = b = c = 0.5; kap = abs(a+b+c);
   double wabc = tgamma(kap+1.5) / ( tgamma(a+0.5) * tgamma(b+0.5) * tgamma(c+0.5) );
   unsigned int N = static_cast<unsigned int>(0.5 * n * (n + 1)); 
   unsigned int M = static_cast<unsigned int>(0.5 * m * (m + 1));
-  nlopt_func_data* d = new nlopt_func_data(m, n, a, b, c);
+  nlopt_func_data* d = new nlopt_func_data(m, n, a, b, c, nthreads);
   init_opt(d);
   // run nlopt
   nlopt_run ( alg, d, tol, tolc );
@@ -59,7 +63,6 @@ int main(int argc, char* argv[])
   for (unsigned int i = 0; i < N; ++i) { sum += d->Z0[2*N+i]; }
   std::cout << "Sum of weights : " << sum << std::endl;  
   std::cout << "Objective value at argmin: " << nloptF(3*N, d->Z0, nullptr, d)  << std::endl;
-  jpoly_tri<double>(d->Z0, d->Z0 + N, d->Hm, N, m-1, a, b, c, d->Vm); 
   cond(d->Vm, N, M, &rcond);
   std::cout << "Conditioning of interpolation operator: " << 1.0 / rcond << std::endl;
   double* Ftest = (double*) calloc(N, sizeof(double));
@@ -105,7 +108,6 @@ int main(int argc, char* argv[])
   for (unsigned int i = 0; i < N; ++i) { sum += d->Z0[2*N+i]; }
   std::cout << "Sum of weights : " << sum << std::endl;  
   std::cout << "Conditioning of interpolation operator : " << nloptF1(2*N, d->Z0, nullptr, d)  << std::endl;
-  jpoly_tri<double>(d->Z0, d->Z0 + N, d->Hm, N, m-1, a, b, c, d->Vm); 
   Ival = cblas_ddot(N, d->Z0 + 2*N, 1, Ftest, 1) / wabc;
   printf("Integral_T sin(x^2+y^2) : %5.16f \n", Ival);
  

@@ -6,6 +6,8 @@
 #include<omp.h>
 #include<sFactors.h>
 
+
+
 /*
   Generate the Jacobi (a,b) Vandermonde matrix
   given an array of x of Nx points and number of polynomials N.
@@ -27,7 +29,6 @@
       - NOTE: these are not normalizez. One must call structure_factors()
       -       to obtain the normalization coefficients. 
 */
-
 template<typename T> inline void jpoly  ( T* x, unsigned int Nx, unsigned int Np, 
                                           const T a, const T b, T* V  )
 {
@@ -72,67 +73,22 @@ template<typename T> inline void jpoly  ( T* x, unsigned int Nx, unsigned int Np
   }
 }
 
-template<typename T>
-inline void jpoly_tri(const T* X, const T* Y, T* H, unsigned int Nx, unsigned int n, 
-                      T a, T b, T c, T* V)
-{
-  // total num of polys up to degree n in d dimensions is nchoosek(n+d,n)
-  unsigned int Np = static_cast<unsigned int>(0.5 * (n + 1) * (n + 2));
-  /* the following can be allocated in helper
-    - ydx, x2m1, mxp1, Pk, Pnmk
-  */
-
-  T* ydx  = (T*) calloc(Nx, sizeof(T));
-  T* x2m1 = (T*) calloc(Nx, sizeof(T));
-  T* mxp1 = (T*) calloc(Nx, sizeof(T));
-  
-  #pragma omp parallel for 
-  for (unsigned int i = 0; i < Nx; ++i)
-  {
-    ydx[i]  = 2.0 * Y[i] / (1 - X[i]) - 1;
-    x2m1[i] = 2.0 * X[i] - 1;
-    mxp1[i] = 1.0 - X[i];
-  }
-
-  T* Pk = (T*) calloc(Nx*(n+1), sizeof(T));
-  jpoly<T>(ydx, Nx, n + 1, c - 0.5, b - 0.5, Pk);
-
-  T* Pnmk = (T*) calloc(Nx*(n+1)*(n+1), sizeof(T));
-  #pragma omp parallel for
-  for (unsigned int kk = 0; kk <= n; ++kk) 
-  {
-    T* pnmk = &Pnmk[Nx*(n+1)*kk];
-    jpoly<T>(x2m1, Nx, n + 1, 2.0 * kk + b + c, a - 0.5, pnmk);
-  }  
-
-  unsigned int ind = 1;
-  for (unsigned int nn = 0; nn <= n; ++nn)
-  {
-    for (unsigned int kk = 0; kk <= nn; ++kk)
-    {
-      T* v = &V[Nx*(ind+kk-1)];
-      T* pnmk = &Pnmk[Nx*(n+1)*kk];
-      #pragma omp parallel for
-      for (unsigned int i = 0; i < Nx; ++i)
-      {
-        v[i] = 1.0 / H[kk + (n+1)*nn] * pnmk[i + Nx*(nn-kk)] * 
-               std::pow(mxp1[i],kk) * Pk[i + Nx*kk];
-      }
-    }
-    ind = ind + nn + 1;
-  }
-
-  free(ydx); free(x2m1); free(mxp1);
-  free(Pk); free(Pnmk); 
-}
-
+/*
+  Generate the normalized Koornwinder (a,b,c) Vandermonde matrix
+  given an arrays X,Y of Nx points and number fo polynomial degrees n.
+  The first N = dim(P_n) = [(n + d) choose n] polynomials are evaluated
+  at the points (X,Y) up to total degree n-1. 
+  The Nx by Np (number of poly (sum_{k=0}^n dim(P_k))) Vandermonde 
+  matrix is stored in data member V.
+*/
 template<typename T>
 class jPoly
 {
   public:
     unsigned int Nx, Np, n; 
     T a, b, c;
-    T *X, *Y, *H, *V;
+    const T *X, *Y;
+    T *H, *V;
     unsigned int nthreads;
 
     void init  ()
@@ -148,7 +104,7 @@ class jPoly
       this->Pnmk = (T*) calloc(Nx*(n+1)*(n+1), sizeof(T));
     }
     
-    void computeV(T* _X, T* _Y)
+    void computeV(const T* _X, const T* _Y)
     {
       this->X = _X; this->Y = _Y;
       #pragma omp parallel num_threads(nthreads)
@@ -197,7 +153,7 @@ class jPoly
 
 
 
-    jPoly ( T* _X, T* _Y, 
+    jPoly ( const T* _X, const T* _Y, 
             unsigned int _Nx, 
             unsigned int _n,
             T _a, T _b, T _c, 
