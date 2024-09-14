@@ -42,6 +42,9 @@ Newton's method has fast quadratic convergence, but there is difficulty of step 
 ## TODO Ideas for generalizing to d>2
 The only challenge with all of this has been in deriving matrix entries for the 3-term matrix recurrence relations defining spaces of polynomials orthogonal to all spaces of lower order (for `d > 1`). We need these entries to assemble Jacobi matrices, and we need those to initialize any descent method for finding Gaussian-like quadrature/cubature. By definition, `Jn_i.P = x_i.P + [0\\A_{n-1}_i \bb{P}_n]`. In `2D`, if `{x_1,x_2}_j` is a set of nodes admitting a well conditioned interpolation matrix on the triangle, then we should be able to solve to mach_eps for the entries in `Jn_1,Jn_2`. All we would need to do so (and, in fact, already have) are the entries to `A_{n-1}_{1,2}`. In higher dimensions, this reduces the courageous pencil/paper work by quite a bit, even if we use symbolic algebra systems. Then, we can consider JEVD techniques used in SP problems like BSS to generalize the initialization method for `d>2` (complexification doesn't work for 3D, which is used in 2D for the eigenvalue matching problem. Maybe we can use quaternions and projection to dim under for 3D? Is there even an eigenvalue solver that supports quaternions??).
 
+### Computing approximate joint eigenvalue decomposisions
+Suppose that we have $d$ Jacobi matrices for orthogonal polynomials in dimension $d$ defined in a convex region of $\mathbb{R}^d$.
+
 ## Docker Containerization
 It is likely most simple to install and use the libarary from within a `Docker` container. 
 For user convenience, a `Dockerfile` is provided which can generate a `Docker` image with
