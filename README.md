@@ -63,7 +63,7 @@ The idea is to throw this into an optimization routine on vectorizations of the 
    - Ensure the constraint is satisfied to begin with by setting $U=I$.
       - Try initializing $F^k$ with a perturbation of $J^k$ drawn randomly from a distribution to be determined.
       - Try initializing $F^k = (J^k)_{ii}$ the diagonal elements of $J^k$.
-   - Since we seek an 'average eigenstructure' for $(J^k)$, initialize from Q in the QR decomposition of one of the $J^k$.
+   - Since we seek an 'average eigenstructure' for $(J^k)$, initialize the QR decomposition of one of the $J^k$.
 
 A better idea would be to use an old, but working implementation (Jacobi angles for simultaneous diagonalization), and port it into the library with threading/simd additions.
 
