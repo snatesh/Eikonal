@@ -61,7 +61,7 @@ where $I \in \mathbb{R}^{N \times N}$ is the identity matrix.
 
 The idea is to throw this into an optimization routine on vectorizations of the minimization variables, so there are $N^2(d+1)$ of them. The main question has to do with initialization:
    - Ensure the constraint is satisfied to begin with by setting $U=I$.
-      - Try initializing $F^k = J^k +(\eps)_{ij}$, with $(\eps)_{ij}$ drawn randomly from a distribution to be determined.
+      - Try initializing $F^k$ with a perturbation of $J^k$ drawn randomly from a distribution to be determined.
       - Try initializing $F^k = (J^k)_{ii}$ the diagonal elements of $J^k$.
    - Since we seek an 'average eigenstructure' for $(J^k)$, initialize from Q in the QR decomposition of one of the $J^k$.
 
