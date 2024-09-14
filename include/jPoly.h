@@ -94,8 +94,8 @@ class jPoly
     void init  ()
     {
       this->Np = static_cast<unsigned int>(0.5 * (n + 1) * (n + 2));
-      this->V = (double*) calloc(Nx*Np, sizeof(double));
-      this->H = (double*) calloc((n+1)*(n+1), sizeof(double));
+      this->V = (T*) calloc(Nx*Np, sizeof(T));
+      this->H = (T*) calloc((n+1)*(n+1), sizeof(T));
       sFactors(n+1, a, b, c, this->H);
       this->ydx  = (T*) calloc(Nx, sizeof(T));
       this->x2m1 = (T*) calloc(Nx, sizeof(T));
@@ -158,7 +158,7 @@ class jPoly
             unsigned int _n,
             T _a, T _b, T _c, 
             unsigned int _nthreads  )
-      : X(_X), Y(_Y), Nx(_Nx), 
+      : X(_X), Y(_Y), Nx(_Nx), n(_n), 
         a(_a), b(_b), c(_c), 
         nthreads(_nthreads) 
     {
@@ -179,9 +179,14 @@ class jPoly
 
 };
 
-template void jpoly<double> ( double* x, unsigned int Nx, unsigned int Np, 
-                              const double a, const double b, double* V );
+template void jpoly<double> ( double* x, unsigned int Nx, 
+                              unsigned int Np, const double a, 
+                              const double b, double* V );
+template void jpoly<float> ( float* x, unsigned int Nx, 
+                              unsigned int Np, const float a, 
+                              const float b, float* V );
 template class jPoly<double>;
+template class jPoly<float>;
 
 
 #endif

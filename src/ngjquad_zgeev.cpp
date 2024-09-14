@@ -42,8 +42,6 @@ int main(int argc, char* argv[])
   bool use_newton, use_wolfe; 
   set_args( argc, argv, alg, n, m, tol, tolc, 
             use_newton, use_wolfe, alph, nthreads);
-  // TODO: remove set_nthreads
-  omp_set_num_threads(nthreads);
   // initialize opt routines
   double a, b, c, kap; a = b = c = 0.5; kap = abs(a+b+c);
   double wabc = tgamma(kap+1.5) / ( tgamma(a+0.5) * tgamma(b+0.5) * tgamma(c+0.5) );

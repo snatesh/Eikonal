@@ -44,7 +44,7 @@ typedef struct nlopt_func_data
     this->M = static_cast<unsigned int>(0.5 * m * (m + 1));
     // generate jacobi matrices for x,y 
     this->Jn = new jMat(n, a, b, c);
-    this->Pm = new jPoly(N, m-1, a, b, c, nthreads); 
+    this->Pm = new jPoly<double>(N, m-1, a, b, c, nthreads); 
     this->Hm = Pm->H;
     this->Vm = Pm->V;
     this->Jn1 = Jn->Jn1;
@@ -53,8 +53,9 @@ typedef struct nlopt_func_data
     this->XY0 = (Complex*) calloc(N, sizeof(Complex));
     this->X0  = (double*) calloc(N, sizeof(double));
     this->Y0  = (double*) calloc(N, sizeof(double));
-    this->Vm_T = (double*) calloc(M*N, sizeof(double));
-    this->W0 = (double*) calloc((N >= M ? N : M), sizeof(double)); W0[0] = 1.0;
+    this->Vm_T  = (double*) calloc(M*N, sizeof(double));
+    this->W0  = (double*) calloc((N >= M ? N : M), sizeof(double));
+    W0[0] = 1.0;
     this->S = (double*) calloc(M, sizeof(double)); 
     this->Z0 = (double*) calloc(3*N, sizeof(double));
     this->F0 = (double*) calloc(3*N, sizeof(double)); 
@@ -160,7 +161,7 @@ inline void set_args  ( int argc, char* argv[],
   std::cout << std::setw(15) << "use_newton = " << use_newton << std::endl;
   std::cout << std::setw(15) << "use_wolfe  = " << use_wolfe << std::endl;
   std::cout << std::setw(15) << "alpha      = " << alph << std::endl;
-  std::cout << std::setw(15) << "nthreads   = " << alph << std::endl;
+  std::cout << std::setw(15) << "nthreads   = " << nthreads << std::endl;
 }
 
 unsigned long count = 0;
@@ -180,7 +181,7 @@ inline double nloptF  ( unsigned int n, const double* Zk,
   d->Pm->computeV(Xk, Yk);
   double* I0 = (double*) calloc(M, sizeof(double)); I0[0] = 1;  
   cblas_dgemv(CblasColMajor,  CblasTrans,  N, M, 1.0, Vm, N, Wk, 1, -1.0, I0, 1);
-  #pragma omp parallel for 
+  #pragma omp simd 
   for (unsigned int i =0; i < M; ++i) { Fk[i] = I0[i]; }
   free(I0);
   double norm2 = pow(cblas_dnrm2(M, Fk, 1),2);
@@ -239,7 +240,7 @@ inline void nloptieqC ( unsigned int m, double *result, unsigned int n,
                         void* f_data=nullptr )
 {
   unsigned int N = static_cast<unsigned int>(n / 3.0);
-  #pragma omp parallel for
+  #pragma omp simd
   for (unsigned int i = 0; i < m-1; ++i)
   {
     result[i] = Zk[i] + Zk[i + N] - 1.0; 
@@ -251,7 +252,7 @@ inline void nloptieqC1 (  unsigned int m, double *result, unsigned int n,
                           void* f_data=nullptr)
 {
   unsigned int N = static_cast<unsigned int>(n / 2.0);
-  #pragma omp parallel for 
+  #pragma omp simd 
   for (unsigned int i = 0; i < m-1; ++i)
   {
     result[i] = Zk[i] + Zk[i + N] - 1.0; 
@@ -263,7 +264,6 @@ inline double nlopteqC  ( unsigned int n, const double* Zk,
 {
   double sumw = 0.0;
   unsigned int N = static_cast<unsigned int>(n / 3.0);
-  #pragma omp parallel for
   for (unsigned int i = 2*N; i < n; ++i) { sumw += Zk[i]; }
   return sumw - 1.0;
 } 
