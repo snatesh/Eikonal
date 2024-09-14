@@ -65,7 +65,7 @@ The idea is to throw this into an optimization routine on vectorizations of the 
       - Try initializing $F^k = (J^k)_{ii}$ the diagonal elements of $J^k$.
    - Since we seek an 'average eigenstructure' for $(J^k)$, initialize from Q in the QR decomposition of one of the $J^k$.
 
-A better idea would be to use an old, but working implementation (Jacobi angles for simultaneous diagonalization), and port it into my library with threading/simd additions.
+A better idea would be to use an old, but working implementation (Jacobi angles for simultaneous diagonalization), and port it into the library with threading/simd additions.
 
 ## Docker Containerization
 It is likely most simple to install and use the libarary from within a `Docker` container. 
