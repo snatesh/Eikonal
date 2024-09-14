@@ -43,7 +43,19 @@ Newton's method has fast quadratic convergence, but there is difficulty of step 
 The only challenge with all of this has been in deriving matrix entries for the 3-term matrix recurrence relations defining spaces of polynomials orthogonal to all spaces of lower order (for `d > 1`). We need these entries to assemble Jacobi matrices, and we need those to initialize any descent method for finding Gaussian-like quadrature/cubature. By definition, `Jn_i.P = x_i.P + [0\\A_{n-1}_i \bb{P}_n]`. In `2D`, if `{x_1,x_2}_j` is a set of nodes admitting a well conditioned interpolation matrix on the triangle, then we should be able to solve to mach_eps for the entries in `Jn_1,Jn_2`. All we would need to do so (and, in fact, already have) are the entries to `A_{n-1}_{1,2}`. In higher dimensions, this reduces the courageous pencil/paper work by quite a bit, even if we use symbolic algebra systems. Then, we can consider JEVD techniques used in SP problems like BSS to generalize the initialization method for `d>2` (complexification doesn't work for 3D, which is used in 2D for the eigenvalue matching problem. Maybe we can use quaternions and projection to dim under for 3D? Is there even an eigenvalue solver that supports quaternions??).
 
 ### Computing approximate joint eigenvalue decompositions
-Consider orthogonal polynomials in dimension $d$ defined in an convex region $\Omega \submset \mathbb{R}^d$ with boundary $\partial \Omega$. Suppose that the Jacobi matrices $J_k \in \mathbb{R}^{\text{dim}\Pi_{n-1}^d}$, $k=1,\cdots d$ corresponding to a 3-term recurrence relation on subspaces of homogoneous polynomials with total degree $m=0,\cdots n-1$ do NOT form a commuting family. Then, there exists a particular approximate joint eigenvalue decomposition of the matrices $J_k$ such that the $d-$tuple of matched eigenvalues $(\lambda_m^1,\cdots \lambda_m^d)\in \Omega \setminus \partial\Omega$.
+Consider orthogonal polynomials up to total degree $n-1$ in dimension $d$ defined in a convex region $\Omega \subset \mathbb{R}^d$ with boundary $\partial \Omega$. Suppose that the symmetric, real-valued Jacobi matrices $J^k \in \mathbb{R}^{\text{dim}\Pi_{n-1}^d}$, $k=1,\cdots d$ corresponding to a 3-term recurrence relation on subspaces of homogoneous polynomials with total degree $m=0,\cdots n-1$ do NOT form a commuting family. Then, there exists an approximate joint eigenvalue decomposition of the matrices $J_k$ such that the $d-$tuple of matched eigenvalues $(\lambda_m^1,\cdots \lambda_m^d)\in (\Omega \setminus \partial\Omega)$.
+
+That is, we claim that there exists a single unitary matrix $U$ such that the matrices 
+$$D^k = U J^k U^T, \quad 1 \leq k \leq d$$
+are approximately diagonal. Here, we define approximate diagonality in the sense that D^k is the best representation of J^k, entry-wise, in the basis of $U. Rephrasing this as an optimization problem from a subspace fitting approach, we want to solve
+
+$$ \min_{U,F^1,\cdots F^d} \sum_{k=1}^d ||J^k - U^T F^k U||_F^2 $$
+
+with the constraint that 
+
+$$U^TU=UU^T=I,$$
+
+where $I \in \mathbb{R}^{\text{dim}\Pi_{n-1}^d \times {\text{dim}\Pi_{n-1}^d}}$ is the identity matrix. 
 
 ## Docker Containerization
 It is likely most simple to install and use the libarary from within a `Docker` container. 
