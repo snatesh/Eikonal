@@ -40,13 +40,14 @@ kMatINC                   = include/kMat.h
 dMatINC                   = include/dMat.h
 jPolyINC                  = include/jPoly.h
 jMatINC                   = include/jMat.h
+jevdINC                   = include/jevd.h
 
 ngjquadeigzSRC              = src/ngjquad_zgeev.cpp
 ngjquadeigzINC              = $(sFactorsINC) $(jpolyINC) $(jMatINC) $(nloptINC) $(lapackINC) include/ngjquad_zgeev.h  
 
 gtestSRC                  = testing/gtest.cpp
 gtestINC                  = include/sFactors.h include/jPoly.h /usr/include/gtest/gtest.h
-LIBS_                     = libsFactors.so libjPoly.so libkMat.so libdMat.so libjMat.so libngjquadEigz.so
+LIBS_                     = libsFactors.so libjPoly.so libkMat.so libdMat.so libjMat.so libngjquadEigz.so libjevd.so
 gtestLIB                  = /usr/lib/x86_64-linux-gnu/libgtest.a
 EXEC_                     = ngjquad_zgeev 
 GTEST_                    = gtest
@@ -76,6 +77,10 @@ $(EIKONAL_LIB)/libdMat.so: $(dMatINC)
 $(EIKONAL_LIB)/libjMat.so: $(jMatINC) $(sFactorsINC) $(EIKONAL_LIB)/libsFactors.so
 	@mkdir -p $(EIKONAL_LIB)
 	$(CXX) -o $@ $(jMatINC) $(CXXFLAGS_lib) -fPIC
+
+$(EIKONAL_LIB)/libjevd.so: $(jevdINC)
+	@mkdir -p $(EIKONAL_LIB)
+	$(CXX) -o $@ $(jevdINC) $(CXXFLAGS_lib) -fPIC
 
 $(EIKONAL_LIB)/libngjquadEigz.so: $(ngjquadeigzINC) $(EIKONAL_LIB)/libjMat.so
 	@mkdir -p $(EIKONAL_LIB)

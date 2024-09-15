@@ -9,7 +9,7 @@
 #include<kMat.h>
 #include<dMat.h>
 #include<jMat.h>
-#include<omp.h>
+#include<jevd.h>
 
 #ifdef PLOT
 #include<../include/matplotlibcpp.h>
@@ -487,7 +487,7 @@ TEST(jMatTriTest, TolCheck)
 
 }
 
-TEST(nloptExampleTest, runCheck)
+TEST(nloptExampleTest, RunCheck)
 {
   double lb[2] = { -HUGE_VAL, 0 }; /* lower bounds */
   nlopt_opt opt;
@@ -507,6 +507,27 @@ TEST(nloptExampleTest, runCheck)
       printf("found minimum at f(%g,%g) = %0.10g\n", x[0], x[1], minf);
   }
   nlopt_destroy(opt);
+}
+
+
+TEST(jevdTEST, TolCheck)
+{
+  unsigned int m = 4;
+  unsigned int n = 3;
+  unsigned int nm = n*m;
+  double* J = (double*) calloc(m*nm, sizeof(double));
+  std::ifstream Jref_file("../testdata/Jref.txt");
+
+  for (unsigned int i = 0; i < nm; ++i) 
+  { 
+    Jref_file >> J[i];
+  } 
+
+  jointDiag<double>* jevd = new jointDiag(m, n, 1e-8, J, 1);
+
+
+  delete jevd;
+
 }
 
 } // end gtest namespace
