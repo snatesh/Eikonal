@@ -512,20 +512,27 @@ TEST(nloptExampleTest, RunCheck)
 
 TEST(jevdTEST, TolCheck)
 {
-  unsigned int m = 4;
+  double tol = 1e-11;
+  unsigned int m = 40;
   unsigned int n = 3;
   unsigned int nm = n*m;
   double* J = (double*) calloc(m*nm, sizeof(double));
+  double* E = (double*) calloc(m*nm, sizeof(double));
   std::ifstream Jref_file("../testdata/Jref.txt");
+  std::ifstream Eref_file("../testdata/Eref.txt");
 
-  for (unsigned int i = 0; i < nm; ++i) 
+  for (unsigned int i = 0; i < m*nm; ++i) 
   { 
     Jref_file >> J[i];
+    Eref_file >> E[i];
   } 
-
-  jointDiag<double>* jevd = new jointDiag(m, n, 1e-8, J, 1);
-
-
+  jointDiag<double>* jevd = new jointDiag(m, n, 1e-8, J, 6);
+  double diff = infnorm(E, J, m*nm);  
+  EXPECT_LT(diff, tol);
+  std::cout << "\nrelative infinity norm of diff for jevd = " << diff << "\n\n";
+  
+  free(J);
+  free(E);
   delete jevd;
 
 }

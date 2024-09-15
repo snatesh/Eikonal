@@ -14,7 +14,7 @@ CURDIR                = $(shell pwd)
 CXX                   = g++ 
 
 ifneq ($(DEBUG), True)
-  CXXFLAGS_lib            = -I$(CURDIR)/include -w -O3 -march=native -shared -L$(EIKONAL_LIB) -fopenmp
+  CXXFLAGS_lib            = -I$(CURDIR)/include -W -O3 -march=native -shared -L$(EIKONAL_LIB) -fopenmp
   CXXFLAGS_bin            = -I$(CURDIR)/include -w -O3 -march=native -L$(EIKONAL_LIB) -fopenmp
   CXXFLAGS_test           = -I$(CURDIR)/include -I /usr/include/gtest/ -w -O3 -march=native -L$(EIKONAL_LIB)
 else
@@ -45,11 +45,14 @@ jevdINC                   = include/jevd.h
 ngjquadeigzSRC              = src/ngjquad_zgeev.cpp
 ngjquadeigzINC              = $(sFactorsINC) $(jpolyINC) $(jMatINC) $(nloptINC) $(lapackINC) include/ngjquad_zgeev.h  
 
+ngjquadjevdSRC              = src/ngjquad_jevd.cpp
+ngjquadjevdINC              = $(sFactorsINC) $(jpolyINC) $(jMatINC) $(nloptINC) $(lapackINC) include/ngjquad_jevd.h
+  
 gtestSRC                  = testing/gtest.cpp
 gtestINC                  = include/sFactors.h include/jPoly.h /usr/include/gtest/gtest.h
-LIBS_                     = libsFactors.so libjPoly.so libkMat.so libdMat.so libjMat.so libngjquadEigz.so libjevd.so
+LIBS_                     = libsFactors.so libjPoly.so libkMat.so libdMat.so libjMat.so libngjquadEigz.so libjevd.so libngjquadjevd.so
 gtestLIB                  = /usr/lib/x86_64-linux-gnu/libgtest.a
-EXEC_                     = ngjquad_zgeev 
+EXEC_                     = ngjquad_jevd
 GTEST_                    = gtest
 LIBS                      = $(patsubst %,$(EIKONAL_LIB)/%,$(LIBS_))
 EXEC                      = $(patsubst %,$(EIKONAL_BIN)/%,$(EXEC_))
@@ -86,9 +89,17 @@ $(EIKONAL_LIB)/libngjquadEigz.so: $(ngjquadeigzINC) $(EIKONAL_LIB)/libjMat.so
 	@mkdir -p $(EIKONAL_LIB)
 	$(CXX) -o $@ $(ngjquadeigzINC) $(CXXFLAGS_lib) -fPIC
 
-$(EXEC): $(ngjquadeigzSRC) $(ngjquadeigzINC) $(LIBS) $(lapackLIBDIR)/$(lapackLIB) $(cblasLIBDIR)/$(cblasLIB) $(nloptLIBDIR)/$(nloptLIB)
+$(EIKONAL_LIB)/libngjquadjevd.so: $(ngjquadjevdINC) $(EIKONAL_LIB)/libjMat.so
+	@mkdir -p $(EIKONAL_LIB)
+	$(CXX) -o $@ $(ngjquadjevdINC) $(CXXFLAGS_lib) -fPIC
+
+#$(EXEC): $(ngjquadeigzSRC) $(ngjquadeigzINC) $(LIBS) $(lapackLIBDIR)/$(lapackLIB) $(cblasLIBDIR)/$(cblasLIB) $(nloptLIBDIR)/$(nloptLIB)
+#	@mkdir -p $(EIKONAL_BIN)
+#	$(CXX) -o $(EXEC) $(ngjquadeigzSRC) $(ngjquadeigzINC) $(CXXFLAGS_bin) -I$(lapackINC) -L$(lapackLIBDIR) $(lapackINC) -L$(cblasLIBDIR) $(cblasINC) -L$(nloptLIBDIR) $(nloptINC) -l:$(lapackLIB) -l:$(cblasLIB) -l:$(nloptLIB) -lm -I/usr/include/python3.12 -l:libpython3.12.so -DWITHOUT_NUMPY 
+#
+$(EXEC): $(ngjquadjevdSRC) $(ngjquadjevdINC) $(LIBS) $(lapackLIBDIR)/$(lapackLIB) $(cblasLIBDIR)/$(cblasLIB) $(nloptLIBDIR)/$(nloptLIB)
 	@mkdir -p $(EIKONAL_BIN)
-	$(CXX) -o $(EXEC) $(ngjquadeigzSRC) $(ngjquadeigzINC) $(CXXFLAGS_bin) -I$(lapackINC) -L$(lapackLIBDIR) $(lapackINC) -L$(cblasLIBDIR) $(cblasINC) -L$(nloptLIBDIR) $(nloptINC) -l:$(lapackLIB) -l:$(cblasLIB) -l:$(nloptLIB) -lm -I/usr/include/python3.12 -l:libpython3.12.so -DWITHOUT_NUMPY 
+	$(CXX) -o $(EXEC) $(ngjquadjevdSRC) $(ngjquadjevdINC) $(CXXFLAGS_bin) -I$(lapackINC) -L$(lapackLIBDIR) $(lapackINC) -L$(cblasLIBDIR) $(cblasINC) -L$(nloptLIBDIR) $(nloptINC) -l:$(lapackLIB) -l:$(cblasLIB) -l:$(nloptLIB) -lm -I/usr/include/python3.12 -l:libpython3.12.so -DWITHOUT_NUMPY 
 
 $(EIKONAL_TESTBIN)/gtest: $(gtestSRC) $(gtestINC) $(LIBS) $(cblasLIBDIR)/$(cblasLIB) $(nloptLIBDIR)/$(nloptLIB)
 	@mkdir -p $(EIKONAL_TESTBIN)

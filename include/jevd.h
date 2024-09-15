@@ -2,7 +2,7 @@
 #define _JEVD_H
 #include<cmath>
 #include<omp.h>
-
+#include<iostream>
 
 /*
   Joint diagonalization (possibly
@@ -50,7 +50,7 @@ struct jointDiag
   // n mxm matrices
   unsigned int m, n, nm, nthreads;
   T thresh;
-  T *J, *E;
+  T *J;
   
 
   jointDiag ( unsigned int _m,
@@ -61,20 +61,15 @@ struct jointDiag
       nthreads(_nthreads),
       thresh(_thresh), J(_J)
   {
-    E = (T*) calloc(m*nm, sizeof(T));
 
     bool go = 1;
     #pragma omp parallel num_threads(nthreads)
     {
-      #pragma omp for
-      for (unsigned int i = 0; i < m*nm; ++i)
-      {
-        E[i] = J[i];
-      }
       while (go)
       {
+        go = 0;
         T ton, toff, theta, c, s;
-        #pragma omp for collapse(2) schedule(dynamic)
+        #pragma omp for collapse(2) 
         for (unsigned int p = 1; p <= m-1; ++p)
         {
           for (unsigned int q = p+1; q <=m; ++q)
@@ -83,20 +78,20 @@ struct jointDiag
                      effectively use simd optimziations. 
                      keep dumb packing for now */
             T App[n], Aqq[n], Apq[n], Aqp[n];
-            T g1[n], g2[n], g[2*n];
+            T g1[n], g2[n];
             #pragma omp simd
             for (unsigned int nn = 0; nn < n; ++nn)
             {
-              App[nn] = J[p-1 + nm*(p-1+nn)];
-              Aqq[nn] = J[q-1 + nm*(q-1+nn)];
-              Apq[nn] = J[p-1 + nm*(q-1+nn)];
-              Aqp[nn] = J[q-1 + nm*(p-1+nn)]; 
+              App[nn] = J[p-1 + m*(p-1+nn*m)];
+              Aqq[nn] = J[q-1 + m*(q-1+nn*m)];
+              Apq[nn] = J[p-1 + m*(q-1+nn*m)];
+              Aqp[nn] = J[q-1 + m*(p-1+nn*m)]; 
             }        
             #pragma omp simd
             for (unsigned int nn = 0; nn < n; ++nn)
             {
               g1[nn] = App[nn] - Aqq[nn];
-              g2[nn] = Apq[nn] - Aqp[nn];
+              g2[nn] = Apq[nn] + Aqp[nn];
             }
             T G00 = 0, G01 = 0, G11 = 0;
             #pragma omp simd reduction(+:G00,G01,G11)
@@ -106,7 +101,7 @@ struct jointDiag
               G11 += g2[nn] * g2[nn];
               G01 += g1[nn] * g2[nn];
             }
-            
+
             ton = G00 - G11; toff = G01 * 2.0; 
             theta = 0.5 * std::atan2( toff, ton + std::sqrt(ton * ton + toff * toff) );
             c = std::cos(theta); s = std::sin(theta);
@@ -119,30 +114,29 @@ struct jointDiag
                 #pragma omp simd
                 for (unsigned i = 0; i < m; ++i)
                 {
-                  Mp[i] = J[i + nm*(p-1+nn)];
-                  Mq[i] = J[i + nm*(q-1+nn)];
+                  Mp[i] = J[i + m*(p-1+nn*m)];
+                  Mq[i] = J[i + m*(q-1+nn*m)];
                 }
                 #pragma omp simd
                 for (unsigned int i = 0; i < m; ++i)
                 {
-                  E[i + nm*(p-1+nn)] = c*Mp[i] + s*Mq[i];
-                  E[i + nm*(q-1+nn)] = c*Mq[i] - s*Mp[i];
+                  J[i + m*(p-1+nn*m)] = c*Mp[i] + s*Mq[i];
+                  J[i + m*(q-1+nn*m)] = c*Mq[i] - s*Mp[i];
                 } 
               }
               T rowp[nm], rowq[nm];
               #pragma omp simd
               for (unsigned int i = 0; i < nm; ++i)
               {
-                rowp[i] = E[(p-1) + nm*i];
-                rowq[i] = E[(q-1) + nm*i];
+                rowp[i] = J[(p-1) + m*i];
+                rowq[i] = J[(q-1) + m*i];
               }
               #pragma omp simd
               for (unsigned int i = 0; i < nm; ++i)
               {
-                E[(p-1) + nm*i] = c * rowp[i] + s * rowq[i];
-                E[(q-1) + nm*i] = c * rowq[i] + s * rowp[i];
+                J[(p-1) + m*i] = c * rowp[i] + s * rowq[i];
+                J[(q-1) + m*i] = c * rowq[i] - s * rowp[i];
               }
-        
             }
           
           }
@@ -150,9 +144,6 @@ struct jointDiag
       }
     }
   }
-
-  ~jointDiag() { free(E); E = 0; }
-
 };
 
 template struct jointDiag<double>;
