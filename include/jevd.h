@@ -23,9 +23,9 @@
   - E is the concatenation of d approximately diagonal m by m matrices
     such that E = [E1 .. En], and J1 = V E1 V' .. Jd = V En V'
   
-  If J1 .. Jd have a common eigenstructure, i.e. a common set
-  of orthonormal eigenvectors, then E1 .. Ed are diagonal
-  matrices with eigenvalues of J1 .. Jd on the diagonals.
+  If J1 .. Jn have a common eigenstructure, i.e. a common set
+  of orthonormal eigenvectors, then E1 .. En are exactly diagonal
+  matrices with eigenvalues of J1 .. Jn on the diagonals.
   
   The value of threshold is problem dependent, and should be 
   experimented with for your case.
@@ -42,8 +42,6 @@
    month = jan,
    year = {1995}}
 
-
-  // BELOW ONLY WORKS FOR n=2
 */
 
 template<typename T>
