@@ -3,6 +3,8 @@
 #include<cmath>
 #include<omp.h>
 #include<iostream>
+#include<iomanip>
+#include<cblas.h>
 
 /*
   Joint diagonalization (possibly
@@ -50,8 +52,36 @@ struct jointDiag
   // n mxm matrices
   unsigned int m, n, nm, nthreads;
   T thresh;
-  T *J;
+  T *J, *V, *Vorth;
+ 
   
+  void checkOrth()
+  {
+    if (!Vorth)
+    {
+      Vorth = (T*) calloc(m*m, sizeof(T));
+      cblas_dgemm ( CblasColMajor, 
+                    CblasNoTrans, 
+                    CblasTrans, 
+                    m, m, m, 
+                    1.0, V, m, 
+                    V, m, 0.0, Vorth, m );
+    }
+  }
+   
+  void printVVt()
+  {
+    for (unsigned int i = 0; i < m; ++i)
+    {
+      for (unsigned int j = 0; j < m; ++j)
+      {
+        std::cout << std::setw(10);
+        std::cout << Vorth[i + m*j] << " ";
+      }
+      std::cout << std::endl;
+    }
+    std::cout << std::endl;
+  }
 
   jointDiag ( unsigned int _m,
               unsigned int _n,
@@ -63,8 +93,15 @@ struct jointDiag
   {
 
     bool go = 1;
+    V = (T*) calloc(m*m, sizeof(T));
+    
     #pragma omp parallel num_threads(nthreads)
     {
+      #pragma omp for
+      for (unsigned int i = 0; i < m; ++i)
+      {
+        V[i + i*m] = 1.0;
+      }
       while (go)
       {
         go = 0;
@@ -137,13 +174,30 @@ struct jointDiag
                 J[(p-1) + m*i] = c * rowp[i] + s * rowq[i];
                 J[(q-1) + m*i] = c * rowq[i] - s * rowp[i];
               }
+              
+              T* vp = &V[(p-1)*m];
+              T* vq = &V[(q-1)*m];
+              T tmp;
+              #pragma omp simd
+              for (unsigned int i = 0; i < m; ++i)
+              {
+                tmp = vp[i];
+                vp[i] = c * vp[i] + s * vq[i];
+                vq[i] = c * vq[i] - s * tmp;
+              }
             }
-          
           }
         }
       }
     }
   }
+
+  ~jointDiag() 
+  { 
+    if (V) { free(V); V = 0; } 
+    if (Vorth) { free(Vorth); Vorth = 0;}  
+  }
+
 };
 
 template struct jointDiag<double>;

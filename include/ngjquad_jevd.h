@@ -314,8 +314,9 @@ inline void init_opt  ( nlopt_func_data* d )
     else { J[i] = Jn2[i]; }
   } 
 
-  jointDiag<double>* jevd = new jointDiag(N, 2, 1e-14, J, d->nthreads);
-
+  jointDiag<double>* jevd = new jointDiag(N, 2, 1e-5, J, d->nthreads);
+  jevd->checkOrth();
+  jevd->printVVt();
   for (unsigned int i = 0; i < N; ++i) 
   { 
     X0[i] = J[i + N*i]; 
