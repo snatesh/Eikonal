@@ -124,7 +124,7 @@ struct jointDiag
     while (go)
     {
       go = 0; iter += 1;
-
+      std::cout << "JEVD iter : " << iter << std::endl;
       T ton, toff, theta, c, s;
 
       #pragma omp parallel for collapse(2) num_threads(nthreads)
@@ -164,7 +164,6 @@ struct jointDiag
           theta = 0.5 * std::atan2( toff, ton + std::sqrt(ton * ton + toff * toff) );
           c = std::cos(theta); s = std::sin(theta);
           go = ( go || (std::abs(s) > thresh) );
-          //std::cout << "JEVD abs(s) = " << std::abs(s) << std::endl;
           if (std::abs(s) > thresh)
           {
             for (unsigned int nn = 0; nn < n; ++nn)

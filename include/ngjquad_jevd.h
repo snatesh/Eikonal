@@ -314,7 +314,7 @@ inline void init_opt  ( nlopt_func_data* d )
     }
   } 
 
-  jointDiag<double>* jevd = new jointDiag(N, 2, 1e-3, J, d->nthreads); 
+  jointDiag<double>* jevd = new jointDiag(N, 2, 1e-8, J, 1); 
   jevd->printEigs(); 
   for (unsigned int i = 0; i < N; ++i) 
   { 
