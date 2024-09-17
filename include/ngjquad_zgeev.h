@@ -230,7 +230,7 @@ inline double nloptF1 ( unsigned int n, const double* Zk,
   cond(d->Vm, d->N, d->M, rcond);
   if ( !(count1 % 100000) ) 
   { 
-    std::cout << "Eval #" << count << " : F = " << 1.0 / rcond[0] << std::endl; 
+    std::cout << "Eval #" << count1 << " : F = " << 1.0 / rcond[0] << std::endl; 
   }
   return 1.0 / rcond[0];
 }

@@ -12,20 +12,17 @@
 #include<jPoly.h>
 #include<jevd.h>
 
-typedef double _Complex Complex;
 
 /* 
    Use complexification trick J = Jx + iJy and 
    complex eigenvalue routine from LAPACK ZGEEV
    to compute initial nodes for optimization 
 */
-
-typedef struct nlopt_func_data
+struct nlopt_func_data
 {
   double *Vm, *Hm, *Fk, *Z0;
   double *Jn1, *Jn2, *X0, *Y0;
   double *Vm_T, *W0, *S, *F0;
-  Complex *Jnz, *XY0;
   jMat<double>* Jn;
   jPoly<double>* Pm;
   double a,b,c;
@@ -50,8 +47,6 @@ typedef struct nlopt_func_data
     this->Vm = Pm->V;
     this->Jn1 = Jn->Jn1;
     this->Jn2 = Jn->Jn2;
-    this->Jnz = (Complex*) calloc(N*N, sizeof(Complex));
-    this->XY0 = (Complex*) calloc(N, sizeof(Complex));
     this->X0  = (double*) calloc(N, sizeof(double));
     this->Y0  = (double*) calloc(N, sizeof(double));
     this->Vm_T  = (double*) calloc(M*N, sizeof(double));
@@ -79,6 +74,9 @@ typedef struct nlopt_func_data
     W0 = F0 = Z0 = S = 0; 
   }
 };
+
+
+
 
 inline void set_args  ( int argc, char* argv[], 
                         nlopt_algorithm& alg, int& n, 
@@ -231,7 +229,7 @@ inline double nloptF1 ( unsigned int n, const double* Zk,
   cond(d->Vm, d->N, d->M, rcond);
   if ( !(count1 % 100000) ) 
   { 
-    std::cout << "Eval #" << count << " : F = " << 1.0 / rcond[0] << std::endl; 
+    std::cout << "Eval #" << count1 << " : F = " << 1.0 / rcond[0] << std::endl; 
   }
   return 1.0 / rcond[0];
 }
@@ -299,7 +297,6 @@ inline void init_opt  ( nlopt_func_data* d )
   unsigned int m = d->m; unsigned int n = d->n; 
   unsigned int M = d->M; unsigned int N = d->N;
   double* Jn1 = d->Jn1; double* Jn2 = d->Jn2;
-  Complex* Jn = d->Jnz; Complex* XY0 = d->XY0;
   double* X0 = d->X0; double* Y0 = d->Y0;
   double* Hm = d->Hm; double* Vm = d->Vm;
   double* Vm_T = d->Vm_T; double* W0 = d->W0;
@@ -308,20 +305,23 @@ inline void init_opt  ( nlopt_func_data* d )
   double a = d->a, b = d->b, c = d->c;
   
   double* J = (double*) calloc(N*N*2, sizeof(double));
-  for (unsigned int i = 0; i < N*N*2; ++i)
+  for (unsigned int j = 0; j < N; ++j)
   {
-    if (i < N*N) { J[i] = Jn1[i]; }
-    else { J[i] = Jn2[i]; }
+    for (unsigned int i = 0; i < N; ++i)
+    {
+      J[i + N*j] = Jn1[i + j*N];
+      J[i + N*(j + N)] = Jn2[i + j*N];
+    }
   } 
 
-  jointDiag<double>* jevd = new jointDiag(N, 2, 1e-5, J, d->nthreads);
-  jevd->checkOrth();
-  jevd->printVVt();
+  jointDiag<double>* jevd = new jointDiag(N, 2, 1e-3, J, d->nthreads); 
+  jevd->printEigs(); 
   for (unsigned int i = 0; i < N; ++i) 
   { 
     X0[i] = J[i + N*i]; 
     Y0[i] = J[i + N*(i + N)]; 
   } 
+
   // evaluate Vandermonde on initial nodes
   d->Pm->computeV(X0, Y0);
   unsigned int i = 0;
@@ -350,6 +350,8 @@ inline void init_opt  ( nlopt_func_data* d )
   delete jevd;
   free(J);
 }
+
+
 
 inline void nlopt_run ( nlopt_algorithm alg, nlopt_func_data* d,
                         double tol, double tolc )

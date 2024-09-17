@@ -49,11 +49,11 @@ int main(int argc, char* argv[])
   unsigned int M = static_cast<unsigned int>(0.5 * m * (m + 1));
   nlopt_func_data* d = new nlopt_func_data(m, n, a, b, c, nthreads);
   init_opt(d);
-  //std::vector<double> X(d->Z0, d->Z0+N); std::vector<double> Y(d->Z0+N, d->Z0+2*N);
-  //double tri[6] = {0, 1, 0, 0, 0, 1}; 
-  //plot_tri(tri, "k-");
-  //plt::plot(X, Y, "ro"); 
-  //plt::show(); 
+  std::vector<double> X(d->Z0, d->Z0+N); std::vector<double> Y(d->Z0+N, d->Z0+2*N);
+  double tri[6] = {0, 1, 0, 0, 0, 1}; 
+  plot_tri(tri, "k-");
+  plt::plot(X, Y, "ro"); 
+  plt::save("initial_nodes.png"); 
   // run nlopt
   nlopt_run ( alg, d, tol, tolc );
   // newton relaxation
