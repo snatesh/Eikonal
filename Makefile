@@ -14,7 +14,7 @@ CURDIR                = $(shell pwd)
 CXX                   = g++ 
 
 ifneq ($(DEBUG), True)
-  CXXFLAGS_lib            = -I$(CURDIR)/include -W -O3 -march=native -shared -L$(EIKONAL_LIB) -fopenmp
+  CXXFLAGS_lib            = -I$(CURDIR)/include -Ofast -march=native -shared -L$(EIKONAL_LIB) -ftree-vectorize -fopt-info-vec-all  -fopenmp 
   CXXFLAGS_bin            = -I$(CURDIR)/include -w -O3 -march=native -L$(EIKONAL_LIB) -fopenmp
   CXXFLAGS_test           = -I$(CURDIR)/include -I /usr/include/gtest/ -w -O3 -march=native -L$(EIKONAL_LIB)
 else
@@ -40,7 +40,7 @@ kMatINC                   = include/kMat.h
 dMatINC                   = include/dMat.h
 jPolyINC                  = include/jPoly.h
 jMatINC                   = include/jMat.h
-jevdINC                   = include/jevd.h
+jevdINC                   = include/jevd.h include/timer.h
 
 ngjquadeigzSRC              = src/ngjquad_zgeev.cpp
 ngjquadeigzINC              = $(sFactorsINC) $(jpolyINC) $(jMatINC) $(nloptINC) $(lapackINC) include/ngjquad_zgeev.h  

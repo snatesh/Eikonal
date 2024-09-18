@@ -5,6 +5,7 @@
 #include<iostream>
 #include<iomanip>
 #include<cblas.h>
+#include<timer.h>
 
 /*
   Joint diagonalization (possibly
@@ -54,7 +55,7 @@ struct jointDiag
   T thresh;
   T *J, *V, *Vorth;
   bool hasV; 
-  
+ 
   void checkOrth()
   {
     if (hasV)
@@ -100,6 +101,7 @@ struct jointDiag
     
   } 
 
+
   jointDiag ( unsigned int _m,
               unsigned int _n,
               T _thresh, T* _J, 
@@ -110,7 +112,7 @@ struct jointDiag
       thresh(_thresh), J(_J), hasV(_hasV)
   {
 
-    bool go = 1;
+
     if (hasV) 
     { 
       V = (T*) calloc(m*m, sizeof(T)); 
@@ -121,13 +123,14 @@ struct jointDiag
     }
    
     unsigned int iter = 0; 
+    bool go = 1;
+    timer t; t.tic();
     while (go)
     {
       go = 0; iter += 1;
       std::cout << "JEVD iter : " << iter << std::endl;
       T ton, toff, theta, c, s;
 
-      #pragma omp parallel for collapse(2) num_threads(nthreads)
       for (unsigned int p = 1; p <= m-1; ++p)
       {
         for (unsigned int q = p+1; q <=m; ++q)
@@ -213,6 +216,7 @@ struct jointDiag
         }
       }
     }
+    std::cout << "time elapsed: " << t.toc() << std::endl;
   }
 
   ~jointDiag() 

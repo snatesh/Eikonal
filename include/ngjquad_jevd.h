@@ -304,7 +304,8 @@ inline void init_opt  ( nlopt_func_data* d )
   double* F0 = d->F0; 
   double a = d->a, b = d->b, c = d->c;
   
-  double* J = (double*) calloc(N*N*2, sizeof(double));
+  //double* J = (double*) calloc(N*N*2, sizeof(double));
+  double* J = (double*) aligned_alloc(alignof(double), alignof(double)*sizeof(double)*N*N*2);
   for (unsigned int j = 0; j < N; ++j)
   {
     for (unsigned int i = 0; i < N; ++i)
@@ -314,8 +315,8 @@ inline void init_opt  ( nlopt_func_data* d )
     }
   } 
 
-  jointDiag<double>* jevd = new jointDiag(N, 2, 1e-8, J, 1); 
-  jevd->printEigs(); 
+  jointDiag<double>* jevd = new jointDiag(N, 2, 1e-8, J, d->nthreads); 
+  //jevd->printEigs(); 
   for (unsigned int i = 0; i < N; ++i) 
   { 
     X0[i] = J[i + N*i]; 

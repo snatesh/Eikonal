@@ -19,7 +19,7 @@ typedef double _Complex Complex;
    to compute initial nodes for optimization 
 */
 
-typedef struct nlopt_func_data
+struct nlopt_func_data
 {
   double *Vm, *Hm, *Fk, *Z0;
   double *Jn1, *Jn2, *X0, *Y0;

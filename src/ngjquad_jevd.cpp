@@ -54,79 +54,81 @@ int main(int argc, char* argv[])
   plot_tri(tri, "k-");
   plt::plot(X, Y, "ro"); 
   plt::save("initial_nodes.png"); 
+  
   // run nlopt
-  nlopt_run ( alg, d, tol, tolc );
-  // newton relaxation
-  if (use_newton)
-  {
-    newton(d->F0, d->Vm, d->Hm, d->N, d->m, a, b, c, d->Z0, use_wolfe, alph);
-  }
-  // integration test on result d->Z0
-  double rcond; double sum = 0;
-  for (unsigned int i = 0; i < N; ++i) { sum += d->Z0[2*N+i]; }
-  std::cout << "Sum of weights : " << sum << std::endl;  
-  std::cout << "Objective value at argmin: " << nloptF(3*N, d->Z0, nullptr, d)  << std::endl;
-  cond(d->Vm, N, M, &rcond);
-  std::cout << "Conditioning of interpolation operator: " << 1.0 / rcond << std::endl;
-  double* Ftest = (double*) calloc(N, sizeof(double));
-  for (unsigned int i = 0; i < N; ++i) { Ftest[i] = std::sin( pow(d->Z0[i], 2) + pow(d->Z0[i+N], 2) ); }
-  double Ival = cblas_ddot(N, d->Z0 + 2*N, 1, Ftest, 1) / wabc;
-  printf("Integral_T sin(x^2+y^2) : %5.16f \n", Ival);
-  for (unsigned int i = 0; i < N; ++i)
-  {
-    if (d->Z0[i] < 0 || d->Z0[i+N] < 0 || d->Z0[i] + d->Z0[i+N] - 1 > 0)
-    {
-      std::cerr << "ERROR: nodes outside of triangle!" << std::endl; 
-      std::stringstream ss; ss << "triquadLeg_" << n << "_" << m << ".txt";
-      std::ofstream ofile(ss.str());
-      for (unsigned int i = 0; i < 3*N; ++i) 
-      { 
-        ofile << std::setprecision(std::numeric_limits<double>::max_digits10) 
-              << d->Z0[i] << std::endl; 
-      }
-      delete d;
-      free(Ftest);    
-      exit(1); 
-    }
-  }
   
-  // run nlopt on next objective
-  nlopt_run1 (alg, d, tol, tolc ); 
-  // newton relaxation
-  if (use_newton)
-  {
-    newton(d->F0, d->Vm, d->Hm, d->N, d->m, a, b, c, d->Z0, use_wolfe, alph);
-  }
+  //nlopt_run ( alg, d, tol, tolc );
+  //// newton relaxation
+  //if (use_newton)
+  //{
+  //  newton(d->F0, d->Vm, d->Hm, d->N, d->m, a, b, c, d->Z0, use_wolfe, alph);
+  //}
+  //// integration test on result d->Z0
+  //double rcond; double sum = 0;
+  //for (unsigned int i = 0; i < N; ++i) { sum += d->Z0[2*N+i]; }
+  //std::cout << "Sum of weights : " << sum << std::endl;  
+  //std::cout << "Objective value at argmin: " << nloptF(3*N, d->Z0, nullptr, d)  << std::endl;
+  //cond(d->Vm, N, M, &rcond);
+  //std::cout << "Conditioning of interpolation operator: " << 1.0 / rcond << std::endl;
+  //double* Ftest = (double*) calloc(N, sizeof(double));
+  //for (unsigned int i = 0; i < N; ++i) { Ftest[i] = std::sin( pow(d->Z0[i], 2) + pow(d->Z0[i+N], 2) ); }
+  //double Ival = cblas_ddot(N, d->Z0 + 2*N, 1, Ftest, 1) / wabc;
+  //printf("Integral_T sin(x^2+y^2) : %5.16f \n", Ival);
+  //for (unsigned int i = 0; i < N; ++i)
+  //{
+  //  if (d->Z0[i] < 0 || d->Z0[i+N] < 0 || d->Z0[i] + d->Z0[i+N] - 1 > 0)
+  //  {
+  //    std::cerr << "ERROR: nodes outside of triangle!" << std::endl; 
+  //    std::stringstream ss; ss << "triquadLeg_" << n << "_" << m << ".txt";
+  //    std::ofstream ofile(ss.str());
+  //    for (unsigned int i = 0; i < 3*N; ++i) 
+  //    { 
+  //      ofile << std::setprecision(std::numeric_limits<double>::max_digits10) 
+  //            << d->Z0[i] << std::endl; 
+  //    }
+  //    delete d;
+  //    free(Ftest);    
+  //    exit(1); 
+  //  }
+  //}
+  //
+  //// run nlopt on next objective
+  //nlopt_run1 (alg, d, tol, tolc ); 
+  //// newton relaxation
+  //if (use_newton)
+  //{
+  //  newton(d->F0, d->Vm, d->Hm, d->N, d->m, a, b, c, d->Z0, use_wolfe, alph);
+  //}
 
-  
-  std::stringstream ss; ss << "triquadLeg_" << n << "_" << m << ".txt";
-  std::ofstream ofile(ss.str());
-  for (unsigned int i = 0; i < 3*N; ++i) 
-  { 
-    ofile << std::setprecision(std::numeric_limits<double>::max_digits10) 
-          << d->Z0[i] << std::endl; 
-  }
+  //
+  //std::stringstream ss; ss << "triquadLeg_" << n << "_" << m << ".txt";
+  //std::ofstream ofile(ss.str());
+  //for (unsigned int i = 0; i < 3*N; ++i) 
+  //{ 
+  //  ofile << std::setprecision(std::numeric_limits<double>::max_digits10) 
+  //        << d->Z0[i] << std::endl; 
+  //}
 
 
-  // integration test on result d->Z0
-  sum = 0.0;
-  for (unsigned int i = 0; i < N; ++i) { sum += d->Z0[2*N+i]; }
-  std::cout << "Sum of weights : " << sum << std::endl;  
-  std::cout << "Conditioning of interpolation operator : " << nloptF1(2*N, d->Z0, nullptr, d)  << std::endl;
-  Ival = cblas_ddot(N, d->Z0 + 2*N, 1, Ftest, 1) / wabc;
-  printf("Integral_T sin(x^2+y^2) : %5.16f \n", Ival);
+  //// integration test on result d->Z0
+  //sum = 0.0;
+  //for (unsigned int i = 0; i < N; ++i) { sum += d->Z0[2*N+i]; }
+  //std::cout << "Sum of weights : " << sum << std::endl;  
+  //std::cout << "Conditioning of interpolation operator : " << nloptF1(2*N, d->Z0, nullptr, d)  << std::endl;
+  //Ival = cblas_ddot(N, d->Z0 + 2*N, 1, Ftest, 1) / wabc;
+  //printf("Integral_T sin(x^2+y^2) : %5.16f \n", Ival);
  
-  // plot resulting quadrature nodes
-  //std::vector<double> X(d->Z0, d->Z0+N); std::vector<double> Y(d->Z0+N, d->Z0+2*N);
-  //std::vector<double> X_0(d->X0, d->X0+N); std::vector<double> Y_0(d->Y0, d->Y0+N);
-  //double tri[6] = {0, 1, 0, 0, 0, 1}; 
-  //plot_tri(tri, "k-");
-  //plt::plot(X, Y, "ro"); 
-  //plt::plot(X_0, Y_0, "ks"); 
-  //plt::show(); 
-  // cleanup
-  delete d; 
-  free(Ftest);
+  //// plot resulting quadrature nodes
+  ////std::vector<double> X(d->Z0, d->Z0+N); std::vector<double> Y(d->Z0+N, d->Z0+2*N);
+  ////std::vector<double> X_0(d->X0, d->X0+N); std::vector<double> Y_0(d->Y0, d->Y0+N);
+  ////double tri[6] = {0, 1, 0, 0, 0, 1}; 
+  ////plot_tri(tri, "k-");
+  ////plt::plot(X, Y, "ro"); 
+  ////plt::plot(X_0, Y_0, "ks"); 
+  ////plt::show(); 
+  //// cleanup
+  //free(Ftest);
+  delete d;
   return 0;
 }
 
