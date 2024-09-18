@@ -66,7 +66,7 @@ The idea is to throw this into an optimization routine on vectorizations of the 
    - Since we seek an 'average eigenstructure' for $(J^k)$, initialize the QR decomposition of one of the $J^k$.
 
 A better idea would be to use an old, but working implementation (Jacobi angles for simultaneous diagonalization), and port it into the library with threading/simd additions. In fact,
-this has already been implemented with `simd` optimizations in the library, and tested successfully. There are some challenges with threading the algorithm, mainly to do with an appropriate
+this has already been implemented with `simd` optimizations in the library, and tested successfully (see `include/jevd.h` and `gtest` code for testing). There are some challenges with threading the algorithm, mainly to do with an appropriate
 packing of the input matrices into a combined matrix so as to minimize cache incoherencies, and maximize the number of loops the compiler deems vectorizable. There's also some more thinking that 
 needs to be done in terms of restructuring the algorithm to avoid race conditions on matrix updates, but not require any critical barriers on execution per thread. For now, I'm happy with 
 a serial but vectorized code that can handle $d\geq 2$.
