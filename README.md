@@ -114,7 +114,7 @@ try:
 cd /Eikonal/bin && ./ngjquad_opt
 ```
 
-The initial implemenation for such a task can be found in `/Eikonal/src/ngjquad_opt.cpp`.
+The initial implemenation for such a task can be found in `/Eikonal/src/ngjquad_zgeev.cpp`.
 
 ## Dependencies ##
 - `g++` compiler (tested on V13.2.0) 
