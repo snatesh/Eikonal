@@ -27,7 +27,7 @@ For example, the image below depicts the output when attempting to generate an N
 ![alt text](https://github.com/snatesh/Eikonal/blob/main/testing/testdata/22_35_run.png?raw=true)
 
 The red nodes are our new found abscissa, while the black ones are the initial points. We see the new nodes are well conditioned, and we correctly integrate the test function
-sin(x^2+y^2) over the standard right triangle with vertices (0,0), (0,1), (1,0) (plug it into Wolfram alpha for reference). See `triaintq.f` for comparison at https://github.com/zgimbutas/triasymq. We exceed the largest rule generaed there, and ours is better conditioned by 2 two orders of magnitude.
+sin(x^2+y^2) over the standard right triangle with vertices (0,0), (0,1), (1,0) (plug it into Wolfram alpha for reference). See `triaintq.f` for comparison at https://github.com/zgimbutas/triasymq. We exceed the largest rule generated there, and ours is better conditioned by 2 two orders of magnitude.
 
 There remains much to be done for this project, on both paper and metal! 
 
@@ -65,7 +65,11 @@ The idea is to throw this into an optimization routine on vectorizations of the 
       - Try initializing $F^k = (J^k)_{ii}$ the diagonal elements of $J^k$.
    - Since we seek an 'average eigenstructure' for $(J^k)$, initialize the QR decomposition of one of the $J^k$.
 
-A better idea would be to use an old, but working implementation (Jacobi angles for simultaneous diagonalization), and port it into the library with threading/simd additions.
+A better idea would be to use an old, but working implementation (Jacobi angles for simultaneous diagonalization), and port it into the library with threading/simd additions. In fact,
+this has already been implemented with `simd` optimizations in the library, and tested successfully. There are some challenges with threading the algorithm, mainly to do with an appropriate
+packing of the input matrices into a combined matrix so as to minimize cache incoherencies, and maximize the number of loops the compiler deems vectorizable. There's also some more thinking that 
+needs to be done in terms of restructuring the algorithm to avoid race conditions on matrix updates, but not require any critical barriers on execution per thread. For now, I'm happy with 
+a serial but vectorized code that can handle $d\geq 2$.
 
 ## Docker Containerization
 It is likely most simple to install and use the libarary from within a `Docker` container. 
