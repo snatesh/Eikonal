@@ -111,7 +111,7 @@ polynomials that can integrate order `m=6` polynomials exactly,
 try:
 
 ```shell
-cd /Eikonal/bin && ./ngjquad_opt
+cd /Eikonal/bin && ./ngjquad_zgeev
 ```
 
 The initial implemenation for such a task can be found in `/Eikonal/src/ngjquad_zgeev.cpp`.
