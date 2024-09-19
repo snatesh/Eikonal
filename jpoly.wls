@@ -1,9 +1,18 @@
 #!/usr/bin/env wolframscript
 (* ::Package:: *)
 
-ClearAll[P,W,Wab,Wabc,H,a,b,c,h];
+(* ::Title:: *)
+(*Generation of Jacobi Matrices on the Simplex*)
+(**)
 
-(* Orthogonal Jacobi polynomials *)
+
+(* ::Subtitle:: *)
+(*d=1*)
+
+
+ClearAll[P,W,Wab,Wabc,H,a,b,c,h,Ax,Bx,Ay,By,An1,An2,Bn1,Bn2,x,y];
+
+(* Orthogonal Jacobi polynomials in 1D *)
 P[a_,b_,n_,x_] := 
 Assuming[
 
@@ -91,6 +100,10 @@ Assuming[
 
 
 
+(* ::Text:: *)
+(* *)
+
+
 (* check if we've done everything right so far *)
 a = 1; b = 3;
 h[i_,j_] := Integrate[p[a,b,i,x]*p[a,b,j,x]*W[a,b,x],{x,-1,1}]/Wab[a,b];
@@ -98,8 +111,16 @@ h[i_,j_] := Integrate[p[a,b,i,x]*p[a,b,j,x]*W[a,b,x],{x,-1,1}]/Wab[a,b];
 MatrixForm[Table[h[i,j],{i,0,5},{j,0,5}]]
 
 
+(* ::Text:: *)
+(* *)
+
+
+(* ::Subtitle:: *)
+(*d = 2*)
+
+
 (* now move on to Tri *)
-ClearAll[a,b]
+ClearAll[a,b,c,x,y,n,k,Sz]
 (* Normalization for the measure  *)
 Wabc[a_,b_,c_] := 
 Assuming[
@@ -157,7 +178,6 @@ Assuming[
 	
 ];
 
-
 (* Orthonormal Koornwinder polynomials *)
 P[a_,b_,c_,k_,n_,x_,y_]:=
 Assuming[
@@ -186,6 +206,18 @@ Assuming[
 ];
 
 
+
+
+
+
+(* ::Text:: *)
+(* *)
+
+
+(* ::Text:: *)
+(* *)
+
+
 (* check if we've done everything right so far *)
 
 (* expect upper trimat*)
@@ -196,9 +228,9 @@ h[i_,j_] := Integrate[P[a,b,c,i,i,x,y]*P[a,b,c,j,j,x,y]*W[a,b,c,x,y],{x,0,1},{y,
 MatrixForm[Table[h[i,j],{i,0,5},{j,0,5}]]
 
 
-
-
 (* our lex order is (x^n,x^n-1y,..,y^n) *)
+ClearAll[a,b,c,x,y,n,k,Sz,Jn1,Jn2,B1,B2,inds,inds1,An1,An2,Bn1,Bn2,A1,A2]
+
 P[a_,b_,c_,n_,x_,y_]:=
 Assuming[
 
@@ -221,17 +253,141 @@ Assuming[
 					
 ]
 
+(* Blocks of Jacobi matrix*)
+Ax[a_,b_,c_,n_] :=
+Assuming[
+
+	Element[a, Reals] &&
+	Element[b, Reals] &&
+	Element[c, Reals] &&
+	Element[k, Integers] &&
+	Element[n, Integers] &&
+	Element[x, Reals] &&
+	Element[y, Reals] &&
+	a > -1/2 &&
+	b > -1/2 &&
+	c > -1/2 &&
+	n >= 0,
+	
+	Table[Integrate[Outer[Times,
+	x*P[a,b,c,k,x,y],
+	P[a,b,c,k+1,x,y]]*W[a,b,c,x,y],
+	{x,0,1},{y,0,1-x}],{k,0,n-2}]
+
+];
+
+Ay[a_,b_,c_,n_] :=
+Assuming[
+
+	Element[a, Reals] &&
+	Element[b, Reals] &&
+	Element[c, Reals] &&
+	Element[k, Integers] &&
+	Element[n, Integers] &&
+	Element[x, Reals] &&
+	Element[y, Reals] &&
+	a > -1/2 &&
+	b > -1/2 &&
+	c > -1/2 &&
+	n >= 0,
+	
+	Table[Integrate[Outer[Times,
+	y*P[a,b,c,k,x,y],
+	P[a,b,c,k+1,x,y]]*W[a,b,c,x,y],
+	{x,0,1},{y,0,1-x}],{k,0,n-2}]
+
+];
+
+Bx[a_,b_,c_,n_] :=
+Assuming[
+
+	Element[a, Reals] &&
+	Element[b, Reals] &&
+	Element[c, Reals] &&
+	Element[k, Integers] &&
+	Element[n, Integers] &&
+	Element[x, Reals] &&
+	Element[y, Reals] &&
+	a > -1/2 &&
+	b > -1/2 &&
+	c > -1/2 &&
+	n >= 0,
+	
+	Table[Integrate[Outer[Times,
+	x*P[a,b,c,k,x,y],
+	P[a,b,c,k,x,y]]*W[a,b,c,x,y],
+	{x,0,1},{y,0,1-x}],{k,0,n-1}]
+
+];
+
+By[a_,b_,c_,n_] :=
+Assuming[
+
+	Element[a, Reals] &&
+	Element[b, Reals] &&
+	Element[c, Reals] &&
+	Element[k, Integers] &&
+	Element[n, Integers] &&
+	Element[x, Reals] &&
+	Element[y, Reals] &&
+	a > -1/2 &&
+	b > -1/2 &&
+	c > -1/2 &&
+	n >= 0,
+	
+	Table[Integrate[Outer[Times,
+	y*P[a,b,c,k,x,y],
+	P[a,b,c,k,x,y]]*W[a,b,c,x,y],
+	{x,0,1},{y,0,1-x}],{k,0,n-1}]
+
+];
+
+MakeBlockDiag[An_,n_]:=
+Assuming[
+
+	Element[n,Integers] &&
+	n >= 0,
+	
+	Sz = n *(n+1)/2;
+	
+	Antmp = BlockDiagonalMatrix[Table[Append[An[[nn]],
+	ConstantArray[0,Dimensions[An[[nn,1]]]]],{nn,1,n-1}]] // Normal;
+	Join[Table[Join[{0},Antmp[[i]]],{i,1,Sz-1}],
+	ConstantArray[0,{1,Sz}]]
+	
+];
+
+JacobiMat[a_,b_,c_,n_]:=
+Assuming[
+
+	Element[a, Reals] &&
+	Element[b, Reals] &&
+	Element[c, Reals] &&
+	Element[k, Integers] &&
+	Element[n, Integers] &&
+	Element[x, Reals] &&
+	Element[y, Reals] &&
+	a > -1/2 &&
+	b > -1/2 &&
+	c > -1/2 &&
+	n >= 0,
+	
+	B1 = BlockDiagonalMatrix[Bx[a, b, c, n]];
+	A1 = MakeBlockDiag[Ax[a, b, c, n],n];
+	A2 = MakeBlockDiag[Ay[a, b, c, n],n];
+	B2 = BlockDiagonalMatrix[By[a, b, c, n]];
+
+	{B1 + A1 + Transpose[A1],
+	 B2 + A2 + Transpose[A2]}
+];
 
 
-a = 1/2; b = 1/2; c = 1/2 ; n = 4;
-Anx = Integrate[Outer[Times,x*P[a,b,c,n,x,y],P[a,b,c,n+1,x,y]]*W[a,b,c,x,y],{x,0,1},{y,0,1-x}];
-Any = Integrate[Outer[Times,y*P[a,b,c,n,x,y],P[a,b,c,n+1,x,y]]*W[a,b,c,x,y],{x,0,1},{y,0,1-x}];
-Bnx = Integrate[Outer[Times,x*P[a,b,c,n,x,y],P[a,b,c,n,x,y]]*W[a,b,c,x,y],{x,0,1},{y,0,1-x}];
-Bny = Integrate[Outer[Times,y*P[a,b,c,n,x,y],P[a,b,c,n,x,y]]*W[a,b,c,x,y],{x,0,1},{y,0,1-x}];
-MatrixForm[Anx]
-MatrixForm[Any]
-MatrixForm[Bnx]
-MatrixForm[Bny]
+a = 1/2; b = 1/2; c = 1/2; n =4;
+{Jx,Jy} = JacobiMat[a,b,c,n];
+
+
+Jx // MatrixForm
+Jy // MatrixForm
 
 
 
