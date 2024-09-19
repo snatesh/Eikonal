@@ -42,7 +42,7 @@ inline void sFactors (  const unsigned int N,
     exit(1);
   }
 
-  T kap = abs(a+b+c);
+  T kap = (a+b+c);
   T wabc = tgamma(kap+1.5) / 
            ( tgamma(a+0.5) * tgamma(b+0.5) * tgamma(c+0.5) );
 
