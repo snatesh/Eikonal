@@ -198,3 +198,40 @@ MatrixForm[Table[h[i,j],{i,0,5},{j,0,5}]]
 
 
 
+(* our lex order is (x^n,x^n-1y,..,y^n) *)
+P[a_,b_,c_,n_,x_,y_]:=
+Assuming[
+
+	Element[a, Reals] &&
+	Element[b, Reals] &&
+	Element[c, Reals] &&
+	Element[k, Integers] &&
+	Element[n, Integers] &&
+	Element[x, Reals] &&
+	Element[y, Reals] &&
+	a > -1/2 &&
+	b > -1/2 &&
+	c > -1/2 &&
+	n >= 0 &&
+	x >= 0 &&
+	y >= 0 &&
+	1-x-y >= 0,
+	
+	Table[P[a,b,c,k,n,x,y],{k,0,n}]
+					
+]
+
+
+
+a = 1/2; b = 1/2; c = 1/2 ; n = 4;
+Anx = Integrate[Outer[Times,x*P[a,b,c,n,x,y],P[a,b,c,n+1,x,y]]*W[a,b,c,x,y],{x,0,1},{y,0,1-x}];
+Any = Integrate[Outer[Times,y*P[a,b,c,n,x,y],P[a,b,c,n+1,x,y]]*W[a,b,c,x,y],{x,0,1},{y,0,1-x}];
+Bnx = Integrate[Outer[Times,x*P[a,b,c,n,x,y],P[a,b,c,n,x,y]]*W[a,b,c,x,y],{x,0,1},{y,0,1-x}];
+Bny = Integrate[Outer[Times,y*P[a,b,c,n,x,y],P[a,b,c,n,x,y]]*W[a,b,c,x,y],{x,0,1},{y,0,1-x}];
+MatrixForm[Anx]
+MatrixForm[Any]
+MatrixForm[Bnx]
+MatrixForm[Bny]
+
+
+
