@@ -3,14 +3,13 @@
 
 (* ::Title:: *)
 (*Generation of Jacobi Matrices on the Simplex*)
-(**)
 
 
 (* ::Subtitle:: *)
 (*d=1*)
 
 
-ClearAll[P,W,Wab,Wabc,H,a,b,c,h,Ax,Bx,Ay,By,An1,An2,Bn1,Bn2,x,y];
+ClearAll[P,W,Wab,Wabc,H,a,b,c,h,Ax,Bx,Ay,By,A1,A2,B1,B2,x,y,Jx,Jy,Antmp];
 
 (* Orthogonal Jacobi polynomials in 1D *)
 P[a_,b_,n_,x_] := 
@@ -229,7 +228,7 @@ MatrixForm[Table[h[i,j],{i,0,5},{j,0,5}]]
 
 
 (* our lex order is (x^n,x^n-1y,..,y^n) *)
-ClearAll[a,b,c,x,y,n,k,Sz,Jn1,Jn2,B1,B2,inds,inds1,An1,An2,Bn1,Bn2,A1,A2]
+ClearAll[a,b,c,x,y,n,nn,k,Sz,Jn1,Jn2,B1,B2,inds,inds1,An1,An2,Bn1,Bn2,A1,A2]
 
 P[a_,b_,c_,n_,x_,y_]:=
 Assuming[
@@ -237,7 +236,6 @@ Assuming[
 	Element[a, Reals] &&
 	Element[b, Reals] &&
 	Element[c, Reals] &&
-	Element[k, Integers] &&
 	Element[n, Integers] &&
 	Element[x, Reals] &&
 	Element[y, Reals] &&
@@ -260,10 +258,7 @@ Assuming[
 	Element[a, Reals] &&
 	Element[b, Reals] &&
 	Element[c, Reals] &&
-	Element[k, Integers] &&
 	Element[n, Integers] &&
-	Element[x, Reals] &&
-	Element[y, Reals] &&
 	a > -1/2 &&
 	b > -1/2 &&
 	c > -1/2 &&
@@ -282,10 +277,7 @@ Assuming[
 	Element[a, Reals] &&
 	Element[b, Reals] &&
 	Element[c, Reals] &&
-	Element[k, Integers] &&
 	Element[n, Integers] &&
-	Element[x, Reals] &&
-	Element[y, Reals] &&
 	a > -1/2 &&
 	b > -1/2 &&
 	c > -1/2 &&
@@ -304,10 +296,7 @@ Assuming[
 	Element[a, Reals] &&
 	Element[b, Reals] &&
 	Element[c, Reals] &&
-	Element[k, Integers] &&
 	Element[n, Integers] &&
-	Element[x, Reals] &&
-	Element[y, Reals] &&
 	a > -1/2 &&
 	b > -1/2 &&
 	c > -1/2 &&
@@ -326,10 +315,7 @@ Assuming[
 	Element[a, Reals] &&
 	Element[b, Reals] &&
 	Element[c, Reals] &&
-	Element[k, Integers] &&
 	Element[n, Integers] &&
-	Element[x, Reals] &&
-	Element[y, Reals] &&
 	a > -1/2 &&
 	b > -1/2 &&
 	c > -1/2 &&
@@ -342,52 +328,55 @@ Assuming[
 
 ];
 
-MakeBlockDiag[An_,n_]:=
-Assuming[
 
-	Element[n,Integers] &&
-	n >= 0,
-	
-	Sz = n *(n+1)/2;
-	
-	Antmp = BlockDiagonalMatrix[Table[Append[An[[nn]],
-	ConstantArray[0,Dimensions[An[[nn,1]]]]],{nn,1,n-1}]] // Normal;
-	Join[Table[Join[{0},Antmp[[i]]],{i,1,Sz-1}],
-	ConstantArray[0,{1,Sz}]]
-	
+
+
+(* generate block recurrence matrices *)
+a = 1/2; b = 1/2; c = 1/2; n = 5;
+B1 = Bx[a,b,c,n];
+A1 = Ax[a,b,c,n];
+B2 = By[a,b,c,n];
+A2 = Ay[a,b,c,n];
+
+
+
+(* assemble into Jacobi matrices for each dim *)
+n = 5;
+Sz = n *(n+1)/2;
+Jn1 = ConstantArray[0,{Sz,Sz}];
+Jn2 = ConstantArray[0,{Sz,Sz}];
+inds = {1,1}; 
+For [nn = 1, nn <= n-1, nn++,
+	Jn1[[inds[[1]];;inds[[2]],inds[[1]];;inds[[2]]]] = B1[[nn]];
+	Jn2[[inds[[1]];;inds[[2]],inds[[1]];;inds[[2]]]] = B2[[nn]];
+	inds1 = inds + {nn,nn+1};
+	Jn1[[inds[[1]];;inds[[2]],inds1[[1]];;inds1[[2]]]] = A1[[nn]];
+	Jn1[[inds1[[1]];;inds1[[2]],inds[[1]];;inds[[2]]]] = Transpose[A1[[nn]]];
+	Jn2[[inds[[1]];;inds[[2]],inds1[[1]];;inds1[[2]]]] = A2[[nn]];
+	Jn2[[inds1[[1]];;inds1[[2]],inds[[1]];;inds[[2]]]] = Transpose[A2[[nn]]];
+	inds = inds + {nn,nn+1}
 ];
-
-JacobiMat[a_,b_,c_,n_]:=
-Assuming[
-
-	Element[a, Reals] &&
-	Element[b, Reals] &&
-	Element[c, Reals] &&
-	Element[k, Integers] &&
-	Element[n, Integers] &&
-	Element[x, Reals] &&
-	Element[y, Reals] &&
-	a > -1/2 &&
-	b > -1/2 &&
-	c > -1/2 &&
-	n >= 0,
-	
-	B1 = BlockDiagonalMatrix[Bx[a, b, c, n]];
-	A1 = MakeBlockDiag[Ax[a, b, c, n],n];
-	A2 = MakeBlockDiag[Ay[a, b, c, n],n];
-	B2 = BlockDiagonalMatrix[By[a, b, c, n]];
-
-	{B1 + A1 + Transpose[A1],
-	 B2 + A2 + Transpose[A2]}
-];
+Jn1[[inds[[1]];;inds[[2]],inds[[1]];;inds[[2]]]] = B1[[n]];
+Jn2[[inds[[1]];;inds[[2]],inds[[1]];;inds[[2]]]] = B2[[n]];
 
 
-a = 1/2; b = 1/2; c = 1/2; n =4;
-{Jx,Jy} = JacobiMat[a,b,c,n];
+(* ::Input:: *)
+(*MatrixPlot[Jn1]*)
+(*MatrixPlot[Jn2]*)
 
 
-Jx // MatrixForm
+(* ::Input:: *)
+(*inds1*)
+
+
+(* ::Input:: *)
+(*Transpose[A1[[2]]]*)
+(**)
+
+
+(* ::Input:: *)
+(*N[Jn1// MatrixForm]*)
+
+
+
 Jy // MatrixForm
-
-
-
