@@ -251,7 +251,7 @@ Assuming[
 					
 ]
 
-(* Blocks of Jacobi matrix*)
+(* Blocks of Jacobi matrix *)
 Ax[a_,b_,c_,n_] :=
 Assuming[
 
@@ -332,7 +332,7 @@ Assuming[
 
 
 (* generate block recurrence matrices *)
-a = 1/2; b = 1/2; c = 1/2; n = 5;
+a = 1/2; b = 1/2; c = 1/2; n = 3;
 B1 = Bx[a,b,c,n];
 A1 = Ax[a,b,c,n];
 B2 = By[a,b,c,n];
@@ -341,7 +341,7 @@ A2 = Ay[a,b,c,n];
 
 
 (* assemble into Jacobi matrices for each dim *)
-n = 5;
+n = 3;
 Sz = n *(n+1)/2;
 Jn1 = ConstantArray[0,{Sz,Sz}];
 Jn2 = ConstantArray[0,{Sz,Sz}];
@@ -366,17 +366,71 @@ Jn2[[inds[[1]];;inds[[2]],inds[[1]];;inds[[2]]]] = B2[[n]];
 
 
 (* ::Input:: *)
-(*inds1*)
-
-
-(* ::Input:: *)
-(*Transpose[A1[[2]]]*)
 (**)
 
 
 (* ::Input:: *)
-(*N[Jn1// MatrixForm]*)
+(**)
+(**)
+
+
+(* ::Input:: *)
+(**)
 
 
 
-Jy // MatrixForm
+
+
+
+(* ::Text:: *)
+(* *)
+
+
+
+
+
+(* ::Subtitle:: *)
+(*d = 3, the tetrahedron awaits!*)
+
+
+(* Now we define orthogonal polynomials on the tetrahedron 
+
+We proceed analogously to 2D in that we only need to multiply
+the 2D polynomials by a specific form of the 1D polynomials
+to generate the 3D polynomials. However, we just unroll this 
+all in terms of the 1D polynomials.
+*)
+ P[a_,b_,c_,d_,n_,k_,j_,x_,y_,z_]:=
+ Assuming[
+ 
+    Element[a, Reals] &&
+	Element[b, Reals] &&
+	Element[c, Reals] &&
+	Element[d, Reals] &&
+	Element[n, Integers] &&
+	Element[k, Integers] &&
+	Element[j, Integers] &&
+	Element[x, Reals] &&
+	Element[y, Reals] &&
+	Element[z, Reals] &&
+	a > -1/2 &&
+	b > -1/2 &&
+	c > -1/2 &&
+	d > -1/2 &&
+	k >= 0 &&
+	n >= 0 &&
+	x >= 0 &&
+	y >= 0 &&
+	z >= 0 &&
+	1-x-y-z >= 0,
+
+	(P[2*k+b+c+d+1/2,a-1/2,n-k,q]/.q->2x-1) *
+	(1-x)^(k-j)*(P[2*j+c+d,b-1/2,k-j,q]/.q->(2*y/(1-x)-1)) *
+	(1-x-y)^j*(P[d-1/2,c-1/2,j,q]/.q->(2*z/(1-x-y)-1))
+ ];
+
+
+
+(* ::Subtitle:: *)
+(**)
+(**)
