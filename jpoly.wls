@@ -400,6 +400,114 @@ the 2D polynomials by a specific form of the 1D polynomials
 to generate the 3D polynomials. However, we just unroll this 
 all in terms of the 1D polynomials.
 *)
+
+
+(* un-normalized measure *)
+W[a_,b_,c_,d_,x_,y_,z_]:=
+Assuming[
+
+	Element[a, Reals] &&
+	Element[b, Reals] &&
+	Element[c, Reals] &&
+	Element[d, Reals] &&
+	Element[x, Reals] &&
+	Element[y, Reals] &&
+	Element[z, Reals] &&
+	a > -1/2 &&
+	b > -1/2 &&
+	c > -1/2 &&
+	d > -1/2 &&
+	x >= 0 &&
+	y >= 0 &&
+	z >= 0 &&
+	1-x-y-z >= 0,
+	
+	x^(a-1/2)*y^(b-1/2)*z^(c-1/2)*(1-x-y-z)^(d-1/2)
+	
+];
+
+(* Normalization for the measure  *)
+Wabcd[a_,b_,c_,d_] := 
+Assuming[
+
+	Element[a, Reals] &&
+	Element[b, Reals] &&
+	Element[c, Reals] &&
+	Element[d, Reals]
+	a > -1/2 &&
+	b > -1/2 &&
+	c > -1/2 &&
+	d > -1/2,
+	
+	Integrate[W[a,b,c,d,x,y,z],{x,0,1},{y,0,1-x},{z,0,1-x-y}]
+	
+];
+(* normalized measure *)
+w[a_,b_,c_,d_,x_,y_,z_]:=
+Assuming[
+
+	Element[a, Reals] &&
+	Element[b, Reals] &&
+	Element[c, Reals] &&
+	Element[d, Reals] &&
+	Element[x, Reals] &&
+	Element[y, Reals] &&
+	Element[z, Reals] &&
+	a > -1/2 &&
+	b > -1/2 &&
+	c > -1/2 &&
+	d > -1/2 &&
+	x >= 0 &&
+	y >= 0 &&
+	z >= 0 &&
+	1-x-y-z >= 0,
+	
+	x^(a-1/2)*y^(b-1/2)*z^(c-1/2)*(1-x-y-z)^(d-1/2)/Wabcd[a,b,c,d]
+	
+	
+];
+a = 1/2; b = 1/2; c = 1/2; d = 1/2;
+
+
+
+
+(* structure constants *)
+
+H[a_,b_,c_,d_,k_,j_,n_]:=
+Assuming[
+
+	Element[a, Reals] &&
+	Element[b, Reals] &&
+	Element[c, Reals] &&
+	Element[k, Integers] &&
+	Element[n, Integers] &&
+	a > -1/2 &&
+	b > -1/2 &&
+	c > -1/2 &&
+	d > -1/2 &&
+	k >= 0 &&
+	j >= 0 &&
+	n >= 0,
+
+	alphaj = {n-k,k-j,j};
+	kj = {a,b,c,d};
+	kjl1 = {a+b+c+d,b+c+d,c+d,d};
+	alphjl1 = {n,k,j,0};
+	aj = {2*k+b+c+d+1/2,2*j+c+d,d-1/2};
+	Sqrt[Product[
+	Pochhammer[kj[[l]]+1/2,alphaj[[l]]]*
+	Pochhammer[kjl1[[l+1]]+(1/2)*(3-l+1),alphjl1[[l]]+alphjl1[[l+1]]]/
+	(alphaj[[l]]!*Pochhammer[kjl1[[l]]+(1/2)*(3-l+2),alphjl1[[l]]+alphjl1[[l+1]]])*
+	(2*(aj[[l]]+kj[[l]]+alphaj[[l]])+1)/
+	(2*(aj[[l]]+kj[[l]]+2*alphaj[[l]])+1),
+	{l,1,3}]]
+	
+];
+
+
+
+ (* Orthonormal Jacobi polynomials on the tetrahedron *)
+ 
  P[a_,b_,c_,d_,n_,k_,j_,x_,y_,z_]:=
  Assuming[
  
@@ -424,10 +532,17 @@ all in terms of the 1D polynomials.
 	z >= 0 &&
 	1-x-y-z >= 0,
 
+	H[a,b,c,d,k,j,n]^(-1) *
 	(P[2*k+b+c+d+1/2,a-1/2,n-k,q]/.q->2x-1) *
 	(1-x)^(k-j)*(P[2*j+c+d,b-1/2,k-j,q]/.q->(2*y/(1-x)-1)) *
 	(1-x-y)^j*(P[d-1/2,c-1/2,j,q]/.q->(2*z/(1-x-y)-1))
  ];
+
+
+Integrate[P[a,b,c,d,3,1,0,x,y,z]*P[a,b,c,d,3,1,0,x,y,z]*w[a,b,c,d,x,y,z],
+			{x,0,1},{y,0,1-x},{z,0,1-x-y}]
+ 
+
 
 
 
