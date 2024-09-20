@@ -607,6 +607,27 @@ Assuming[
 
 ];
 
+Az[a_,b_,c_,d_,n_] :=
+Assuming[
+
+	Element[a, Reals] &&
+	Element[b, Reals] &&
+	Element[c, Reals] &&
+	Element[d, Reals] &&
+	Element[n, Integers] &&
+	a > -1/2 &&
+	b > -1/2 &&
+	c > -1/2 &&
+	d > -1/2 &&
+	n >= 0,
+	
+	Table[Integrate[Outer[Times,
+	z*P[a,b,c,d,k,x,y,z],
+	P[a,b,c,d,k+1,x,y,z]]*W[a,b,c,d,x,y,z],
+	{x,0,1},{y,0,1-x},{z,0,1-x-y}],{k,0,n-2}]
+
+];
+
 Bx[a_,b_,c_,d_,n_] :=
 Assuming[
 
@@ -649,6 +670,27 @@ Assuming[
 
 ];
 
+Bz[a_,b_,c_,d_,n_] :=
+Assuming[
+
+	Element[a, Reals] &&
+	Element[b, Reals] &&
+	Element[c, Reals] &&
+	Element[d, Reals] &&
+	Element[n, Integers] &&
+	a > -1/2 &&
+	b > -1/2 &&
+	c > -1/2 &&
+	d > -1/2 &&
+	n >= 0,
+	
+	Table[Integrate[Outer[Times,
+	z*P[a,b,c,d,k,x,y,z],
+	P[a,b,c,d,k,x,y,z]]*W[a,b,c,d,x,y,z],
+	{x,0,1},{y,0,1-x},{z,0,1-x-y}],{k,0,n-1}]
+
+];
+
 
 
 (* generate block recurrence matrices *)
@@ -657,6 +699,8 @@ B1 = Bx[a,b,c,d,n];
 A1 = Ax[a,b,c,d,n];
 B2 = By[a,b,c,d,n];
 A2 = Ay[a,b,c,d,n];
+B3 = Bz[a,b,c,d,n];
+A3 = Az[a,b,c,d,n];
 
 
 
@@ -669,15 +713,16 @@ inds = {1,1};
 For [nn = 1, nn <= n-1, nn++,
 	Jn1[[inds[[1]];;inds[[2]],inds[[1]];;inds[[2]]]] = B1[[nn]];
 	Jn2[[inds[[1]];;inds[[2]],inds[[1]];;inds[[2]]]] = B2[[nn]];
+	Jn3[[inds[[1]];;inds[[2]],inds[[1]];;inds[[2]]]] = B3[[nn]];
 	inds1 = inds + {nn,nn+1};
 	Jn1[[inds[[1]];;inds[[2]],inds1[[1]];;inds1[[2]]]] = A1[[nn]];
 	Jn1[[inds1[[1]];;inds1[[2]],inds[[1]];;inds[[2]]]] = Transpose[A1[[nn]]];
 	Jn2[[inds[[1]];;inds[[2]],inds1[[1]];;inds1[[2]]]] = A2[[nn]];
 	Jn2[[inds1[[1]];;inds1[[2]],inds[[1]];;inds[[2]]]] = Transpose[A2[[nn]]];
+	Jn3[[inds[[1]];;inds[[2]],inds1[[1]];;inds1[[2]]]] = A3[[nn]];
+	Jn3[[inds1[[1]];;inds1[[2]],inds[[1]];;inds[[2]]]] = Transpose[A3[[nn]]];
 	inds = inds + {nn,nn+1}
 ];
 Jn1[[inds[[1]];;inds[[2]],inds[[1]];;inds[[2]]]] = B1[[n]];
 Jn2[[inds[[1]];;inds[[2]],inds[[1]];;inds[[2]]]] = B2[[n]];
-
-
-
+Jn3[[inds[[1]];;inds[[2]],inds[[1]];;inds[[2]]]] = B3[[n]];
