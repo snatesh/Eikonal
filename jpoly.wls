@@ -230,6 +230,7 @@ MatrixForm[Table[h[i,j],{i,0,5},{j,0,5}]]
 (* our lex order is (x^n,x^n-1y,..,y^n) *)
 ClearAll[a,b,c,x,y,n,nn,k,Sz,Jn1,Jn2,B1,B2,inds,inds1,An1,An2,Bn1,Bn2,A1,A2]
 
+(* Vectorization for space of homogeneous polynomials of degree n *)
 P[a_,b_,c_,n_,x_,y_]:=
 Assuming[
 
@@ -371,22 +372,14 @@ Jn2[[inds[[1]];;inds[[2]],inds[[1]];;inds[[2]]]] = B2[[n]];
 
 (* ::Input:: *)
 (**)
-(**)
 
 
 (* ::Input:: *)
 (**)
 
 
-
-
-
-
 (* ::Text:: *)
-(* *)
-
-
-
+(**)
 
 
 (* ::Subtitle:: *)
@@ -539,13 +532,152 @@ Assuming[
  ];
 
 
-Integrate[P[a,b,c,d,3,1,0,x,y,z]*P[a,b,c,d,3,1,0,x,y,z]*w[a,b,c,d,x,y,z],
-			{x,0,1},{y,0,1-x},{z,0,1-x-y}]
- 
+(* check that we've done everything right so far *)
+htet[i_,j_] := Integrate[P[a,b,c,d,i,0,0,x,y,z]*P[a,b,c,d,j,0,0,x,y,z]*w[a,b,c,d,x,y,z],{x,0,1},{y,0,1-x},{z,0,1-x-y}];
+(* expect identity *)
+MatrixForm[Table[htet[i,j],{i,0,5},{j,0,5}]]
 
 
 
+(* Vectorization for space of homogeneous polynomials of degree n *)
 
-(* ::Subtitle:: *)
-(**)
-(**)
+P[a_,b_,c_,d_,n_,x_,y_,z_]:=
+Assuming[
+
+	Element[a, Reals] &&
+	Element[b, Reals] &&
+	Element[c, Reals] &&
+	Element[n, Integers] &&
+	Element[x, Reals] &&
+	Element[y, Reals] &&
+	a > -1/2 &&
+	b > -1/2 &&
+	c > -1/2 &&
+	d > -1/2 &&
+	n >= 0 &&
+	x >= 0 &&
+	y >= 0 &&
+	z >= 0
+	1-x-y-z >= 0,
+	
+	ArrayFlatten[Table[P[a,b,c,d,n,k,j,x,y,z],{k,0,n},{j,0,k}],1]
+					
+];
+
+(* Blocks of Jacobi matrix *)
+Ax[a_,b_,c_,d_,n_] :=
+Assuming[
+
+	Element[a, Reals] &&
+	Element[b, Reals] &&
+	Element[c, Reals] &&
+	Element[d, Reals] &&
+	Element[n, Integers] &&
+	a > -1/2 &&
+	b > -1/2 &&
+	c > -1/2 &&
+	d > -1/2 &&
+	n >= 0,
+	
+	Table[Integrate[Outer[Times,
+	x*P[a,b,c,d,k,x,y,z],
+	P[a,b,c,d,k+1,x,y,z]]*W[a,b,c,d,x,y,z],
+	{x,0,1},{y,0,1-x},{z,0,1-x-y}],{k,0,n-2}]
+
+];
+
+Ay[a_,b_,c_,d_,n_] :=
+Assuming[
+
+	Element[a, Reals] &&
+	Element[b, Reals] &&
+	Element[c, Reals] &&
+	Element[d, Reals] &&
+	Element[n, Integers] &&
+	a > -1/2 &&
+	b > -1/2 &&
+	c > -1/2 &&
+	d > -1/2 &&
+	n >= 0,
+	
+	Table[Integrate[Outer[Times,
+	y*P[a,b,c,d,k,x,y,z],
+	P[a,b,c,d,k+1,x,y,z]]*W[a,b,c,d,x,y,z],
+	{x,0,1},{y,0,1-x},{z,0,1-x-y}],{k,0,n-2}]
+
+];
+
+Bx[a_,b_,c_,d_,n_] :=
+Assuming[
+
+	Element[a, Reals] &&
+	Element[b, Reals] &&
+	Element[c, Reals] &&
+	Element[d, Reals] &&
+	Element[n, Integers] &&
+	a > -1/2 &&
+	b > -1/2 &&
+	c > -1/2 &&
+	d > -1/2 &&
+	n >= 0,
+	
+	Table[Integrate[Outer[Times,
+	x*P[a,b,c,d,k,x,y,z],
+	P[a,b,c,d,k,x,y,z]]*W[a,b,c,d,x,y,z],
+	{x,0,1},{y,0,1-x},{z,0,1-x-y}],{k,0,n-1}]
+
+];
+
+By[a_,b_,c_,d_,n_] :=
+Assuming[
+
+	Element[a, Reals] &&
+	Element[b, Reals] &&
+	Element[c, Reals] &&
+	Element[d, Reals] &&
+	Element[n, Integers] &&
+	a > -1/2 &&
+	b > -1/2 &&
+	c > -1/2 &&
+	d > -1/2 &&
+	n >= 0,
+	
+	Table[Integrate[Outer[Times,
+	y*P[a,b,c,d,k,x,y,z],
+	P[a,b,c,d,k,x,y,z]]*W[a,b,c,d,x,y,z],
+	{x,0,1},{y,0,1-x},{z,0,1-x-y}],{k,0,n-1}]
+
+];
+
+
+
+(* generate block recurrence matrices *)
+a = 1/2; b = 1/2; c = 1/2; d = 1/2; n = 3;
+B1 = Bx[a,b,c,d,n];
+A1 = Ax[a,b,c,d,n];
+B2 = By[a,b,c,d,n];
+A2 = Ay[a,b,c,d,n];
+
+
+
+(* assemble into Jacobi matrices for each dim *)
+n = 3; 
+Sz = Binomial[n-1+3,n-1];
+Jn1 = ConstantArray[0,{Sz,Sz}];
+Jn2 = ConstantArray[0,{Sz,Sz}];
+inds = {1,1}; 
+For [nn = 1, nn <= n-1, nn++,
+	Jn1[[inds[[1]];;inds[[2]],inds[[1]];;inds[[2]]]] = B1[[nn]];
+	Jn2[[inds[[1]];;inds[[2]],inds[[1]];;inds[[2]]]] = B2[[nn]];
+	inds1 = inds + {nn,nn+1};
+	Jn1[[inds[[1]];;inds[[2]],inds1[[1]];;inds1[[2]]]] = A1[[nn]];
+	Jn1[[inds1[[1]];;inds1[[2]],inds[[1]];;inds[[2]]]] = Transpose[A1[[nn]]];
+	Jn2[[inds[[1]];;inds[[2]],inds1[[1]];;inds1[[2]]]] = A2[[nn]];
+	Jn2[[inds1[[1]];;inds1[[2]],inds[[1]];;inds[[2]]]] = Transpose[A2[[nn]]];
+	inds = inds + {nn,nn+1}
+];
+Jn1[[inds[[1]];;inds[[2]],inds[[1]];;inds[[2]]]] = B1[[n]];
+Jn2[[inds[[1]];;inds[[2]],inds[[1]];;inds[[2]]]] = B2[[n]];
+
+
+
