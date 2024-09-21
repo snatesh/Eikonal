@@ -86,69 +86,145 @@ class jPoly
 {
   public:
     unsigned int Nx, Np, n; 
-    T a, b, c;
-    const T *X, *Y;
+    T a, b, c, d;
+    const T *X, *Y, *Z;
     T *H, *V;
+    unsigned int dim;
     unsigned int nthreads;
 
     void init  ()
     {
-      this->Np = static_cast<unsigned int>(0.5 * (n + 1) * (n + 2));
-      this->V = (T*) calloc(Nx*Np, sizeof(T));
-      this->H = (T*) calloc((n+1)*(n+1), sizeof(T));
-      sFactors(n+1, a, b, c, this->H);
-      this->ydx  = (T*) calloc(Nx, sizeof(T));
-      this->x2m1 = (T*) calloc(Nx, sizeof(T));
-      this->mxp1 = (T*) calloc(Nx, sizeof(T));
-      this->Pk = (T*) calloc(Nx*(n+1), sizeof(T));
-      this->Pnmk = (T*) calloc(Nx*(n+1)*(n+1), sizeof(T));
-    }
-    
-    void computeV(const T* _X, const T* _Y)
-    {
-      this->X = _X; this->Y = _Y;
-      #pragma omp parallel num_threads(nthreads)
+      if (this->dim == 2)
       {
-        #pragma omp for
-        for (unsigned int i = 0; i < Nx; ++i)
-        {
-          ydx[i]  = 2.0 * Y[i] / (1 - X[i]) - 1;
-          x2m1[i] = 2.0 * X[i] - 1;
-          mxp1[i] = 1.0 - X[i];
-        }
-
-        #pragma omp for
-        for (unsigned int kk = 0; kk <= n; ++kk) 
-        {
-          T* pnmk = &Pnmk[Nx*(n+1)*kk];
-          jpoly<T>(x2m1, Nx, n + 1, 2.0 * kk + b + c, a - 0.5, pnmk);
-        }
-      }  
-      jpoly<T>(this->ydx, Nx, n + 1, c - 0.5, b - 0.5, this->Pk);
-      
-      unsigned int ind = 1;
-      for (unsigned int nn = 0; nn <= n; ++nn)
+        this->Np = static_cast<unsigned int>(0.5 * (n + 1) * (n + 2));
+        this->V = (T*) calloc(Nx*Np, sizeof(T));
+        this->H = (T*) calloc((n+1)*(n+1), sizeof(T));
+        sFactors(n+1, a, b, c, this->H);
+        this->ydx  = (T*) calloc(Nx, sizeof(T));
+        this->x2m1 = (T*) calloc(Nx, sizeof(T));
+        this->mxp1 = (T*) calloc(Nx, sizeof(T));
+        this->Pk = (T*) calloc(Nx*(n+1), sizeof(T));
+        this->Pnmk = (T*) calloc(Nx*(n+1)*(n+1), sizeof(T));
+      }
+      else if (this->dim == 3)
       {
-        #pragma omp parallel for schedule(dynamic) num_threads(nthreads)
-        for (unsigned int kk = 0; kk <= nn; ++kk)
-        {
-          T* v = &V[Nx*(ind+kk-1)];
-          T* pnmk = &Pnmk[Nx*(n+1)*kk];
-          #pragma omp simd
-          for (unsigned int i = 0; i < Nx; ++i)
-          {
-            v[i] = 1.0 / H[kk + (n+1)*nn] * pnmk[i + Nx*(nn-kk)] * 
-                   std::pow(mxp1[i],kk) * Pk[i + Nx*kk];
-          }
-        }
-        ind = ind + nn + 1;
+        this->Np = 
+          static_cast<unsigned int>((1./6.) * (n + 1) * (n + 2) * (n+3));
+        this->V = (T*) calloc(Nx*Np, sizeof(T));
+        this->ydx  = (T*) calloc(Nx, sizeof(T));
+        this->zdxy  = (T*) calloc(Nx, sizeof(T));
+        this->x2m1 = (T*) calloc(Nx, sizeof(T));
+        this->mxp1 = (T*) calloc(Nx, sizeof(T));
+        this->mxmyp1 = (T*) calloc(Nx, sizeof(T));
+        this->Pj = (T*) calloc(Nx*(n+1), sizeof(T));
+        this->Pnmk = (T*) calloc(Nx*(n+1)*(n+1), sizeof(T));
+        this->Pkmj = (T*) calloc(Nx*(n+1)*(n+1), sizeof(T));
+        
       }
     }
+    
+    void computeV(const T* _X, const T* _Y, const T* _Z = 0)
+    {
+      if (this->dim == 3)
+      {
+        this->X =_X; this->Y = _Y; this->Z = _Z;
+        #pragma omp parallel num_threads(nthreads)
+        {
+          #pragma omp for
+          for (unsigned int i = 0; i < Nx; ++i)
+          {
+            ydx[i]    = 2.0 * Y[i] / (1 - X[i]) - 1;
+            zdxy[i]   = 2.0 * Z[i] / (1 - X[i] - Y[i]) - 1;
+            x2m1[i]   = 2.0 * X[i] - 1;
+            mxp1[i]   = 1.0 - X[i];
+            mxmyp1[i] = 1.0 - X[i] - Y[i]; 
+            
+          }
+
+          #pragma omp for
+          for (unsigned int kk = 0; kk <= n; ++kk) 
+          {
+            T* pnmk = &Pnmk[Nx*(n+1)*kk];
+            jpoly<T>(x2m1, Nx, n + 1, 2.0 * kk + b + c, a - 0.5, pnmk);
+          }
+        }  
+        jpoly<T>(this->ydx, Nx, n + 1, c - 0.5, b - 0.5, this->Pk);
+        
+        unsigned int ind = 1;
+        for (unsigned int nn = 0; nn <= n; ++nn)
+        {
+          #pragma omp parallel for schedule(dynamic) num_threads(nthreads)
+          for (unsigned int kk = 0; kk <= nn; ++kk)
+          {
+            T* v = &V[Nx*(ind+kk-1)];
+            T* pnmk = &Pnmk[Nx*(n+1)*kk];
+            #pragma omp simd
+            for (unsigned int i = 0; i < Nx; ++i)
+            {
+              v[i] = 1.0 / H[kk + (n+1)*nn] * pnmk[i + Nx*(nn-kk)] * 
+                     std::pow(mxp1[i],kk) * Pk[i + Nx*kk];
+            }
+          }
+          ind = ind + nn + 1;
+        }
+      }
+      }
+      
+
+      if (this->dim == 2)
+      {
+        this->X = _X; this->Y = _Y;
+        #pragma omp parallel num_threads(nthreads)
+        {
+          #pragma omp for
+          for (unsigned int i = 0; i < Nx; ++i)
+          {
+            ydx[i]  = 2.0 * Y[i] / (1 - X[i]) - 1;
+            x2m1[i] = 2.0 * X[i] - 1;
+            mxp1[i] = 1.0 - X[i];
+          }
+
+          #pragma omp for
+          for (unsigned int kk = 0; kk <= n; ++kk) 
+          {
+            T* pnmk = &Pnmk[Nx*(n+1)*kk];
+            jpoly<T>(x2m1, Nx, n + 1, 2.0 * kk + b + c, a - 0.5, pnmk);
+          }
+        }  
+        jpoly<T>(this->ydx, Nx, n + 1, c - 0.5, b - 0.5, this->Pk);
+        
+        unsigned int ind = 1;
+        for (unsigned int nn = 0; nn <= n; ++nn)
+        {
+          #pragma omp parallel for schedule(dynamic) num_threads(nthreads)
+          for (unsigned int kk = 0; kk <= nn; ++kk)
+          {
+            T* v = &V[Nx*(ind+kk-1)];
+            T* pnmk = &Pnmk[Nx*(n+1)*kk];
+            #pragma omp simd
+            for (unsigned int i = 0; i < Nx; ++i)
+            {
+              v[i] = 1.0 / H[kk + (n+1)*nn] * pnmk[i + Nx*(nn-kk)] * 
+                     std::pow(mxp1[i],kk) * Pk[i + Nx*kk];
+            }
+          }
+          ind = ind + nn + 1;
+        }
+      }
+    }
+
+    
+    jPoly ( unsigned int _Nx, unsigned int _n,
+            T _a, T _b, T _c, T _d, 
+            unsigned int _nthreads  )
+      : Nx(_Nx), n(_n), 
+        a(_a), b(_b), c(_c), d(_d), dim(3),
+        nthreads(_nthreads) { init(); }
 
     jPoly ( unsigned int _Nx, unsigned int _n,
             T _a, T _b, T _c, unsigned int _nthreads  )
       : Nx(_Nx), n(_n), 
-        a(_a), b(_b), c(_c), 
+        a(_a), b(_b), c(_c), dim(2),
         nthreads(_nthreads) { init(); }
 
 
@@ -159,7 +235,7 @@ class jPoly
             T _a, T _b, T _c, 
             unsigned int _nthreads  )
       : X(_X), Y(_Y), Nx(_Nx), n(_n), 
-        a(_a), b(_b), c(_c), 
+        a(_a), b(_b), c(_c), dim(2), 
         nthreads(_nthreads) 
     {
       init();
@@ -168,14 +244,24 @@ class jPoly
 
     ~jPoly  ()
     {
-      free(H); free(V);
-      free(ydx); free(x2m1); free(mxp1);
-      free(Pk); free(Pnmk); 
+      if (H) { free(H); H = 0; }
+      if (V) { free(V); V = 0; }
+      if (ydx) { free(ydx); ydx = 0; }
+      if (x2m1) { free(x2m1); x2m1 = 0; } 
+      if (mxp1) { free(mxp1); mxp1 = 0; }
+      if (Pk) { free(Pk); Pk = 0; }
+      if (Pnmk) { free(Pnmk); Pnmk = 0; }
+      if (Pkmj) { free(Pkmj); Pkmj = 0; }
+      if (Pj) { free(Pj); Pj = 0; }
+      if (mxmyp1) { free(mxmyp1); mxmyp1 = 0; }
+      if (zdxy) { free(zdxy); zdxy = 0; } 
     }
 
   private: 
     T *ydx, *x2m1, *mxp1;
+    T *zdxy, *mxmyp1;
     T *Pk, *Pnmk;
+    T *Pj, *Pkmj;
 
 };
 
