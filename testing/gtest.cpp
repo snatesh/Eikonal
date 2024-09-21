@@ -485,6 +485,12 @@ TEST(jMatTriTest, TolCheck)
   free(Jn1_ref);
   free(Jn2_ref);
 
+  jMat<double>* Jm = new jMat(3, a, b, c);
+  printMat(Jm->Jn1,Jm->N,Jm->N);
+  printMat(Jm->Jn2,Jm->N,Jm->N);
+  delete Jm;
+
+
 }
 
 TEST(nloptExampleTest, RunCheck)

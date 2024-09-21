@@ -128,7 +128,7 @@ struct jointDiag
     while (go)
     {
       go = 0; iter += 1;
-      std::cout << "JEVD iter : " << iter << std::endl;
+      //std::cout << "JEVD iter : " << iter << std::endl;
       T ton, toff, theta, c, s;
 
       for (unsigned int p = 1; p <= m-1; ++p)

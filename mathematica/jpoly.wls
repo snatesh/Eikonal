@@ -732,40 +732,14 @@ Jn3[[inds[[1]];;inds[[2]],inds[[1]];;inds[[2]]]] = B3[[n]];
 
 
 
-Jn3 // MatrixForm
-inds1
-
-
-
-
-n = 5; dim=3;
-Sz = Binomial[n-1+dim,n-1];
-Jn1 = ConstantArray[0,{Sz,Sz}];
-Jn2 = ConstantArray[0,{Sz,Sz}];
-Jn3 = ConstantArray[0,{Sz,Sz}];
-inds = {1,1}; bsz = 1;
-For [nn = 1, nn <= n-1, nn++,
-	Jn1[[inds[[1]];;inds[[2]],inds[[1]];;inds[[2]]]] = 1;
-	Jn2[[inds[[1]];;inds[[2]],inds[[1]];;inds[[2]]]] = 1;
-	Jn3[[inds[[1]];;inds[[2]],inds[[1]];;inds[[2]]]] = 1;
-	bsz = bsz + nn + 1;
-	inds1 = inds + {bsz-(nn+1),bsz};
-	Jn1[[inds[[1]];;inds[[2]],inds1[[1]];;inds1[[2]]]] = 1;
-	Jn1[[inds1[[1]];;inds1[[2]],inds[[1]];;inds[[2]]]] = 1;
-	Jn2[[inds[[1]];;inds[[2]],inds1[[1]];;inds1[[2]]]] = 1;
-	Jn2[[inds1[[1]];;inds1[[2]],inds[[1]];;inds[[2]]]] = 1;
-	Jn3[[inds[[1]];;inds[[2]],inds1[[1]];;inds1[[2]]]] = 1;
-	Jn3[[inds1[[1]];;inds1[[2]],inds[[1]];;inds[[2]]]] = 1;
-	inds = inds + {bsz-(nn+1),bsz};
-];
-Jn1[[inds[[1]];;inds[[2]],inds[[1]];;inds[[2]]]] = 1;
-Jn2[[inds[[1]];;inds[[2]],inds[[1]];;inds[[2]]]] = 1;
-Jn3[[inds[[1]];;inds[[2]],inds[[1]];;inds[[2]]]] = 1;
-
-
-
-
 MatrixPlot[Jn1]
 MatrixPlot[Jn2]
 MatrixPlot[Jn3]
 
+
+
+Dimensions[ArrayFlatten[Jn1,1]]
+
+Export["J5x_tet.txt", ArrayFlatten[N[Jn1],1]]
+Export["J5y_tet.txt", ArrayFlatten[N[Jn2],1]]
+Export["J5z_tet.txt", ArrayFlatten[N[Jn3],1]]
