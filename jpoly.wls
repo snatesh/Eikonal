@@ -333,12 +333,15 @@ Assuming[
 
 
 (* generate block recurrence matrices *)
-a = 1/2; b = 1/2; c = 1/2; n = 3;
+a = 1/2; b = 1/2; c = 1/2; n = 2;
 B1 = Bx[a,b,c,n];
 A1 = Ax[a,b,c,n];
 B2 = By[a,b,c,n];
 A2 = Ay[a,b,c,n];
 
+
+
+B1//MatrixForm
 
 
 (* assemble into Jacobi matrices for each dim *)
@@ -540,7 +543,6 @@ MatrixForm[Table[htet[i,j],{i,0,5},{j,0,5}]]
 
 
 (* Vectorization for space of homogeneous polynomials of degree n *)
-
 P[a_,b_,c_,d_,n_,x_,y_,z_]:=
 Assuming[
 
@@ -560,7 +562,7 @@ Assuming[
 	z >= 0
 	1-x-y-z >= 0,
 	
-	ArrayFlatten[Table[P[a,b,c,d,n,k,j,x,y,z],{k,0,n},{j,0,k}],1]
+	ArrayFlatten[ArrayFlatten[Table[P[a,b,c,d,n,k,j,x,y,z],{k,0,n},{j,0,k}],1],1]
 					
 ];
 
@@ -694,8 +696,13 @@ Assuming[
 
 
 (* generate block recurrence matrices *)
-a = 1/2; b = 1/2; c = 1/2; d = 1/2; n = 3;
+a = 1/2; b = 1/2; c = 1/2; d = 1/2; n = 5;
 B1 = Bx[a,b,c,d,n];
+
+
+B1
+
+
 A1 = Ax[a,b,c,d,n];
 B2 = By[a,b,c,d,n];
 A2 = Ay[a,b,c,d,n];
@@ -705,24 +712,34 @@ A3 = Az[a,b,c,d,n];
 
 
 (* assemble into Jacobi matrices for each dim *)
-n = 3; 
-Sz = Binomial[n-1+3,n-1];
+n = 5; dim=3;
+Sz = Binomial[n-1+dim,n-1];
 Jn1 = ConstantArray[0,{Sz,Sz}];
 Jn2 = ConstantArray[0,{Sz,Sz}];
-inds = {1,1}; 
+Jn3 = ConstantArray[0,{Sz,Sz}];
+inds = {1,1}; bsz = 1;
 For [nn = 1, nn <= n-1, nn++,
 	Jn1[[inds[[1]];;inds[[2]],inds[[1]];;inds[[2]]]] = B1[[nn]];
-	Jn2[[inds[[1]];;inds[[2]],inds[[1]];;inds[[2]]]] = B2[[nn]];
-	Jn3[[inds[[1]];;inds[[2]],inds[[1]];;inds[[2]]]] = B3[[nn]];
-	inds1 = inds + {nn,nn+1};
+	(*Jn2[[inds[[1]];;inds[[2]],inds[[1]];;inds[[2]]]] = B2[[nn]];
+	Jn3[[inds[[1]];;inds[[2]],inds[[1]];;inds[[2]]]] = B3[[nn]];*)
+	bsz = bsz + nn + 1;
+	(*inds1 = inds + {nn,nn+1};
 	Jn1[[inds[[1]];;inds[[2]],inds1[[1]];;inds1[[2]]]] = A1[[nn]];
 	Jn1[[inds1[[1]];;inds1[[2]],inds[[1]];;inds[[2]]]] = Transpose[A1[[nn]]];
 	Jn2[[inds[[1]];;inds[[2]],inds1[[1]];;inds1[[2]]]] = A2[[nn]];
 	Jn2[[inds1[[1]];;inds1[[2]],inds[[1]];;inds[[2]]]] = Transpose[A2[[nn]]];
 	Jn3[[inds[[1]];;inds[[2]],inds1[[1]];;inds1[[2]]]] = A3[[nn]];
-	Jn3[[inds1[[1]];;inds1[[2]],inds[[1]];;inds[[2]]]] = Transpose[A3[[nn]]];
-	inds = inds + {nn,nn+1}
+	Jn3[[inds1[[1]];;inds1[[2]],inds[[1]];;inds[[2]]]] = Transpose[A3[[nn]]];*)
+	inds = inds + {bsz-(nn+1),bsz};
 ];
-Jn1[[inds[[1]];;inds[[2]],inds[[1]];;inds[[2]]]] = B1[[n]];
+(*Jn1[[inds[[1]];;inds[[2]],inds[[1]];;inds[[2]]]] = B1[[n]];
 Jn2[[inds[[1]];;inds[[2]],inds[[1]];;inds[[2]]]] = B2[[n]];
-Jn3[[inds[[1]];;inds[[2]],inds[[1]];;inds[[2]]]] = B3[[n]];
+Jn3[[inds[[1]];;inds[[2]],inds[[1]];;inds[[2]]]] = B3[[n]];*)
+
+
+
+Jn1 // MatrixForm
+B1 
+
+
+
