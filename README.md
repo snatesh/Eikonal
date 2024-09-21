@@ -77,6 +77,12 @@ definitions for the Jacobi polynomials on the tetrahedron remains, along with th
 
 ![alt_text](https://github.com/snatesh/Eikonal/blob/main/testing/testdata/jevd_works.png)
 
+The jacobi matrices, the approximate joint eigenvalues of which appear as the nodes above, have interesting expanding block band sparsity patterns (Jx,Jy,Jz, resp., depicted below):
+
+![alt_text](https://github.com/snatesh/Eikonal/blob/main/testing/testdata/Jxn5_tet.png)
+![alt_text](https://github.com/snatesh/Eikonal/blob/main/testing/testdata/Jyn5_tet.png)
+![alt_text](https://github.com/snatesh/Eikonal/blob/main/testing/testdata/Jzn5_tet.png)
+
 
 
 ## Docker Containerization
