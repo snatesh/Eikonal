@@ -695,15 +695,9 @@ Assuming[
 
 
 
-(* generate block recurrence matrices *)
-a = 1/2; b = 1/2; c = 1/2; d = 1/2; n = 5;
-B1 = Bx[a,b,c,d,n];
-
-
-B1
-
-
+n = 5;
 A1 = Ax[a,b,c,d,n];
+B1 = Bx[a,b,c,d,n];
 B2 = By[a,b,c,d,n];
 A2 = Ay[a,b,c,d,n];
 B3 = Bz[a,b,c,d,n];
@@ -720,26 +714,58 @@ Jn3 = ConstantArray[0,{Sz,Sz}];
 inds = {1,1}; bsz = 1;
 For [nn = 1, nn <= n-1, nn++,
 	Jn1[[inds[[1]];;inds[[2]],inds[[1]];;inds[[2]]]] = B1[[nn]];
-	(*Jn2[[inds[[1]];;inds[[2]],inds[[1]];;inds[[2]]]] = B2[[nn]];
-	Jn3[[inds[[1]];;inds[[2]],inds[[1]];;inds[[2]]]] = B3[[nn]];*)
+	Jn2[[inds[[1]];;inds[[2]],inds[[1]];;inds[[2]]]] = B2[[nn]];
+	Jn3[[inds[[1]];;inds[[2]],inds[[1]];;inds[[2]]]] = B3[[nn]];
 	bsz = bsz + nn + 1;
-	(*inds1 = inds + {nn,nn+1};
+	inds1 = inds + {bsz-(nn+1),bsz};
 	Jn1[[inds[[1]];;inds[[2]],inds1[[1]];;inds1[[2]]]] = A1[[nn]];
 	Jn1[[inds1[[1]];;inds1[[2]],inds[[1]];;inds[[2]]]] = Transpose[A1[[nn]]];
 	Jn2[[inds[[1]];;inds[[2]],inds1[[1]];;inds1[[2]]]] = A2[[nn]];
 	Jn2[[inds1[[1]];;inds1[[2]],inds[[1]];;inds[[2]]]] = Transpose[A2[[nn]]];
 	Jn3[[inds[[1]];;inds[[2]],inds1[[1]];;inds1[[2]]]] = A3[[nn]];
-	Jn3[[inds1[[1]];;inds1[[2]],inds[[1]];;inds[[2]]]] = Transpose[A3[[nn]]];*)
+	Jn3[[inds1[[1]];;inds1[[2]],inds[[1]];;inds[[2]]]] = Transpose[A3[[nn]]];
 	inds = inds + {bsz-(nn+1),bsz};
 ];
-(*Jn1[[inds[[1]];;inds[[2]],inds[[1]];;inds[[2]]]] = B1[[n]];
+Jn1[[inds[[1]];;inds[[2]],inds[[1]];;inds[[2]]]] = B1[[n]];
 Jn2[[inds[[1]];;inds[[2]],inds[[1]];;inds[[2]]]] = B2[[n]];
-Jn3[[inds[[1]];;inds[[2]],inds[[1]];;inds[[2]]]] = B3[[n]];*)
+Jn3[[inds[[1]];;inds[[2]],inds[[1]];;inds[[2]]]] = B3[[n]];
 
 
 
-Jn1 // MatrixForm
-B1 
+Jn3 // MatrixForm
+inds1
 
 
+
+
+n = 5; dim=3;
+Sz = Binomial[n-1+dim,n-1];
+Jn1 = ConstantArray[0,{Sz,Sz}];
+Jn2 = ConstantArray[0,{Sz,Sz}];
+Jn3 = ConstantArray[0,{Sz,Sz}];
+inds = {1,1}; bsz = 1;
+For [nn = 1, nn <= n-1, nn++,
+	Jn1[[inds[[1]];;inds[[2]],inds[[1]];;inds[[2]]]] = 1;
+	Jn2[[inds[[1]];;inds[[2]],inds[[1]];;inds[[2]]]] = 1;
+	Jn3[[inds[[1]];;inds[[2]],inds[[1]];;inds[[2]]]] = 1;
+	bsz = bsz + nn + 1;
+	inds1 = inds + {bsz-(nn+1),bsz};
+	Jn1[[inds[[1]];;inds[[2]],inds1[[1]];;inds1[[2]]]] = 1;
+	Jn1[[inds1[[1]];;inds1[[2]],inds[[1]];;inds[[2]]]] = 1;
+	Jn2[[inds[[1]];;inds[[2]],inds1[[1]];;inds1[[2]]]] = 1;
+	Jn2[[inds1[[1]];;inds1[[2]],inds[[1]];;inds[[2]]]] = 1;
+	Jn3[[inds[[1]];;inds[[2]],inds1[[1]];;inds1[[2]]]] = 1;
+	Jn3[[inds1[[1]];;inds1[[2]],inds[[1]];;inds[[2]]]] = 1;
+	inds = inds + {bsz-(nn+1),bsz};
+];
+Jn1[[inds[[1]];;inds[[2]],inds[[1]];;inds[[2]]]] = 1;
+Jn2[[inds[[1]];;inds[[2]],inds[[1]];;inds[[2]]]] = 1;
+Jn3[[inds[[1]];;inds[[2]],inds[[1]];;inds[[2]]]] = 1;
+
+
+
+
+MatrixPlot[Jn1]
+MatrixPlot[Jn2]
+MatrixPlot[Jn3]
 
