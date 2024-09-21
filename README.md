@@ -71,6 +71,14 @@ packing of the input matrices into a combined matrix so as to minimize cache inc
 needs to be done in terms of restructuring the algorithm to avoid race conditions on matrix updates, but not require any critical barriers on execution per thread. For now, I'm happy with 
 a serial but vectorized code that can handle $d\geq 2$.
 
+UPDATE: It works! JEVD can be used to initialize nodes for Gaussian-like quadrature optimization on the Tetrahedron. See the image below, which I generated for n=5. Implementation of the 
+definitions for the Jacobi polynomials on the tetrahedron remains, along with the structural constants, Jacobi matrix block defintions, etc. However, I have written procedures in 
+`Mathematica` to symbolically generate most of this stuff. I need to tweak that code a bit so that it gives me nicer formulas, which I can then just port into `C` (I rly don't like algebra).
+
+[!alt_text](https://github.com/snatesh/Eikonal/blob/main/testing/testdata/jevd_works.png)
+
+
+
 ## Docker Containerization
 It is likely most simple to install and use the libarary from within a `Docker` container. 
 For user convenience, a `Dockerfile` is provided which can generate a `Docker` image with
