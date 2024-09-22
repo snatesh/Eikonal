@@ -45,8 +45,8 @@ jevdINC                   = include/jevd.h include/timer.h
 ngjquadeigzSRC              = src/ngjquad_zgeev.cpp
 ngjquadeigzINC              = $(sFactorsINC) $(jpolyINC) $(jMatINC) $(nloptINC) $(lapackINC) include/ngjquad_zgeev.h  
 
-tetquadn5SRC                = src/tetquad_n5.cpp
-tetquadn5INC                = $(jevdINC) 
+tetquadSRC                = src/tetquad.cpp
+tetquadINC                = $(jevdINC) 
 
 ngjquadjevdSRC              = src/ngjquad_jevd.cpp
 ngjquadjevdINC              = $(sFactorsINC) $(jpolyINC) $(jMatINC) $(nloptINC) $(lapackINC) include/ngjquad_jevd.h
@@ -55,7 +55,7 @@ gtestSRC                  = testing/gtest.cpp
 gtestINC                  = include/sFactors.h include/jPoly.h /usr/include/gtest/gtest.h
 LIBS_                     = libsFactors.so libjPoly.so libkMat.so libdMat.so libjMat.so libngjquadEigz.so libjevd.so libngjquadjevd.so
 gtestLIB                  = /usr/lib/x86_64-linux-gnu/libgtest.a
-EXEC_                     = tetquadn5
+EXEC_                     = tetquad
 GTEST_                    = gtest
 LIBS                      = $(patsubst %,$(EIKONAL_LIB)/%,$(LIBS_))
 EXEC                      = $(patsubst %,$(EIKONAL_BIN)/%,$(EXEC_))
@@ -104,9 +104,9 @@ $(EIKONAL_LIB)/libngjquadjevd.so: $(ngjquadjevdINC) $(EIKONAL_LIB)/libjMat.so
 #	@mkdir -p $(EIKONAL_BIN)
 #	$(CXX) -o $(EXEC) $(ngjquadjevdSRC) $(ngjquadjevdINC) $(CXXFLAGS_bin) -I$(lapackINC) -L$(lapackLIBDIR) $(lapackINC) -L$(cblasLIBDIR) $(cblasINC) -L$(nloptLIBDIR) $(nloptINC) -l:$(lapackLIB) -l:$(cblasLIB) -l:$(nloptLIB) -lm -I/usr/include/python3.12 -l:libpython3.12.so -DWITHOUT_NUMPY 
 #
-$(EXEC): $(tetquadn5SRC) $(tetquadn5INC) $(EIKONAL_LIB)/libjevd.so $(cblasLIBDIR)/$(cblasLIB)
+$(EXEC): $(tetquadSRC) $(tetquadINC) $(EIKONAL_LIB)/libjevd.so $(cblasLIBDIR)/$(cblasLIB)
 	@mkdir -p $(EIKONAL_BIN)
-	$(CXX) -o $(EXEC) $(tetquadn5SRC) $(tetquadn5INC) $(CXXFLAGS_bin) -L$(cblasLIBDIR) $(cblasINC) -l:$(cblasLIB) 
+	$(CXX) -o $(EXEC) $(tetquadSRC) $(tetquadINC) $(CXXFLAGS_bin) -L$(cblasLIBDIR) $(cblasINC) -l:$(cblasLIB) 
 
 $(EIKONAL_TESTBIN)/gtest: $(gtestSRC) $(gtestINC) $(LIBS) $(cblasLIBDIR)/$(cblasLIB) $(nloptLIBDIR)/$(nloptLIB)
 	@mkdir -p $(EIKONAL_TESTBIN)

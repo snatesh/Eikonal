@@ -1,9 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-x = np.loadtxt('../bin/xtet.txt') * 6.0;
-y = np.loadtxt('../bin/ytet.txt') * 6.0;
-z = np.loadtxt('../bin/ztet.txt') * 6.0;
+x = np.loadtxt('../testing/testdata/xtet_56.txt') * 6.0;
+y = np.loadtxt('../testing/testdata/ytet_56.txt') * 6.0;
+z = np.loadtxt('../testing/testdata/ztet_56.txt') * 6.0;
 
 
 fig = plt.figure(figsize=(20, 20))

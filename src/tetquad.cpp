@@ -4,7 +4,7 @@
 int main(int argc, char* argv[])
 {
 
-  unsigned int N = 35;
+  unsigned int N = 56;
   double a = 0.5, b = 0.5, c = 0.5, d = 0.5; 
   double* Jx = (double*) calloc(N*N, sizeof(double));
   double* Jy = (double*) calloc(N*N, sizeof(double));
@@ -14,9 +14,9 @@ int main(int argc, char* argv[])
   double* Y0 = (double*) calloc(N, sizeof(double)); 
   double* Z0 = (double*) calloc(N, sizeof(double)); 
 
-  std::ifstream Jxfile("../testing/testdata/J5x_tet.txt");
-  std::ifstream Jyfile("../testing/testdata/J5y_tet.txt");
-  std::ifstream Jzfile("../testing/testdata/J5z_tet.txt");
+  std::ifstream Jxfile("../testing/testdata/J6x_tet.txt");
+  std::ifstream Jyfile("../testing/testdata/J6y_tet.txt");
+  std::ifstream Jzfile("../testing/testdata/J6z_tet.txt");
   for (unsigned int j = 0; j < N*N; ++j)
   {
     Jxfile >> Jx[j];
@@ -34,9 +34,9 @@ int main(int argc, char* argv[])
   } 
 
   jointDiag<double>* jevd = new jointDiag(N, 3, 1e-10, J, 1); 
-  std::ofstream Xfile("xtet.txt");
-  std::ofstream Yfile("ytet.txt");
-  std::ofstream Zfile("ztet.txt");
+  std::ofstream Xfile("xtet_56.txt");
+  std::ofstream Yfile("ytet_56.txt");
+  std::ofstream Zfile("ztet_56.txt");
 
   for (unsigned int i = 0; i < N; ++i) 
   { 
@@ -56,7 +56,4 @@ int main(int argc, char* argv[])
   free(X0);
   free(Y0);
   free(Z0);
- 
-
-
 }

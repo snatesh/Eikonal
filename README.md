@@ -75,7 +75,7 @@ UPDATE: It works! JEVD can be used to initialize nodes for Gaussian-like quadrat
 definitions for the Jacobi polynomials on the tetrahedron remains, along with the structural constants, Jacobi matrix block defintions, etc. However, I have written procedures in 
 `Mathematica` to symbolically generate most of this stuff. I need to tweak that code a bit so that it gives me nicer formulas, which I can then just port into `C` (I rly don't like algebra).
 
-![alt_text](https://github.com/snatesh/Eikonal/blob/main/testing/testdata/jevd_works.png)
+![alt_text](https://github.com/snatesh/Eikonal/blob/main/testing/testdata/jevd_works_56.png)
 
 The jacobi matrices, the approximate joint eigenvalues of which appear as the nodes above, have interesting expanding block band sparsity patterns ($J_x,J_y,J_z$, resp., depicted below):
 
