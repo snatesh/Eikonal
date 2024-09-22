@@ -11,6 +11,21 @@ using std::abs;
 using std::sqrt;
 
 
+
+
+/* falling factorial */
+template<typename T>
+inline T pochhammer(const T x, const unsigned int n)
+{
+  T prod = 1;
+  # pragma omp simd
+  for (unsigned int i = 1; i <= n; ++i)
+  {
+    prod *= (x + i - 1);
+  }
+  return prod;
+}
+
 /*
    The normalization factors for Jacobi
    polynomials on the tetrahedron with parameter (a,b,c,d). 
@@ -19,18 +34,6 @@ using std::sqrt;
    weight of (0,0,0,0) corresponds to a=b=c=d=1/2. 
 
 */  
-
-template<typename T>
-inline T pochhammer(const T x, const unsigned int n)
-{
-  T prod = 1;
-  # pragma omp simd
-  for (unsigned int k = 0; k < n; ++k)
-  {
-    prod *= (x-k);
-  }
-  return prod;
-}
 
 template<typename T>
 inline T sFactors ( const unsigned int n, 
@@ -50,7 +53,7 @@ inline T sFactors ( const unsigned int n,
     tgamma(j+1)*tgamma(-1.*j + k+1)*
     tgamma(-1.*k + n+1)*pochhammer(1. + c + d, j)*pochhammer(1.5 + b + c + d, j + k)*
     pochhammer(2. + a + b + c + d, k + n));
-  return fac;
+  return sqrt(fac);
 }
 
 /*
@@ -124,9 +127,65 @@ inline void structure_factors(const unsigned int N,
          tgamma(a+b+2);
 }
 
+inline unsigned int dimPI3(unsigned int n)
+{
+  return static_cast<unsigned int>((1./6.) * (n + 1) * (n + 2) * (n + 3));
+}
+
+inline unsigned int rn3(unsigned int n)
+{
+  return static_cast<unsigned int>(0.5 * (n + 1) * (n + 2));
+}
+
+template<typename T>
+inline T hypergeometric ( T a, T b, T c, T x  )
+{
+  const T TOLERANCE = 1.0e-16;
+  T term = a * b * x / c;
+  T value = 1.0 + term;
+  unsigned int n = 1;
+  unsigned int maxit = 100000000; 
+
+  #pragma omp simd reduction(+:term)
+  for (unsigned int i = 0; i < maxit; ++i) 
+  {
+    a++, b++, c++, n++;
+    term *= a * b * x / c / n;
+    value += term;
+    if ( abs( term ) <= TOLERANCE )
+    {
+      i = maxit;
+    }
+  }
+  
+  return value;
+}
 
 template void sFactors<double>  ( const unsigned int N,
                                   const double a, const double b, 
                                   const double c, double* H  );
+template void sFactors<float>   ( const unsigned int N,
+                                  const float a, const float b, 
+                                  const float c, float* H  );
+template double sFactors<double>  ( const unsigned int n, 
+                                  const unsigned int k,
+                                  const unsigned int j,
+                                  const double a, const double b,
+                                  const double c, const double d  );
+template float sFactors<float>  ( const unsigned int n, 
+                                  const unsigned int k,
+                                  const unsigned int j,
+                                  const float a, const float b,
+                                  const float c, const float d  );
+
+template double pochhammer<double>  ( double x, unsigned int n );
+
+template float pochhammer<float>  (float x, unsigned int n  );
+
+template double hypergeometric<double>  ( double a, double b, double c, double x );
+
+template float hypergeometric<float>  ( float a, float b, float c, float x  );
+
+
 
 #endif

@@ -543,6 +543,62 @@ TEST(jevdTEST, TolCheck)
 
 }
 
+
+TEST(jPolySingle, TolCheck)
+{
+  double tol = 1e-11;
+  double a = 0.0; double b = 0.0; double x = 0.7;
+  double* P = (double*) calloc(101, sizeof(double));
+  double* Pref = (double*) calloc(101, sizeof(double));
+  
+  std::ifstream Pfile("../testdata/Peval1d.txt");
+  for (unsigned int i = 0; i <= 20; ++i)
+  {
+    Pfile >> Pref[i];
+    P[i] = jpoly<double>(a,b,i,x);
+  }
+
+  double diff = infnorm(P, Pref, 101);
+  EXPECT_LT(diff, tol);
+  std::cout << "\nrelative infinity norm of diff = " << diff << "\n\n";
+  free(P); 
+  free(Pref);
+}
+
+TEST(jPolyTetTest, RunCheck)
+{
+
+  double a = 0.5; double b = 0.5; 
+  double c = 0.5; double d = 0.5; 
+
+  unsigned int m = 5;
+  unsigned int Np = dimPI3(m);
+  unsigned int N = 35;
+  std::cout << N << " " << Np << std::endl; 
+  double* Xk = (double*) calloc(N, sizeof(double));
+  double* Yk = (double*) calloc(N, sizeof(double));
+  double* Zk = (double*) calloc(N, sizeof(double));
+  
+  std::ifstream Xkfile("../testdata/xtet.txt");
+  std::ifstream Ykfile("../testdata/ytet.txt");
+  std::ifstream Zkfile("../testdata/ztet.txt");
+  for (unsigned int i = 0; i < N; ++i) 
+  { 
+    Xkfile >> Xk[i]; 
+    Ykfile >> Yk[i]; 
+    Zkfile >> Zk[i]; 
+  }
+
+  jPoly<double>* Vm = new jPoly(N, m, a, b, c, d, 6);
+  Vm->computeV(Xk, Yk, Zk);
+  //printMat(Vm->V, N, Np); 
+  delete Vm;
+  free(Xk);
+  free(Yk);
+  free(Zk);
+
+}
+
 } // end gtest namespace
 
 int main(int argc, char* argv[])

@@ -7,6 +7,33 @@
 #include<sFactors.h>
 
 
+/* 
+   Evaluate a Jacobi (a,b) polynomial at a point x in [-1,1].
+   This uses the definition of the polynomials in terms of 
+   the hypergoemetric 2F1 series. 
+  
+   This is not a stable way of evaluating the polynomials.
+   We loose nearly all digits (relative to the order of
+   accuracy of other methods which call this function)
+   for polynomial degree n > 40.
+
+   Really speaking, we shouldn't ever need to go higher
+   than n = 20, in terms of problems which demand high order, 
+   and also practicality of computational cost. 
+
+*/
+#pragma omp declare simd
+template<typename T> 
+inline T jpoly ( const T a, const T b, 
+                 const unsigned int n,
+                 const T x )
+{
+  T poch = pochhammer<T>(a+1, n) / tgamma(n+1);
+  T twoF1 = hypergeometric<T>(-1.0*n, n+a+b+1, a+1, (1.0-x)/2.0);
+  return poch * twoF1;   
+} 
+
+
 
 /*
   Generate the Jacobi (a,b) Vandermonde matrix
@@ -29,8 +56,9 @@
       - NOTE: these are not normalizez. One must call structure_factors()
       -       to obtain the normalization coefficients. 
 */
-template<typename T> inline void jpoly  ( T* x, unsigned int Nx, unsigned int Np, 
-                                          const T a, const T b, T* V  )
+template<typename T> 
+inline void jpoly  ( T* x, unsigned int Nx, unsigned int Np, 
+                     const T a, const T b, T* V  )
 {
   T apb = a + b; 
   T aa  = a * a; 
@@ -89,7 +117,7 @@ class jPoly
     T a, b, c, d;
     const T *X, *Y, *Z;
     T *H, *V;
-    unsigned int dim;
+    const unsigned int dim;
     unsigned int nthreads;
 
     void init  ()
@@ -108,18 +136,8 @@ class jPoly
       }
       else if (this->dim == 3)
       {
-        this->Np = 
-          static_cast<unsigned int>((1./6.) * (n + 1) * (n + 2) * (n+3));
+        this->Np = dimPI3(n); 
         this->V = (T*) calloc(Nx*Np, sizeof(T));
-        this->ydx  = (T*) calloc(Nx, sizeof(T));
-        this->zdxy  = (T*) calloc(Nx, sizeof(T));
-        this->x2m1 = (T*) calloc(Nx, sizeof(T));
-        this->mxp1 = (T*) calloc(Nx, sizeof(T));
-        this->mxmyp1 = (T*) calloc(Nx, sizeof(T));
-        this->Pj = (T*) calloc(Nx*(n+1), sizeof(T));
-        this->Pnmk = (T*) calloc(Nx*(n+1)*(n+1), sizeof(T));
-        this->Pkmj = (T*) calloc(Nx*(n+1)*(n+1), sizeof(T));
-        
       }
     }
     
@@ -127,47 +145,33 @@ class jPoly
     {
       if (this->dim == 3)
       {
+        if (_Z == 0) { std::cout << "Z values empty! Exiting ..\n"; exit(1); }
         this->X =_X; this->Y = _Y; this->Z = _Z;
         #pragma omp parallel num_threads(nthreads)
-        {
-          #pragma omp for
-          for (unsigned int i = 0; i < Nx; ++i)
+        { 
+          unsigned int ind = 0;
+          for (unsigned int nn = 0; nn <= n; ++nn)
           {
-            ydx[i]    = 2.0 * Y[i] / (1 - X[i]) - 1;
-            zdxy[i]   = 2.0 * Z[i] / (1 - X[i] - Y[i]) - 1;
-            x2m1[i]   = 2.0 * X[i] - 1;
-            mxp1[i]   = 1.0 - X[i];
-            mxmyp1[i] = 1.0 - X[i] - Y[i]; 
-            
-          }
-
-          #pragma omp for
-          for (unsigned int kk = 0; kk <= n; ++kk) 
-          {
-            T* pnmk = &Pnmk[Nx*(n+1)*kk];
-            jpoly<T>(x2m1, Nx, n + 1, 2.0 * kk + b + c, a - 0.5, pnmk);
-          }
-        }  
-        jpoly<T>(this->ydx, Nx, n + 1, c - 0.5, b - 0.5, this->Pk);
-        
-        unsigned int ind = 1;
-        for (unsigned int nn = 0; nn <= n; ++nn)
-        {
-          #pragma omp parallel for schedule(dynamic) num_threads(nthreads)
-          for (unsigned int kk = 0; kk <= nn; ++kk)
-          {
-            T* v = &V[Nx*(ind+kk-1)];
-            T* pnmk = &Pnmk[Nx*(n+1)*kk];
-            #pragma omp simd
-            for (unsigned int i = 0; i < Nx; ++i)
+            #pragma omp for collapse(3) schedule(dynamic)
+            for (unsigned int kk = 0; kk <= nn; ++kk)
             {
-              v[i] = 1.0 / H[kk + (n+1)*nn] * pnmk[i + Nx*(nn-kk)] * 
-                     std::pow(mxp1[i],kk) * Pk[i + Nx*kk];
+              for (unsigned int jj = 0; jj <= kk; ++jj)
+              {
+                for (unsigned int i = 0; i < Nx; ++i)
+                {
+                  V[i + Nx*(ind+jj+kk)] = 
+                    ( 1.0 / sFactors(nn,kk,jj,a,b,c,d) ) * 
+                    jpoly<T>(2.0*kk+b+c+d+0.5, a-0.5, nn-kk, 2*X[i]-1) *
+                    jpoly<T>(2.0*jj+c+d, b-0.5, kk-jj, 2*Y[i]/(1-X[i]) - 1) *
+                    jpoly<T>(d-0.5, c-0.5, jj, 2*Z[i]/(1-X[i]-Y[i])-1) *
+                    std::pow(1-X[i], kk-jj) * 
+                    std::pow(1-X[i]-Y[i], jj);
+                }
+              }
             }
+            ind = ind + rn3(nn);
           }
-          ind = ind + nn + 1;
         }
-      }
       }
       
 
@@ -251,27 +255,33 @@ class jPoly
       if (mxp1) { free(mxp1); mxp1 = 0; }
       if (Pk) { free(Pk); Pk = 0; }
       if (Pnmk) { free(Pnmk); Pnmk = 0; }
-      if (Pkmj) { free(Pkmj); Pkmj = 0; }
-      if (Pj) { free(Pj); Pj = 0; }
-      if (mxmyp1) { free(mxmyp1); mxmyp1 = 0; }
-      if (zdxy) { free(zdxy); zdxy = 0; } 
     }
 
   private: 
     T *ydx, *x2m1, *mxp1;
-    T *zdxy, *mxmyp1;
     T *Pk, *Pnmk;
-    T *Pj, *Pkmj;
 
 };
+
+template double jpoly<double> ( const double a, const double b, 
+                                const unsigned int n,
+                                const double x );
+
+template float jpoly<float> ( const float a, const float b, 
+                              const unsigned int n,
+                              const float x );
+
 
 template void jpoly<double> ( double* x, unsigned int Nx, 
                               unsigned int Np, const double a, 
                               const double b, double* V );
+
 template void jpoly<float> ( float* x, unsigned int Nx, 
                               unsigned int Np, const float a, 
                               const float b, float* V );
+
 template class jPoly<double>;
+
 template class jPoly<float>;
 
 
