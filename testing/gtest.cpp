@@ -516,7 +516,7 @@ TEST(nloptExampleTest, RunCheck)
 }
 
 
-TEST(jevdTEST, TolCheck)
+TEST(jevdTest, TolCheck)
 {
   double tol = 1e-11;
   unsigned int m = 40;
@@ -544,7 +544,7 @@ TEST(jevdTEST, TolCheck)
 }
 
 
-TEST(jPolySingle, TolCheck)
+TEST(jPolySingleTest, TolCheck)
 {
   double tol = 1e-11;
   double a = 0.0; double b = 0.0; double x = 0.7;
@@ -571,7 +571,7 @@ TEST(jPolyTetTest, RunCheck)
   double a = 0.5; double b = 0.5; 
   double c = 0.5; double d = 0.5; 
 
-  unsigned int m = 5;
+  unsigned int m = 4;
   unsigned int Np = dimPI3(m);
   unsigned int N = 35;
   std::cout << N << " " << Np << std::endl; 
@@ -589,9 +589,9 @@ TEST(jPolyTetTest, RunCheck)
     Zkfile >> Zk[i]; 
   }
 
-  jPoly<double>* Vm = new jPoly(N, m, a, b, c, d, 6);
+  jPoly<double>* Vm = new jPoly<double>(N, m, a, b, c, d, 6);
   Vm->computeV(Xk, Yk, Zk);
-  //printMat(Vm->V, N, Np); 
+  printMat(Vm->V, N, Np); 
   delete Vm;
   free(Xk);
   free(Yk);

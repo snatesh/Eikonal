@@ -15,7 +15,9 @@
    This is not a stable way of evaluating the polynomials.
    We loose nearly all digits (relative to the order of
    accuracy of other methods which call this function)
-   for polynomial degree n > 40.
+   for polynomial degree n > 40, largely due to recurrent
+   products in the falling factorial and hypergeometric
+   functions.
 
    Really speaking, we shouldn't ever need to go higher
    than n = 20, in terms of problems which demand high order, 
@@ -115,8 +117,8 @@ class jPoly
   public:
     unsigned int Nx, Np, n; 
     T a, b, c, d;
-    const T *X, *Y, *Z;
-    T *H, *V;
+    const T *X = 0, *Y = 0, *Z = 0;
+    T *H = 0, *V = 0;
     const unsigned int dim;
     unsigned int nthreads;
 
@@ -150,6 +152,7 @@ class jPoly
         #pragma omp parallel num_threads(nthreads)
         { 
           unsigned int ind = 0;
+          unsigned int kknn;
           for (unsigned int nn = 0; nn <= n; ++nn)
           {
             #pragma omp for collapse(3) schedule(dynamic)
@@ -159,7 +162,8 @@ class jPoly
               {
                 for (unsigned int i = 0; i < Nx; ++i)
                 {
-                  V[i + Nx*(ind+jj+kk)] = 
+                  kknn = (unsigned int) ((kk == nn) && (kk > 1) ? 1 : 0);
+                  V[i + Nx*(ind+jj+kk+kknn)] = 
                     ( 1.0 / sFactors(nn,kk,jj,a,b,c,d) ) * 
                     jpoly<T>(2.0*kk+b+c+d+0.5, a-0.5, nn-kk, 2*X[i]-1) *
                     jpoly<T>(2.0*jj+c+d, b-0.5, kk-jj, 2*Y[i]/(1-X[i]) - 1) *
@@ -175,7 +179,7 @@ class jPoly
       }
       
 
-      if (this->dim == 2)
+      else if (this->dim == 2)
       {
         this->X = _X; this->Y = _Y;
         #pragma omp parallel num_threads(nthreads)
@@ -258,8 +262,8 @@ class jPoly
     }
 
   private: 
-    T *ydx, *x2m1, *mxp1;
-    T *Pk, *Pnmk;
+    T *ydx = 0, *x2m1 = 0, *mxp1 = 0;
+    T *Pk = 0, *Pnmk = 0;
 
 };
 
