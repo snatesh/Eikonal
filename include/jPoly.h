@@ -152,18 +152,18 @@ class jPoly
         #pragma omp parallel num_threads(nthreads)
         { 
           unsigned int ind = 0;
-          unsigned int kknn;
+          unsigned int col;
           for (unsigned int nn = 0; nn <= n; ++nn)
           {
-            #pragma omp for collapse(3) schedule(dynamic)
+            col = 0;
             for (unsigned int kk = 0; kk <= nn; ++kk)
             {
               for (unsigned int jj = 0; jj <= kk; ++jj)
               {
+                #pragma omp for 
                 for (unsigned int i = 0; i < Nx; ++i)
                 {
-                  kknn = (unsigned int) ((kk == nn) && (kk > 1) ? 1 : 0);
-                  V[i + Nx*(ind+jj+kk+kknn)] = 
+                  V[i + Nx*(ind+col)] = 
                     ( 1.0 / sFactors(nn,kk,jj,a,b,c,d) ) * 
                     jpoly<T>(2.0*kk+b+c+d+0.5, a-0.5, nn-kk, 2*X[i]-1) *
                     jpoly<T>(2.0*jj+c+d, b-0.5, kk-jj, 2*Y[i]/(1-X[i]) - 1) *
@@ -171,7 +171,9 @@ class jPoly
                     std::pow(1-X[i], kk-jj) * 
                     std::pow(1-X[i]-Y[i], jj);
                 }
+                col += 1;
               }
+
             }
             ind = ind + rn3(nn);
           }
