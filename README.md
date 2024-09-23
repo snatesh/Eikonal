@@ -114,7 +114,7 @@ on a manifold of commuting matrices. So, I assume that we need only push these m
 be on the manifold of commuting matrices, and their projections on that manifold yield eigenvalues 
 that live in the tetrahedron. The vaguery of language here is intentional. The point is that we
 should still be able to push the matrices to the *point* with eigenvalues which are in a basin
-of convergence for the undertermined linear system / quadratic root finding problem
+of convergence for the underdetermined linear system / quadratic root finding problem
 we seek to solve at the end of the day.
 
 All this is easy to say, but I have yet to get nlopt to solve the problem on the tet. I think
