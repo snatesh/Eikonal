@@ -122,6 +122,34 @@ class jPoly
     const unsigned int dim;
     unsigned int nthreads;
 
+
+    jPoly ( unsigned int _Nx, unsigned int _n,
+            T _a, T _b, T _c, T _d, 
+            unsigned int _nthreads  )
+      : Nx(_Nx), n(_n), 
+        a(_a), b(_b), c(_c), d(_d), dim(3),
+        nthreads(_nthreads) { init(); }
+
+    jPoly ( unsigned int _Nx, unsigned int _n,
+            T _a, T _b, T _c, unsigned int _nthreads  )
+      : Nx(_Nx), n(_n), 
+        a(_a), b(_b), c(_c), dim(2),
+        nthreads(_nthreads) { init(); }
+
+
+
+    jPoly ( const T* _X, const T* _Y, 
+            unsigned int _Nx, 
+            unsigned int _n,
+            T _a, T _b, T _c, 
+            unsigned int _nthreads  )
+      : X(_X), Y(_Y), Nx(_Nx), n(_n), 
+        a(_a), b(_b), c(_c), dim(2), 
+        nthreads(_nthreads) 
+    {
+      init();
+      computeV(this->X, this->Y);
+    }
     void init  ()
     {
       if (this->dim == 2)
@@ -151,11 +179,11 @@ class jPoly
         this->X =_X; this->Y = _Y; this->Z = _Z;
         #pragma omp parallel num_threads(nthreads)
         { 
-          unsigned int ind = 0;
-          unsigned int col;
+          unsigned int blockind = 0;
+          unsigned int blockcol;
           for (unsigned int nn = 0; nn <= n; ++nn)
           {
-            col = 0;
+            blockcol = 0;
             for (unsigned int kk = 0; kk <= nn; ++kk)
             {
               for (unsigned int jj = 0; jj <= kk; ++jj)
@@ -163,7 +191,7 @@ class jPoly
                 #pragma omp for 
                 for (unsigned int i = 0; i < Nx; ++i)
                 {
-                  V[i + Nx*(ind+col)] = 
+                  V[i + Nx*(blockind+blockcol)] = 
                     ( 1.0 / sFactors(nn,kk,jj,a,b,c,d) ) * 
                     jpoly<T>(2.0*kk+b+c+d+0.5, a-0.5, nn-kk, 2*X[i]-1) *
                     jpoly<T>(2.0*jj+c+d, b-0.5, kk-jj, 2*Y[i]/(1-X[i]) - 1) *
@@ -171,11 +199,11 @@ class jPoly
                     std::pow(1-X[i], kk-jj) * 
                     std::pow(1-X[i]-Y[i], jj);
                 }
-                col += 1;
+                blockcol += 1;
               }
 
             }
-            ind = ind + rn3(nn);
+            blockind = blockind + rn3(nn);
           }
         }
       }
@@ -224,33 +252,7 @@ class jPoly
     }
 
     
-    jPoly ( unsigned int _Nx, unsigned int _n,
-            T _a, T _b, T _c, T _d, 
-            unsigned int _nthreads  )
-      : Nx(_Nx), n(_n), 
-        a(_a), b(_b), c(_c), d(_d), dim(3),
-        nthreads(_nthreads) { init(); }
 
-    jPoly ( unsigned int _Nx, unsigned int _n,
-            T _a, T _b, T _c, unsigned int _nthreads  )
-      : Nx(_Nx), n(_n), 
-        a(_a), b(_b), c(_c), dim(2),
-        nthreads(_nthreads) { init(); }
-
-
-
-    jPoly ( const T* _X, const T* _Y, 
-            unsigned int _Nx, 
-            unsigned int _n,
-            T _a, T _b, T _c, 
-            unsigned int _nthreads  )
-      : X(_X), Y(_Y), Nx(_Nx), n(_n), 
-        a(_a), b(_b), c(_c), dim(2), 
-        nthreads(_nthreads) 
-    {
-      init();
-      computeV(this->X, this->Y);
-    }
 
     ~jPoly  ()
     {

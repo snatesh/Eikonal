@@ -83,7 +83,44 @@ The jacobi matrices, the approximate joint eigenvalues of which appear as the no
 ![alt_text](https://github.com/snatesh/Eikonal/blob/main/testing/testdata/Jyn5_tet.png)
 ![alt_text](https://github.com/snatesh/Eikonal/blob/main/testing/testdata/Jzn5_tet.png)
 
+Since I've been waiting for 2 days on the Wolfram Kernel (using 90% of my computer's memory) to evaluate
+Jacobi matrix entries on the tetrahedron for n = 15, I had to do some thinking..
 
+I realized there exists a straightforward way of numerically computing the entries to the Jacobi matrices for the tetrahedron. However, it relies on getting the near Gaussian-like quadrature optimization working correctly. The idea is to bootstrap:
+
+- Generate Jacobi matrices for a low order, like n = 4.
+- Generate the initial nodes for adapting the quadrature rule via JEVD
+- Push this adapatation as far as we can, resulting in a higher order rule
+  using the same number of nodes.
+- Use this new rule to approximate the required weighted inner products for 
+  entries to the Jacobi matrix, but for a higher order, like n = 5 (if we started with n = 4).
+- Repeat this process until we get SUPER high order!!
+
+The justification here is that we will certainly be able to compute the required integrals for 
+the next order, to within some relatively acceptable (but still unacceptable) epsilon. Now, if
+this epsilon error is small enough, the JEVD process should still produce nodes that live in 
+the tetrahedron, and would serve well for initializing the quadrature optimization routine. 
+Conditioning is not a concern here. We only want to integrate accurately, so
+we can eventually have accurate interpolation and function expansion. Think of the epsilon in 
+terms of the epsilon-commutativity of the Jacobi matrices. We never really find exact joint 
+eigenvalues, as they don't exist in this case! 
+We only find the joint eigenvalues of $J_{ij}^k + \epsilon_{ij}^k$ for $k=1,2,...,d$. 
+So now, we are approximating the approximate joint eigenvalules, but iterating 
+towards the nearly-epsilon-commuting family of Jacobi matrices. 
+
+Remark: I'm assuming that this epsilon commuting family exists. That is, I assume the Jacobi matrices
+live on some kind of manifold of non-commuting matrices, but are just far enough away from a point
+on a manifold of commuting matrices. So, I assume that we need only push these matrices a small amount to
+be on the manifold of commuting matrices, and their projections on that manifold yield eigenvalues 
+that live in the tetrahedron. The vaguery of language here is intentional. The point is that we
+should still be able to push the matrices to the *point* with eigenvalues which are in a basin
+of convergence for the undertermined linear system / quadratic root finding problem
+we seek to solve at the end of the day.
+
+All this is easy to say, but I have yet to get nlopt to solve the problem on the tet. I think
+tomorrow I will try throwing Newton at it with gradient steps. It should actually work well
+for lower adaptive order, and might be all we need to get the bootstrapping to work! 'Imma
+go try now actually.
 
 ## Docker Containerization
 It is likely most simple to install and use the libarary from within a `Docker` container. 

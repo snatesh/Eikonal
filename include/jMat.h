@@ -2,20 +2,47 @@
 #define _JMAT_H
 #include<sFactors.h>
 #include<iomanip>
-
+#include<fstream>
+#include<string>
 
 template <typename T> 
 struct jMat
 {
-  unsigned int n; 
-  unsigned int N; 
-  T *Jn1, *Jn2;
-  T *H, *A, *B, *C, *D, *E, *F, *G;
-  T **A1, **A2, **B1, **B2;
-  T a, b, c, kap;
+  unsigned int n, N; 
+  unsigned int dim; 
+  T *Jn1 = 0, *Jn2 = 0, *Jn3 = 0;
+  T *H = 0, *A = 0, *B = 0, *C = 0;
+  T *D = 0, *E = 0, *F = 0, *G = 0;
+  T **A1 = 0, **A2 = 0, **B1 = 0, **B2 = 0;
+  T a, b, c, d, kap;
+
+  jMat (unsigned int _n, T _a, T _b, T _c, T _d, std::string dir)
+    : n(_n), a(_a), b(_b), c(_c), d(_d), dim(3)
+  {
+    N = dimPI3(n-1);
+    Jn1 = (T*) calloc(N*N, sizeof(T));
+    Jn2 = (T*) calloc(N*N, sizeof(T));
+    Jn3 = (T*) calloc(N*N, sizeof(T));
+    std::stringstream ssx, ssy, ssz; 
+    ssx << dir << "J" << n << "x_tet.txt";
+    ssy << dir << "J" << n << "z_tet.txt";
+    ssz << dir << "J" << n << "y_tet.txt";
+    std::ifstream Jxfile(ssx.str());
+    std::ifstream Jyfile(ssy.str());
+    std::ifstream Jzfile(ssz.str());
+    for (unsigned int j = 0; j < N*N; ++j)
+    {
+      Jxfile >> Jn1[j];
+      Jyfile >> Jn2[j];
+      Jzfile >> Jn3[j];
+    }
+    Jxfile.close(); Jyfile.close(); Jzfile.close();
+    ssx.str() = ""; ssy.str() = ""; ssz.str() = "";
+  }
+    
 
   jMat ( unsigned int _n, T _a, T _b, T _c )
-    : n(_n), a(_a), b(_b), c(_c)
+    : n(_n), a(_a), b(_b), c(_c), dim(2)
   {
     N = static_cast<unsigned int>(0.5 * n * (n + 1)); 
     kap = abs(a + b + c);
@@ -178,21 +205,29 @@ struct jMat
 
   ~jMat()
   {
-    for (unsigned int nn = 0; nn < n; ++nn)
-    {
-      free(A1[nn]); free(A2[nn]);
-      free(B1[nn]); free(B2[nn]);
+    if (this->dim == 2)
+    { 
+      for (unsigned int nn = 0; nn < n; ++nn)
+      {
+        free(A1[nn]); free(A2[nn]);
+        free(B1[nn]); free(B2[nn]);
+      }
+      free(A1); free(B1); 
+      free(A2); free(B2); 
+      free(H); free(A); 
+      free(B); free(C); 
+      free(D); free(E); 
+      free(F); free(G);
+      free(Jn1); free(Jn2);
     }
-    free(A1); free(B1); 
-    free(A2); free(B2); 
-    free(H); free(A); 
-    free(B); free(C); 
-    free(D); free(E); 
-    free(F); free(G);
-    free(Jn1); free(Jn2); 
+    else if (this->dim == 3)
+    {
+      free(Jn1); free(Jn2); free(Jn3);
+    } 
   }
 }; 
 
 template struct jMat<double>;
+template struct jMat<float>;
    
 #endif
