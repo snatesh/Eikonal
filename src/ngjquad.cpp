@@ -166,9 +166,6 @@ int main(int argc, char* argv[])
     exit(1);
   }
   gjquad->init();
-  gjquad->runXW();
-  gjquad->runX();
-
   double* Z0 = gjquad->optdata->Z0;
   unsigned int N = gjquad->optdata->N;
   double sumw = 0;
@@ -176,7 +173,49 @@ int main(int argc, char* argv[])
   {
     sumw += Z0[i];
   } 
-  std::cout << "Sum of weights : " << sumw << std::endl;
+  std::cout << "(initial) Sum of weights : " << sumw << std::endl;
+  
+  if (use_newton) gjquad->newton();
+  gjquad->runXW();
+  gjquad->runX();
+
+
+
+  sumw = 0;
+  for (unsigned int i = dim*N; i < (dim+1)*N; ++i)
+  {
+    sumw += Z0[i];
+  } 
+
+  std::cout << "(final ) Sum of weights : " << sumw << std::endl;
+  if (dim == 3)
+  {
+    std::stringstream ss;
+    ss  << "_N" << gjquad->optdata->N << "_n" << gjquad->optdata->n-1 
+        << "_M" << gjquad->optdata->N << "_m" << gjquad->optdata->m-1;
+    std::stringstream ssx, ssy, ssz, ssw;
+    ssx << "xtet" << ss.str() << ".txt";
+    ssy << "ytet" << ss.str() << ".txt";
+    ssz << "ztet" << ss.str() << ".txt";
+    ssw << "wtet" << ss.str() << ".txt";
+    std::ofstream xfile(ssx.str());
+    std::ofstream yfile(ssy.str());
+    std::ofstream zfile(ssz.str());
+    std::ofstream wfile(ssw.str());
+    for (unsigned int i = 0; i < gjquad->optdata->N; ++i)
+    {
+      xfile << gjquad->optdata->Z0[i] << std::endl; 
+      yfile << gjquad->optdata->Z0[i+N] << std::endl; 
+      zfile << gjquad->optdata->Z0[i+2*N] << std::endl; 
+      wfile << gjquad->optdata->Z0[i+3*N] << std::endl; 
+    }
+    xfile.close();
+    yfile.close();
+    zfile.close();
+    wfile.close();
+  }  
+
+
   if (dim == 2)
   { 
     // integrate test function on tri

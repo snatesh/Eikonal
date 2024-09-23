@@ -589,9 +589,9 @@ TEST(jPolyTetTest, RunCheck)
     Zkfile >> Zk[i]; 
   }
 
-  jPoly<double>* Vm = new jPoly<double>(N, m, a, b, c, d, 6);
+  jPoly<double>* Vm = new jPoly<double>(1, m, a, b, c, d, 6);
   Vm->computeV(Xk, Yk, Zk);
-  printMat(Vm->V, N, Np); 
+  printMat(Vm->V, 1, Np); 
   delete Vm;
   free(Xk);
   free(Yk);

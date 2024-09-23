@@ -23,7 +23,7 @@ struct optData
   double *Vm = 0, *Fk = 0 ;
   double *Jn1 = 0, *Jn2 = 0, *Jn3 = 0, *J = 0;
   Complex *Jnz = 0, *XY0 = 0;
-  double *X0 = 0, *Y0 = 0, *Z0 = 0;
+  double *X0 = 0, *Y0 = 0;
   double *X10 = 0, *X20 = 0, *X30 = 0;
   double *Vm_T = 0, *W0 = 0, *S = 0, *F0 = 0;
   jMat<double>* Jn = 0;
@@ -34,6 +34,9 @@ struct optData
   double minf, minf1;
   unsigned int nthreads;
   unsigned int dim;
+  double* Z0 = 0; // this holds the optimization variables
+
+
   std::string dir;
   std::string splxT;
   
@@ -432,9 +435,9 @@ struct ngjQuad
   
       for (unsigned int i = 0; i < N; ++i) 
       { 
-        optdata->X10[i] = J[i + N*i]; 
-        optdata->X20[i] = J[i + N*(i + N)];
-        optdata->X30[i] = J[i + N*(i + 2*N)]; 
+        optdata->X10[i] = J[i + N*i] * 6.0; 
+        optdata->X20[i] = J[i + N*(i + N)] * 6.0;
+        optdata->X30[i] = J[i + N*(i + 2*N)] * 6.0; 
       }
       // evaluate Vandermonde on initial nodes
       optdata->Pm->computeV(optdata->X10, optdata->X20, optdata->X30); 
@@ -612,6 +615,98 @@ struct ngjQuad
     optdata->minf1 = minF;
     free(tolieq);
     std::cout <<"END NLOPT \n\n";
+  }
+
+  inline void newton() 
+  {
+    std::cout << "BEGIN NEWTON" << std::endl;
+    double h = 1e-8, tol = 1e-7; 
+    double tol_up = 1e5; 
+    unsigned int maxiter = 10000;
+    unsigned int M = optdata->M;
+    unsigned int N = optdata->N;
+
+    double pk = cblas_dnrm2(M, optdata->F0, 1);
+    double* Fkph    = (double*) calloc(M, sizeof(double));
+    double* Fkmh    = (double*) calloc(M, sizeof(double));
+    double* Zkph    = (double*) calloc((dim+1)*N, sizeof(double));
+    double* Zkmh    = (double*) calloc((dim+1)*N, sizeof(double));
+    double* gradFk  = (double*) calloc(M*(dim+1)*N, sizeof(double)); 
+    double* dZk     = (double*) calloc((dim+1)*N, sizeof(double)); 
+    double* S       = (double*) calloc(M, sizeof(double));
+  
+    double rho = 0.9; double gam = 1e-4;
+    unsigned int iter = 0; lapack_int rank[1];
+    double* Zk = optdata->Z0;
+    while (pk > tol && pk < tol_up && iter < maxiter)
+    {
+      iter += 1;
+      /* dZk initialized to Fk, overwritten by dgelsd to dZk 
+         which is lsq sol to gradFk*dZk = Fk */
+      for (unsigned int i = 0; i < M; ++i)    { dZk[i] = optdata->Z0[i]; }
+      for (unsigned int i = M; i < (dim+1)*N; ++i)  { dZk[i] = 0; }
+      for (unsigned int i = 0; i < (dim+1)*N; ++i) { Zkph[i] = Zkmh[i] = Zk[i]; }
+      // save current Z0 address
+      Zk = optdata->Z0;
+      // compute finite difference approx to grad
+      for (unsigned int jj = 0; jj < (dim+1)*N; ++jj)
+      {
+        // eval above and below Zk
+        Zkph[jj] += h; Zkmh[jj] -= h;
+        // switch pointers, call F
+        optdata->Z0 = Zkph; F();
+        for (unsigned int ii = 0; ii < M; ++ii) { Fkph[ii] = optdata->F0[ii]; }
+        // switch pointers, call F
+        optdata->Z0 = Zkmh; F();
+        for (unsigned int ii = 0; ii < M; ++ii) { Fkmh[ii] = optdata->F0[ii]; }
+        // compute dFk/dx_j
+        for (unsigned int ii = 0; ii < M; ++ii)
+        {
+          gradFk[ii + M*jj] = (Fkph[ii] - Fkmh[ii]) / (2.0 * h);
+        }
+        // revert to original Zk
+        Zkph[jj] -= h;
+        Zkmh[jj] += h;
+      }
+      // compute descent direction
+      if (LAPACKE_dgelsd(LAPACK_COL_MAJOR, M, (dim+1)*N, 1, gradFk, M, dZk, (dim+1)*N, S, 1e-16, rank))
+      {
+        std::cerr << "ERROR: Lapack dgelsd: Pseudoinverse" << std::endl;
+      }
+      // linesearch with Wolfe conditions
+      double wfnrm;
+      for (unsigned int i = 0; i < (dim+1)*N; ++i) { Zk[i] -= alph*dZk[i]; }
+      // restore Zk after derivative computations
+      optdata->Z0 = Zk; F();
+      pk = cblas_dnrm2(M, optdata->F0, 1);
+      if (use_wolfe)
+      {
+        for (unsigned int iter_i = 0; iter_i < maxiter; ++iter_i)
+        {
+          cblas_dgemv(CblasColMajor,  CblasNoTrans, M, (dim+1)*N, gam*alph, gradFk, M, dZk, 1, 1.0, optdata->F0, 1);
+          wfnrm = cblas_dnrm2(M, optdata->F0, 1);
+          if (pk > wfnrm)
+          {
+            alph = rho*alph;
+            for (unsigned int i = 0; i < (dim+1)*N; ++i) { optdata->Z0[i] -= alph*dZk[i]; }
+            F();
+            pk = cblas_dnrm2(M, optdata->F0, 1);
+            if ( !(iter_i%10) ) { std::cout << "norm(F) (wolfe): " << pk << std::endl; }
+          } 
+        }
+      }
+  
+      if ( !(iter%10) ) { std::cout << "norm(F) : " << pk << std::endl; }
+    }
+  
+    free(Fkph);
+    free(Fkmh);
+    free(Zkph);
+    free(Zkmh);
+    free(gradFk);
+    free(dZk);
+    free(S);
+    std::cout << "END NEWTON\n" << std::endl;
   }
 
 };
