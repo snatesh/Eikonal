@@ -1,7 +1,11 @@
 #include<ngjquad.h>
 #include<../include/matplotlibcpp.h>
+#include<map>
+#include<vector>
 namespace plt = matplotlibcpp;
 void plot_tri(double* tri, std::string col);
+
+
 
 /*
 
@@ -148,11 +152,16 @@ int main(int argc, char* argv[])
   double wabc = tgamma(kap+1.5) / ( tgamma(a+0.5) * tgamma(b+0.5) * tgamma(c+0.5) );
   double wabcd = 6;
   ngjQuad* gjquad;
+  if (dim == 1)
+  {
+    gjquad = new ngjQuad  ( n, m, 0, 0, tol, tolc, alph,
+                            use_newton, use_wolfe, alg, nthreads );
+  }
   if (dim == 2)
   {
-    gjquad = new ngjQuad ( n, m, a, b, c, tol, tolc, 
-                           alph, use_newton, use_wolfe, alg,
-                           nthreads  );
+    gjquad = new ngjQuad  ( n, m, a, b, c, tol, tolc, 
+                            alph, use_newton, use_wolfe, alg,
+                            nthreads  );
   }
   else if (dim == 3)
   {
@@ -160,11 +169,7 @@ int main(int argc, char* argv[])
                           alph, use_newton, use_wolfe, alg,
                           nthreads, dir );
   }
-  else
-  {
-    std::cerr << "Only dim = 2,3 currently supported\n";
-    exit(1);
-  }
+
   gjquad->init();
   double* Z0 = gjquad->optdata->Z0;
   unsigned int N = gjquad->optdata->N;
@@ -177,7 +182,7 @@ int main(int argc, char* argv[])
   
   if (use_newton) gjquad->newton();
   gjquad->runXW();
-  gjquad->runX();
+  if (dim > 1) { gjquad->runX(); }
 
 
 
@@ -215,6 +220,29 @@ int main(int argc, char* argv[])
     wfile.close();
   }  
 
+  if (dim == 1)
+  {
+      // integrate test function on line
+      double* Ftest = (double*) calloc(N, sizeof(double));
+      for (unsigned int i = 0; i < N; ++i) 
+      {
+        Z0[i]  = (Z0[i]+1)/2.0;
+        Z0[i+N] = 2 * Z0[i+N] / 2.0; 
+        Ftest[i] = std::exp(std::sin(Z0[i]*Z0[i]) + std::pow(2.0, Z0[i]) - 5*Z0[i]);
+      }
+      double Ival = cblas_ddot(N, Z0 + N, 1, Ftest, 1);
+      free(Ftest);
+
+      printf("Integral_T sin(x^2) : %5.16f \n", Ival);
+      std::vector<double> x, y, z;
+      x = {0, 1, 0, 0, 1};
+      y = {0, 0, 1, 0, 0};
+      z = {0, 0, 0, 1, 0};
+      plt::plot3(x, y, z);//, kwargs);
+      plt::xlim(0.0,1.0);
+      plt::ylim(0.0,1.0);
+      plt::show();
+  }
 
   if (dim == 2)
   { 
@@ -249,3 +277,23 @@ void plot_tri(double* tri, std::string col)
   plt::plot(x2, y2, col);
   plt::plot(x3, y3, col);
 }
+
+void plot_tet()
+{
+  std::map<std::string, std::string> kwargs;
+  kwargs["marker"] = "o";
+  kwargs["linestyle"] = "-";
+  kwargs["linewidth"] = "1";
+  kwargs["markersize"] = "12";
+  std::vector<double> x, y, z;
+  x = {0, 1, 0, 0, 1};
+  y = {0, 0, 1, 0, 0};
+  z = {0, 0, 0, 1, 0};
+  plt::plot3(x, y, z);//, kwargs);
+  plt::xlim(0.0,1.0);
+  plt::ylim(0.0,1.0);
+  plt::show();
+}
+
+
+

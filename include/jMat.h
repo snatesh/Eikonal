@@ -34,10 +34,13 @@ struct jMat
         (2.0 * i + a + b + 1.0) * 
         (2.0 * i + a + b + 2.0) / 
         ( 2.0 * (i + 1.0) * (i + a + b + 1.0) );
+      
       bv = 
         (asq - bsq) * (2.0 * i + a + b + 1.0) / 
         ( 2.0 * (i + 1.0) * (i + a + b + 1.0) * (2.0 * i + a + b) );
+      
       bvec[i] = -bv / av;
+      
       avecON[i] = 
         2 / (a + b + 2.0 * i + 2.0) * 
         sqrt(

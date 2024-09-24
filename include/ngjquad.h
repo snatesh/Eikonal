@@ -1,8 +1,7 @@
 #ifndef _NGJQUAD_H
 #define _NGJQUAD_H
 
-#include<vector>
-#include<functional>
+#include<algorithm>
 #include<complex.h>
 #include<cblas.h>
 #include<lapacke.h>
@@ -48,7 +47,7 @@ struct optData
     {
       this->N = n; this->M = m;
       this->Jn = new jMat<double>(n, a, b);
-      this->Pm = new jPoly<double>(N, m-1, a, b, nthreads);
+      this->Pm = new jPoly<double>(N, M, a, b, nthreads);
       this->Vm = Pm->V;
       this->Jn1 = Jn->J;
       this->X0 = (double*) calloc(N, sizeof(double));
@@ -117,7 +116,7 @@ struct optData
     { 
       if ( m < (2 * n - 1) )
       {
-        std::cout << "OPTIMAL GAUSS-JACOBI QUADRATURE IS OBTAINABLE in 1D\n";
+        std::cout << "\nOPTIMAL GAUSS-JACOBI QUADRATURE IS OBTAINABLE in 1D\n";
         std::cout << "N nodes can integrate 2N-1 POLYNOMIALS\n";
         std::cout << "DEFAULTING M = 2N-1\n";
         this->m = 2 * n - 1; 
@@ -168,7 +167,7 @@ struct optData
     {
       splxT = (this->dim == 2 ? "(TRIANGLE)" : 
                 (this->dim == 3 ? "(TETRAHEDRON)" : "(LINE)"));
-      std::cout << "\nBEGIN NGJQUAD " << splxT << "INITIALIZATION\n"; 
+      std::cout << "\nBEGIN NGJQUAD " << splxT << " INITIALIZATION\n"; 
     }
     else if (step == 1)
     {
@@ -532,6 +531,7 @@ struct ngjQuad
       }
       free(X0i);
       // evaluate Vandermonde on initial nodes
+      std::sort(optdata->X0, optdata->X0 + N);
       optdata->Pm->computeV(optdata->X0);
     }
     unsigned int i = 0;
@@ -588,68 +588,69 @@ struct ngjQuad
   
   inline void runXW ()
   {
-    std::cout <<"\n BEGIN NLOPT (X,W) \n"; 
-    unsigned int N = optdata->N; 
-    nlopt_opt opt;
-    double *lb, *ub, *tolieq;
-    if (this->dim == 1)
+    double minF = cblas_dnrm2(optdata->M, optdata->F0, 1); 
+    if (minF > tolc)
     {
-      // x > -1, w > 0
-      lb = (double*) calloc(2*N, sizeof(double));
-      for (unsigned int i = 0; i < N; ++i) { lb[i] = -1; } 
-      // x, w < 1
-      ub = (double*) calloc(2*N, sizeof(double));
-      tolieq = (double*) calloc(1*N, sizeof(double));
-      for (unsigned int i = 0; i < 2*N; ++i) { ub[i] = 1; }
-      for (unsigned int i = 0; i < 1*N; ++i) { tolieq[i] = tolc; }
-      opt = nlopt_create(alg, 2*N); 
-      nlopt_add_inequality_mconstraint(opt, 1*N, optieqC, optdata, tolieq);
-    }
-    else if (this->dim == 2)
-    {
-      // x, y , w > 0
-      lb = (double*) calloc(3*N, sizeof(double)); 
-      // x, y , w < 1
-      ub = (double*) calloc(3*N, sizeof(double));
-      tolieq = (double*) calloc(2*N, sizeof(double));
-      for (unsigned int i = 0; i < 3*N; ++i) { ub[i] = 1; }
-      for (unsigned int i = 0; i < 2*N; ++i) { tolieq[i] = tolc; }
-      opt = nlopt_create(alg, 3*N); 
-      nlopt_add_inequality_mconstraint(opt, 2*N, optieqC, optdata, tolieq);
-    }
-    else if (this->dim == 3)
-    {
-      // x, y, z, w > 0
-      lb = (double*) calloc(4*N, sizeof(double)); 
-      // x, y, z, w < 1
-      ub = (double*) calloc(4*N, sizeof(double));
-      tolieq = (double*) calloc(3*N, sizeof(double));
-      for (unsigned int i = 0; i < 4*N; ++i) { ub[i] = 1; }
-      for (unsigned int i = 0; i < 3*N; ++i) { tolieq[i] = tolc; }
-      opt = nlopt_create(alg, 4*N); 
-      nlopt_add_inequality_mconstraint(opt, 3*N, optieqC, optdata, tolieq);
+      std::cout <<"\n BEGIN NLOPT (X,W) \n"; 
+      unsigned int N = optdata->N; 
+      nlopt_opt opt;
+      double *lb, *ub, *tolieq;
+      if (this->dim == 1)
+      {
+        // x > -1, w > 0
+        lb = (double*) calloc(2*N, sizeof(double));
+        for (unsigned int i = 0; i < N; ++i) { lb[i] = -1; } 
+        // x, w < 1
+        ub = (double*) calloc(2*N, sizeof(double));
+        tolieq = (double*) calloc(1*N, sizeof(double));
+        for (unsigned int i = 0; i < 2*N; ++i) { ub[i] = 1; }
+        for (unsigned int i = 0; i < 1*N; ++i) { tolieq[i] = tolc; }
+        opt = nlopt_create(alg, 2*N); 
+      }
+      else if (this->dim == 2)
+      {
+        // x, y , w > 0
+        lb = (double*) calloc(3*N, sizeof(double)); 
+        // x, y , w < 1
+        ub = (double*) calloc(3*N, sizeof(double));
+        tolieq = (double*) calloc(2*N, sizeof(double));
+        for (unsigned int i = 0; i < 3*N; ++i) { ub[i] = 1; }
+        for (unsigned int i = 0; i < 2*N; ++i) { tolieq[i] = tolc; }
+        opt = nlopt_create(alg, 3*N); 
+        nlopt_add_inequality_mconstraint(opt, 2*N, optieqC, optdata, tolieq);
+      }
+      else if (this->dim == 3)
+      {
+        // x, y, z, w > 0
+        lb = (double*) calloc(4*N, sizeof(double)); 
+        // x, y, z, w < 1
+        ub = (double*) calloc(4*N, sizeof(double));
+        tolieq = (double*) calloc(3*N, sizeof(double));
+        for (unsigned int i = 0; i < 4*N; ++i) { ub[i] = 1; }
+        for (unsigned int i = 0; i < 3*N; ++i) { tolieq[i] = tolc; }
+        opt = nlopt_create(alg, 4*N); 
+        nlopt_add_inequality_mconstraint(opt, 3*N, optieqC, optdata, tolieq);
   
-    }
-    nlopt_set_lower_bounds(opt, lb);
-    nlopt_set_upper_bounds(opt, ub);
-    nlopt_set_min_objective(opt, optF, optdata);
-    nlopt_add_equality_constraint(opt, opteqC, optdata, tolc);
-    nlopt_set_xtol_rel(opt, tol);
-    nlopt_set_stopval(opt, tol);
-    double minF;
-    if (nlopt_optimize(opt, optdata->Z0, &minF) < 0) 
-    {
-      std::cerr << "NLOPT failed!" << std::endl;
-    }
-    else 
-    {
-      std::cout << "Quadrature exactness in norm up to specified order : " 
-                << minF << std::endl;
-    }
-    nlopt_destroy(opt);
-    free(lb); free(ub);
-    free(tolieq);
-    optdata->minf = minF;
+      }
+      nlopt_set_lower_bounds(opt, lb);
+      nlopt_set_upper_bounds(opt, ub);
+      nlopt_set_min_objective(opt, optF, optdata);
+      nlopt_add_equality_constraint(opt, opteqC, optdata, tolc);
+      nlopt_set_xtol_rel(opt, tol);
+      nlopt_set_stopval(opt, tol);
+
+      if (nlopt_optimize(opt, optdata->Z0, &minF) < 0) 
+      {
+        std::cerr << "NLOPT failed! Exiting .." << std::endl;
+        exit(1);
+      }
+      nlopt_destroy(opt);
+      free(lb); free(ub);
+      free(tolieq);
+      optdata->minf = minF;
+    } 
+    std::cout << "Quadrature exactness in norm up to specified order : " 
+              << minF << std::endl;
     std::cout <<"END NLOPT \n\n";
   }
   
@@ -669,7 +670,6 @@ struct ngjQuad
       for (unsigned int i = 0; i < 1*N; ++i) { lb[i] = -1; ub[i] = 1; }
       for (unsigned int i = 0; i < 1*N; ++i) { tolieq[i] = tolc; }
       opt = nlopt_create(alg, 1*N); 
-      nlopt_add_inequality_mconstraint(opt, 1*N, optieqC1, optdata, tolieq);
     }
     else if (this->dim == 2)
     { 
@@ -701,7 +701,7 @@ struct ngjQuad
     nlopt_set_min_objective(opt, optF1, optdata);
     nlopt_add_equality_constraint(opt, opteqC1, optdata, tolc);
   
-    nlopt_set_xtol_rel(opt, 1e-4);
+    nlopt_set_xtol_rel(opt, 1e-8);
     nlopt_set_stopval(opt, 1);
     double minF;
     if (nlopt_optimize(opt, optdata->Z0, &minF) < 0) 

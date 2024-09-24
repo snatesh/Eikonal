@@ -10,6 +10,7 @@
 #include<dMat.h>
 #include<jMat.h>
 #include<jevd.h>
+#include<ngjquad.h>
 
 #ifdef PLOT
 #include<../include/matplotlibcpp.h>
@@ -234,7 +235,7 @@ TEST(jPolyTriConvTest, ConvPlotCheck)
   for (unsigned int iF = 0; iF < 5; ++iF)
   {
     unsigned int n, m, N;
-    double I, Iref;
+    double Ival, Iref;
     N = 136;
     double* Xkref = (double*) malloc(N * sizeof(double));
     double* Ykref = (double*) malloc(N * sizeof(double));
@@ -286,8 +287,8 @@ TEST(jPolyTriConvTest, ConvPlotCheck)
         f[i] = farr[iF](Xk[i], Yk[i]);
       }
 
-      I = vecdot(f, Wk, N);
-      errs[j] = std::abs(I - Iref) / std::abs(Iref);
+      Ival = vecdot(f, Wk, N);
+      errs[j] = std::abs(Ival - Iref) / std::abs(Iref);
       if (j == 13)
       {
         EXPECT_LT(errs[j], tol);
@@ -610,6 +611,38 @@ TEST(jPolyTetTest, RunCheck)
   free(Xk);
   free(Yk);
   free(Zk);
+
+}
+
+TEST(ngjquadLineTest, TolCheck)
+{
+  double tol = 1e-15;
+  unsigned int N = 20;
+  unsigned int dim = 1;
+  ngjQuad* gjquad = new ngjQuad  (  N, N, 0, 0, 1e-16, 1e-16, 0,
+                                    0, 0, NLOPT_LN_SBPLX, 4 );
+
+  gjquad->init();
+  double* Z0 = gjquad->optdata->Z0;
+  gjquad->runXW();
+
+  double sumw = 0;
+  for (unsigned int i = dim*N; i < (dim+1)*N; ++i)
+  {
+    sumw += Z0[i];
+  } 
+  EXPECT_LT(std::abs(sumw-1.0), tol);
+  // integrate test function on tri
+  double* Ftest = (double*) calloc(N, sizeof(double));
+  for (unsigned int i = 0; i < N; ++i) 
+  { 
+    Ftest[i] = std::exp(std::sin(Z0[i]*Z0[i]) + std::pow(2.0, Z0[i]) - 5*Z0[i]);
+  }
+  double Ival = 2.0 * cblas_ddot(N, Z0 + N, 1, Ftest, 1);
+  double Iref = 98.4483710807777525144; 
+  EXPECT_LT(abs(Ival-Iref)/abs(Iref), tol);
+  free(Ftest);
+  delete gjquad;
 
 }
 
