@@ -3,9 +3,10 @@ import matplotlib.pyplot as plt
 
 dir = "../testing/testdata/"
 
-x = np.loadtxt(dir + 'xtet_N35_n4_M35_m5.txt');
-y = np.loadtxt(dir + 'ytet_N35_n4_M35_m5.txt');
-z = np.loadtxt(dir + 'ztet_N35_n4_M35_m5.txt');
+
+x = np.loadtxt(dir + 'xtet_N56_n5_M120_m7.txt');
+y = np.loadtxt(dir + 'ytet_N56_n5_M120_m7.txt');
+z = np.loadtxt(dir + 'ztet_N56_n5_M120_m7.txt');
 
 
 

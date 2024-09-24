@@ -456,6 +456,20 @@ TEST(dyTriTest, TolCheck)
   free(D_ab1c1_ref);
 }
 
+TEST(jMatLineTest, TolCheck)
+{
+  double tol = 1e-14;
+  unsigned int n = 10;
+  double a = -0.5, b = 3.0;
+  jMat<double>* Jn = new jMat<double>(n,a,b);
+  double* Jref = (double*) calloc(n*n, sizeof(double));
+  std::ifstream Jfile("../testdata/Jline.txt");
+  for (unsigned int i = 0; i < n*n; ++i) { Jfile >> Jref[i]; }
+  double diff = infnorm(Jn->J, Jref, n*n);
+  EXPECT_LT(diff, tol);
+  delete Jn;
+}
+
 TEST(jMatTriTest, TolCheck)
 {
   double tol  = 1e-14;

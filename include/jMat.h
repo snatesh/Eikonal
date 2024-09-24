@@ -16,6 +16,55 @@ struct jMat
   T **A1 = 0, **A2 = 0, **B1 = 0, **B2 = 0;
   T a, b, c, d, kap;
 
+  T *J, *avecON, *bvec;
+
+  jMat(unsigned int _n, T _a, T _b)
+    : n(_n), a(_a), b(_b)
+  {
+    J       = (T*) calloc(n*n, sizeof(T));
+    bvec    = (T*) calloc(n, sizeof(T));
+    avecON  = (T*) calloc(n, sizeof(T));
+    T av, bv, asq = a * a, bsq = b * b;
+    bvec[0]   = -(0.5 * (a - b)) / (0.5 * (a + b) + 1.0);
+    avecON[0] = (2.0 / (a + b + 2.0)) * sqrt( (a + 1.0) * (b + 1.0) / (a + b + 3.0) );
+    #pragma omp simd
+    for (unsigned int i = 1; i < n; ++i)
+    {
+      av = 
+        (2.0 * i + a + b + 1.0) * 
+        (2.0 * i + a + b + 2.0) / 
+        ( 2.0 * (i + 1.0) * (i + a + b + 1.0) );
+      bv = 
+        (asq - bsq) * (2.0 * i + a + b + 1.0) / 
+        ( 2.0 * (i + 1.0) * (i + a + b + 1.0) * (2.0 * i + a + b) );
+      bvec[i] = -bv / av;
+      avecON[i] = 
+        2 / (a + b + 2.0 * i + 2.0) * 
+        sqrt(
+              (a + i + 1.0) * (b + i + 1.0) * 
+              (i + 1.0) * (a + b + i + 1.0) /
+              ( (a + b + 2.0 * i + 1.0) * 
+                (a + b + 2.0 * i + 3.0) )  
+            );
+    }
+
+    #pragma omp simd
+    for (unsigned int i = 0; i < n; ++i)
+    {
+      J[i + n*i] = bvec[i];
+
+    }
+
+    #pragma omp simd
+    for (unsigned int i = 0; i < n-1; ++i)
+    {
+      J[i + n*(i+1)] = avecON[i];
+      J[i+1 + n*i] = avecON[i];
+    }
+   
+  } 
+    
+
   jMat (unsigned int _n, T _a, T _b, T _c, T _d, std::string dir)
     : n(_n), a(_a), b(_b), c(_c), d(_d), dim(3)
   {
@@ -205,6 +254,12 @@ struct jMat
 
   ~jMat()
   {
+    if (this->dim == 1)
+    {
+      if (J) { free(J); J = 0; }
+      if (avecON) { free(avecON); avecON = 0; }
+      if (bvec) { free(bvec); bvec = 0; }
+    }
     if (this->dim == 2)
     { 
       for (unsigned int nn = 0; nn < n; ++nn)
