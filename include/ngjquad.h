@@ -44,7 +44,23 @@ struct optData
   {
   
     initmsg(0);
-    if (this->dim == 2)
+    if (this->dim == 1)
+    {
+      this->N = n; this->M = m;
+      this->Jn = new jMat<double>(n, a, b);
+      this->Pm = new jPoly<double>(N, m-1, a, b, nthreads);
+      this->Vm = Pm->V;
+      this->Jn1 = Jn->J;
+      this->X0 = (double*) calloc(N, sizeof(double));
+      this->Vm_T = (double*) calloc(M*N, sizeof(double));
+      this->W0  = (double*) calloc((N >= M ? N : M), sizeof(double));
+      W0[0] = 1.0;
+      this->S = (double*) calloc(M, sizeof(double)); 
+      this->Z0 = (double*) calloc(2*N, sizeof(double));
+      this->F0 = (double*) calloc(2*N, sizeof(double)); 
+      this->Fk = this->F0;
+    }
+    else if (this->dim == 2)
     {
       this->N = static_cast<unsigned int>(0.5 * n * (n + 1)); 
       this->M = static_cast<unsigned int>(0.5 * m * (m + 1));
@@ -66,8 +82,7 @@ struct optData
       this->F0 = (double*) calloc(3*N, sizeof(double)); 
       this->Fk = this->F0;
     }
-  
-    if (this->dim == 3)
+    else if (this->dim == 3)
     { 
       this->N = dimPI3(n-1); 
       this->M = dimPI3(m-1);
@@ -94,8 +109,25 @@ struct optData
   }
    
   optData ( unsigned int _m, unsigned int _n, 
-                    double _a, double _b, double _c, 
-                    unsigned int _nthreads )
+            double _a, double _b, 
+            unsigned int _nthreads )
+    : n(_n), m(_m), a(_a), b(_b), 
+      run0(true), dim(1), 
+      nthreads(_nthreads) 
+    { 
+      if ( m < (2 * n - 1) )
+      {
+        std::cout << "OPTIMAL GAUSS-JACOBI QUADRATURE IS OBTAINABLE in 1D\n";
+        std::cout << "N nodes can integrate 2N-1 POLYNOMIALS\n";
+        std::cout << "DEFAULTING M = 2N-1\n";
+        this->m = 2 * n - 1; 
+      } 
+      this->init(); 
+    }
+  
+  optData ( unsigned int _m, unsigned int _n, 
+            double _a, double _b, double _c, 
+            unsigned int _nthreads )
     : n(_n), m(_m), a(_a), b(_b), c(_c), 
       run0(true), dim(2), nthreads(_nthreads) { this->init(); }
   
@@ -161,9 +193,22 @@ struct ngjQuad
   unsigned int nthreads;
   nlopt_algorithm alg;
   unsigned int dim;
+ 
+
+  ngjQuad ( unsigned int _n, unsigned int _m, 
+            double a, double b, 
+            double _tol, double _tolc, double _alph,
+            bool _use_newton, bool _use_wolfe,
+            nlopt_algorithm _alg, unsigned int _nthreads)
+    : n(_n), m(_m), tol(_tol), tolc(_tolc), alph(_alph),
+      use_newton(_use_newton), use_wolfe(_use_wolfe),
+      alg(_alg), nthreads(_nthreads), dim(1)
+  {
+    this->optdata = new optData(m, n, a, b, nthreads);
+  }
+
   
-  
-  ngjQuad  ( unsigned int _n, unsigned int _m, 
+  ngjQuad ( unsigned int _n, unsigned int _m, 
             double a, double b, double c, 
             double _tol, double _tolc, double _alph,
             bool _use_newton, bool _use_wolfe,
@@ -236,8 +281,14 @@ struct ngjQuad
     unsigned int dim = data->dim;
     double *Vm = data->Pm->V, *Fk = data->Fk;
     const double *Wk, *Xk, *Yk; 
-    const double *X1k, *X2k, *X3k; 
-    if (dim == 2)
+    const double *X1k, *X2k, *X3k;
+    if (dim == 1)
+    {
+      Xk = Zk; Wk = Zk + N;
+      Fk = data->Fk;
+      data->Pm->computeV(Xk);
+    } 
+    else if (dim == 2)
     {
       Xk = Zk; Yk = Zk + N; 
       Wk = Zk + 2*N;
@@ -270,7 +321,12 @@ struct ngjQuad
     ++count1;
     optData* data = (optData*) _data;
     unsigned int dim = data->dim; 
-    if (dim == 2) 
+    if (dim == 1)
+    {
+      const double *Xk = Zk;
+      data->Pm->computeV(Xk);
+    }
+    else if (dim == 2) 
     { 
       const double *Xk = Zk; 
       const double *Yk = Zk + data->N;
@@ -299,8 +355,12 @@ struct ngjQuad
   {
    
     optData* data = (optData*) _data;
-    unsigned int dim = data->dim;  
-    if (dim == 2)
+    unsigned int dim = data->dim;
+    if (dim == 1)
+    {
+      // only bound constraints
+    }  
+    else if (dim == 2)
     {
       unsigned int N = static_cast<unsigned int>(n / 3.0);
       #pragma omp simd
@@ -317,7 +377,6 @@ struct ngjQuad
       {
         result[i] = Zk[i] + Zk[i + N] + Zk[i + 2*N] - 1.0; 
       }
-      
     }
   }
   
@@ -326,7 +385,11 @@ struct ngjQuad
   {
     optData* data = (optData*) f_data;
     unsigned int dim = data->dim;
-    if (dim == 2)
+    if (dim == 1)
+    {
+      // only bound constraints
+    }
+    else if (dim == 2)
     {
       unsigned int N = static_cast<unsigned int>(n / 2.0);
       #pragma omp simd 
@@ -352,18 +415,9 @@ struct ngjQuad
     double sumw = 0.0;
     optData* data = (optData*) _data;
     unsigned int dim = data->dim;
-    if (dim == 2)
-    {
-      unsigned int N = static_cast<unsigned int>(n / 3.0);
-      #pragma omp simd reduction(+:sumw)
-      for (unsigned int i = 2*N; i < n; ++i) { sumw += Zk[i]; }
-    }
-    else if (dim == 3)
-    {
-      unsigned int N = static_cast<unsigned int>(n / 4.0);
-      #pragma omp simd reduction(+:sumw)
-      for (unsigned int i = 3*N; i < n; ++i) { sumw += Zk[i]; }
-    }
+    unsigned int N = static_cast<unsigned int>(n / (dim+1.0));
+    #pragma omp simd reduction(+:sumw)
+    for (unsigned int i = dim*N; i < n; ++i) { sumw += Zk[i]; }
     return sumw - 1.0;
   } 
   
@@ -384,26 +438,29 @@ struct ngjQuad
     double* Fk = optdata->F0;
     double* Wk;
     double* I0 = (double*) calloc(M, sizeof(double)); I0[0] = 1; 
-    if (this->dim == 2)
+    
+    if (this->dim == 1)
+    {
+      const double *Xk;
+      Xk = Zk; Wk = Zk + N;
+      optdata->Pm->computeV(Xk);
+    }
+    else if (this->dim == 2)
     {
       const double *Xk, *Yk;
       Xk = Zk; Yk = Zk + N; Wk = Zk + 2*N;
       optdata->Pm->computeV(Xk, Yk);
-      cblas_dgemv ( CblasColMajor, CblasTrans, N, M, 1.0, optdata->Pm->V, 
-                    N, Wk, 1, -1.0, I0, 1);
-      for (unsigned int i = 0; i < M; ++i) { Fk[i] = I0[i]; }
-      free(I0);
     }
     else if (this->dim == 3)
     {
       const double *X1k, *X2k, *X3k;
       X1k = Zk; X2k = Zk + N; X3k = Zk + 2*N; Wk = Zk + 3*N;
       optdata->Pm->computeV(X1k, X2k, X3k);
-      cblas_dgemv ( CblasColMajor, CblasTrans, N, M, 1.0, optdata->Pm->V, 
-                    N, Wk, 1, -1.0, I0, 1);
-      for (unsigned int i = 0; i < M; ++i) { Fk[i] = I0[i]; }
-      free(I0);
     }
+    cblas_dgemv ( CblasColMajor, CblasTrans, N, M, 1.0, optdata->Pm->V, 
+                  N, Wk, 1, -1.0, I0, 1);
+    for (unsigned int i = 0; i < M; ++i) { Fk[i] = I0[i]; }
+    free(I0);
 
   }
   
@@ -446,7 +503,6 @@ struct ngjQuad
     {
       double* Jn1 = optdata->Jn1; double* Jn2 = optdata->Jn2;
       Complex* XY0 = optdata->XY0;
-      double a = optdata->a, b = optdata->b, c = optdata->c;
       // compute initial nodes and weights from eigenvalues of Jn
       for (unsigned int i = 0; i < N*N; ++i) { optdata->Jnz[i] = Jn1[i] + I*Jn2[i]; }
   
@@ -463,6 +519,20 @@ struct ngjQuad
       } 
       // evaluate Vandermonde on initial nodes
       optdata->Pm->computeV(optdata->X0, optdata->Y0);
+    }
+    else if (this->dim == 1)
+    {
+      double* X0 = optdata->X0; 
+      double* X0i = (double*) calloc(N, sizeof(double));
+      // compute initial nodes and weights from eigenvalues of Jn
+      if (LAPACKE_dgeev ( LAPACK_COL_MAJOR, 'N', 'N', N, optdata->Jn1, N, 
+                          X0, X0i, nullptr, N, nullptr, N ))
+      {
+        std::cerr << "ERROR: NGJQUAD INIT" << std::endl;
+      }
+      free(X0i);
+      // evaluate Vandermonde on initial nodes
+      optdata->Pm->computeV(optdata->X0);
     }
     unsigned int i = 0;
     for (unsigned int col = 0; col < M; ++col)
@@ -504,6 +574,14 @@ struct ngjQuad
         Z0[i + 2*N] = W0[i];
       }
     }
+    else if (this->dim == 1)
+    {
+      for (unsigned int i = 0; i < N; ++i)
+      {
+        Z0[i]       = optdata->X0[i];
+        Z0[i + N]   = W0[i];
+      }
+    }
     F();
   }
   
@@ -514,7 +592,20 @@ struct ngjQuad
     unsigned int N = optdata->N; 
     nlopt_opt opt;
     double *lb, *ub, *tolieq;
-    if (this->dim == 2)
+    if (this->dim == 1)
+    {
+      // x > -1, w > 0
+      lb = (double*) calloc(2*N, sizeof(double));
+      for (unsigned int i = 0; i < N; ++i) { lb[i] = -1; } 
+      // x, w < 1
+      ub = (double*) calloc(2*N, sizeof(double));
+      tolieq = (double*) calloc(1*N, sizeof(double));
+      for (unsigned int i = 0; i < 2*N; ++i) { ub[i] = 1; }
+      for (unsigned int i = 0; i < 1*N; ++i) { tolieq[i] = tolc; }
+      opt = nlopt_create(alg, 2*N); 
+      nlopt_add_inequality_mconstraint(opt, 1*N, optieqC, optdata, tolieq);
+    }
+    else if (this->dim == 2)
     {
       // x, y , w > 0
       lb = (double*) calloc(3*N, sizeof(double)); 
@@ -568,7 +659,19 @@ struct ngjQuad
     unsigned int N = optdata->N;
     nlopt_opt opt; 
     double *ub, *lb, *tolieq;
-    if (this->dim == 2)
+    if (this->dim == 1)
+    {
+      // x > -1
+      lb = (double*) calloc(1*N, sizeof(double));
+      // x < 1
+      ub = (double*) calloc(1*N, sizeof(double));
+      tolieq = (double*) calloc(1*N, sizeof(double));
+      for (unsigned int i = 0; i < 1*N; ++i) { lb[i] = -1; ub[i] = 1; }
+      for (unsigned int i = 0; i < 1*N; ++i) { tolieq[i] = tolc; }
+      opt = nlopt_create(alg, 1*N); 
+      nlopt_add_inequality_mconstraint(opt, 1*N, optieqC1, optdata, tolieq);
+    }
+    else if (this->dim == 2)
     { 
       // x, y > 0
       lb = (double*) calloc(2*N, sizeof(double)); 
@@ -669,7 +772,8 @@ struct ngjQuad
         Zkmh[jj] += h;
       }
       // compute descent direction
-      if (LAPACKE_dgelsd(LAPACK_COL_MAJOR, M, (dim+1)*N, 1, gradFk, M, dZk, (dim+1)*N, S, 1e-16, rank))
+      if (  LAPACKE_dgelsd  ( LAPACK_COL_MAJOR, M, (dim+1)*N, 1, 
+                              gradFk, M, dZk, (dim+1)*N, S, 1e-16, rank ) )
       {
         std::cerr << "ERROR: Lapack dgelsd: Pseudoinverse" << std::endl;
       }
@@ -683,7 +787,8 @@ struct ngjQuad
       {
         for (unsigned int iter_i = 0; iter_i < maxiter; ++iter_i)
         {
-          cblas_dgemv(CblasColMajor,  CblasNoTrans, M, (dim+1)*N, gam*alph, gradFk, M, dZk, 1, 1.0, optdata->F0, 1);
+          cblas_dgemv ( CblasColMajor,  CblasNoTrans, M, (dim+1)*N, 
+                        gam*alph, gradFk, M, dZk, 1, 1.0, optdata->F0, 1  );
           wfnrm = cblas_dnrm2(M, optdata->F0, 1);
           if (pk > wfnrm)
           {

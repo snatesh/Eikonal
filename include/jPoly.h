@@ -59,7 +59,7 @@ inline T jpoly ( const T a, const T b,
       -       to obtain the normalization coefficients. 
 */
 template<typename T> 
-inline void jpoly  ( T* x, unsigned int Nx, unsigned int Np, 
+inline void jpoly  ( const T* x, unsigned int Nx, unsigned int Np, 
                      const T a, const T b, T* V  )
 {
   T apb = a + b; 
@@ -136,7 +136,11 @@ class jPoly
         a(_a), b(_b), c(_c), dim(2),
         nthreads(_nthreads) { init(); }
 
-
+    jPoly ( unsigned int _Nx, unsigned int _n,
+            T _a, T _b, unsigned int _nthreads  )
+      : Nx(_Nx), n(_n),
+        a(_a), b(_b), dim(1),
+        nthreads(_nthreads) { init(); }
 
     jPoly ( const T* _X, const T* _Y, 
             unsigned int _Nx, 
@@ -150,6 +154,20 @@ class jPoly
       init();
       computeV(this->X, this->Y);
     }
+
+    jPoly ( const T* _X, 
+            unsigned int _Nx,
+            unsigned int _n,
+            T _a, T _b,
+            unsigned int _nthreads  )
+      : X(_X), Nx(_Nx), n(_n), 
+        a(_a), b(_b), dim(1),
+        nthreads(_nthreads)
+    {
+      init();
+      computeV(this->X);
+    }
+
     void init  ()
     {
       if (this->dim == 2)
@@ -169,9 +187,15 @@ class jPoly
         this->Np = dimPI3(n); 
         this->V = (T*) calloc(Nx*Np, sizeof(T));
       }
+      else if (this->dim == 1)
+      {
+        this->Np = n;
+        this->V = (T*) calloc(Nx*Np, sizeof(T));
+      }
     }
-    
-    void computeV(const T* _X, const T* _Y, const T* _Z = 0)
+   
+ 
+    void computeV(const T* _X, const T* _Y = 0, const T* _Z = 0)
     {
       if (this->dim == 3)
       {
@@ -249,6 +273,11 @@ class jPoly
           ind = ind + nn + 1;
         }
       }
+      else if (this->dim == 1)
+      {
+        this->X = _X;
+        jpoly<T>(X, Nx, Np, a, b, V);
+      }
     }
 
     
@@ -280,11 +309,11 @@ template float jpoly<float> ( const float a, const float b,
                               const float x );
 
 
-template void jpoly<double> ( double* x, unsigned int Nx, 
+template void jpoly<double> ( const double* x, unsigned int Nx, 
                               unsigned int Np, const double a, 
                               const double b, double* V );
 
-template void jpoly<float> ( float* x, unsigned int Nx, 
+template void jpoly<float> (  const float* x, unsigned int Nx, 
                               unsigned int Np, const float a, 
                               const float b, float* V );
 
