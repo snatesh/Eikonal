@@ -12,6 +12,7 @@
 #include<jevd.h>
 #include<ngjquad.h>
 #include<mapQuad.h>
+#include<jWeight.h>
 
 #ifdef PLOT
 #include<../include/matplotlibcpp.h>
@@ -646,7 +647,7 @@ TEST(ngjquadLineTest, TolCheck)
   delete gjquad;
 }
 
-TEST(intTetonCubeTest, runCheck)
+TEST(intTetonCubeTest, RunCheck)
 {
   unsigned int n = 30;
   intTonC* T2C = new intTonC(n);
@@ -654,6 +655,15 @@ TEST(intTetonCubeTest, runCheck)
   delete T2C;
 }
 
+TEST(jweightTest, RunCheck)
+{
+  double params[2] = {0,0};
+  double x[2] = {0,0};
+  jWeight<double,1>* jw = new jWeight<double,1>(params);
+
+  std::cout << jw->w(x) << std::endl;
+  delete jw;
+}
 
 } // end gtest namespace
 

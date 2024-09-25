@@ -14,6 +14,7 @@ struct jMat
   T *H = 0, *A = 0, *B = 0, *C = 0;
   T *D = 0, *E = 0, *F = 0, *G = 0;
   T **A1 = 0, **A2 = 0, **B1 = 0, **B2 = 0;
+  T **A3 = 0, **B3 = 0;
   T a, b, c, d, kap;
 
   T *J, *avecON, *bvec;
@@ -112,10 +113,10 @@ struct jMat
     F = (T*) calloc((n+1)*(n+1), sizeof(T)); 
     G = (T*) calloc((n+1)*(n+1), sizeof(T)); 
     /* block array of coefficient matrices in 3-term recurrence*/
-    A1 = (T**) malloc((n+1) * sizeof(T**));
-    A2 = (T**) malloc((n+1) * sizeof(T**));
-    B1 = (T**) malloc((n+1) * sizeof(T**));
-    B2 = (T**) malloc((n+1) * sizeof(T**));
+    A1 = (T**) malloc((n+1) * sizeof(T*));
+    A2 = (T**) malloc((n+1) * sizeof(T*));
+    B1 = (T**) malloc((n+1) * sizeof(T*));
+    B2 = (T**) malloc((n+1) * sizeof(T*));
     Jn1 = (T*) calloc(N*N, sizeof(T));
     Jn2 = (T*) calloc(N*N, sizeof(T));
 
@@ -254,6 +255,32 @@ struct jMat
       }
     }
   }
+  
+  jMat ( unsigned int _n, T _a, T _b, T _c , T _d)
+    : n(_n), a(_a), b(_b), c(_c), d(_d), dim(3)
+  {
+    N = dimPI3(n-1);
+    Jn1 = (T*) calloc(N*N, sizeof(T));
+    Jn2 = (T*) calloc(N*N, sizeof(T));
+    Jn3 = (T*) calloc(N*N, sizeof(T));
+    /* block array of coefficient matrices in 3-term recurrence*/
+    A1 = (T**) malloc((n+1) * sizeof(T**));
+    A2 = (T**) malloc((n+1) * sizeof(T**));
+    A3 = (T**) malloc((n+1) * sizeof(T**));
+    B1 = (T**) malloc((n+1) * sizeof(T**));
+    B2 = (T**) malloc((n+1) * sizeof(T**));
+    B3 = (T**) malloc((n+1) * sizeof(T**));
+    for (unsigned int nn = 0; nn <= (n-1); ++nn)
+    {
+      A1[nn]    = (T*) calloc((nn+1)*(nn+2), sizeof(T));
+      A2[nn]    = (T*) calloc((nn+1)*(nn+2), sizeof(T));
+      A3[nn]    = (T*) calloc((nn+1)*(nn+2), sizeof(T));
+      B1[nn]    = (T*) calloc((nn+1)*(nn+1), sizeof(T));
+      B2[nn]    = (T*) calloc((nn+1)*(nn+1), sizeof(T));
+      B3[nn]    = (T*) calloc((nn+1)*(nn+1), sizeof(T));
+    }
+
+  }
 
   ~jMat()
   {
@@ -281,6 +308,14 @@ struct jMat
     else if (this->dim == 3)
     {
       free(Jn1); free(Jn2); free(Jn3);
+      for (unsigned int nn = 0; nn < n; ++nn)
+      {
+        free(A1[nn]); free(A2[nn]);
+        free(B1[nn]); free(B2[nn]);
+        free(A3[nn]); free(B3[nn]);
+      }
+      free(A1); free(A2); free(A3);
+      free(B1); free(B2); free(B3);
     } 
   }
 }; 

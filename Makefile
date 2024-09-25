@@ -42,6 +42,7 @@ jMatINC                   = include/jMat.h
 jevdINC                   = include/jevd.h include/timer.h
 ngjquadINC                = include/ngjquad.h
 mapquadINC                = include/mapQuad.h
+jweightINC                = include/jWeight.h
 tetquadSRC                = src/tetquad.cpp
 tetquadINC                = $(jevdINC) 
 
@@ -50,7 +51,7 @@ ngjquadINC                = $(sFactorsINC) $(jpolyINC) $(jMatINC) $(nloptINC) $(
   
 gtestSRC                  = testing/gtest.cpp
 gtestINC                  = include/sFactors.h include/jPoly.h /usr/include/gtest/gtest.h
-LIBS_                     = libsFactors.so libjPoly.so libkMat.so libdMat.so libjMat.so libjevd.so libngjquad.so libmapquad.so
+LIBS_                     = libsFactors.so libjPoly.so libkMat.so libdMat.so libjMat.so libjevd.so libngjquad.so libmapquad.so libjweight.so
 gtestLIB                  = /usr/lib/x86_64-linux-gnu/libgtest.a
 EXEC_                     = ngjquad
 GTEST_                    = gtest
@@ -93,6 +94,9 @@ $(EIKONAL_LIB)/libmapquad.so: $(mapquadINC)
 	@mkdir -p $(EIKONAL_LIB)
 	$(CXX) -o $@ $(mapquadINC) $(CXXFLAGS_lib) -fPIC -lm 
 
+$(EIKONAL_LIB)/libjweight.so: $(jweightINC) 
+	@mkdir -p $(EIKONAL_LIB)
+	$(CXX) -o $@ $(jweightINC) $(CXXFLAGS_lib) -fPIC -lm 
 
 $(EXEC): $(ngjquadSRC) $(ngjquadINC) $(LIBS) $(lapackLIBDIR)/$(lapackLIB) $(cblasLIBDIR)/$(cblasLIB) $(nloptLIBDIR)/$(nloptLIB)
 	@mkdir -p $(EIKONAL_BIN)
