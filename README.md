@@ -103,13 +103,12 @@ I realized there exists a straightforward way of numerically computing the entri
 (UPDATE:) EHHHH! Wrong!! - we can't bootstrap because the inner products we need to compute
 involve order 2n+1 total degree polynomials. 
 
-HOWEVER, we can use mapped quadrature rules to
-achieve the end goal of computing these inner products. I have defined a deformation mapping
-between the unit cube (in R3+) and the standard-right tetrahedron. By making use of the fact that
-in R3+, both regions can be expressed in terms of norms, and exploiting the equivalence of norms
+HOWEVER, we can use mapped quadrature rules to achieve the end goal of computing these inner products.
+I have defined a deformation mapping between the unit cube (in R3+) and the standard-right tetrahedron. 
+By making use of the fact thatin R3+, both regions can be expressed in terms of norms, and exploiting the equivalence of norms
 in finite dimensions up to a constant (which can depend on x, but is uniformly bounded), we have a
-simple mapping : $C2T : [0,1]^3 \to T$ which takes $x \in [0,1]^3$ and maps it to 
-$y = x||x||_{max}/||x||_{1} \in \mathcal{T}$. The trouble here is in computing the 
+simple mapping : `C2T` : $[0,1]^3 \to T$ which takes $x \in [0,1]^3$ and maps it to 
+$y \in T$. The trouble here is in computing the 
 deformation gradient of this map. It's Frankenstein's monster analytically, so I just use centered
 second order finite differences to compute each component of the deformation gradient. The integral 
 mapping then appears as:
