@@ -18,7 +18,6 @@ template<typename T>
 inline T pochhammer(const T x, const unsigned int n)
 {
   T prod = 1;
-  # pragma omp simd
   for (unsigned int i = 1; i <= n; ++i)
   {
     prod *= (x + i - 1);
@@ -146,7 +145,6 @@ inline T hypergeometric ( T a, T b, T c, T x  )
   unsigned int n = 1;
   unsigned int maxit = 100000000; 
 
-  #pragma omp simd reduction(+:term)
   for (unsigned int i = 0; i < maxit; ++i) 
   {
     a++, b++, c++, n++;

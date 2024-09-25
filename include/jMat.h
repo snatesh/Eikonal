@@ -19,7 +19,7 @@ struct jMat
   T *J, *avecON, *bvec;
 
   jMat(unsigned int _n, T _a, T _b)
-    : n(_n), a(_a), b(_b)
+    : n(_n), a(_a), b(_b), dim(1)
   {
     J       = (T*) calloc(n*n, sizeof(T));
     bvec    = (T*) calloc(n, sizeof(T));

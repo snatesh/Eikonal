@@ -24,7 +24,6 @@
    and also practicality of computational cost. 
 
 */
-#pragma omp declare simd
 template<typename T> 
 inline T jpoly ( const T a, const T b, 
                  const unsigned int n,

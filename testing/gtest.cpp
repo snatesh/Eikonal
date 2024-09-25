@@ -11,6 +11,7 @@
 #include<jMat.h>
 #include<jevd.h>
 #include<ngjquad.h>
+#include<mapQuad.h>
 
 #ifdef PLOT
 #include<../include/matplotlibcpp.h>
@@ -643,8 +644,16 @@ TEST(ngjquadLineTest, TolCheck)
   EXPECT_LT(abs(Ival-Iref)/abs(Iref), tol);
   free(Ftest);
   delete gjquad;
-
 }
+
+TEST(intTetonCubeTest, runCheck)
+{
+  unsigned int n = 30;
+  intTonC* T2C = new intTonC(n);
+  std::cout << T2C->sum << std::endl;
+  delete T2C;
+}
+
 
 } // end gtest namespace
 

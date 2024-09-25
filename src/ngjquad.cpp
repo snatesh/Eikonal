@@ -174,25 +174,19 @@ int main(int argc, char* argv[])
   double* Z0 = gjquad->optdata->Z0;
   unsigned int N = gjquad->optdata->N;
   double sumw = 0;
-  for (unsigned int i = dim*N; i < (dim+1)*N; ++i)
-  {
-    sumw += Z0[i];
-  } 
+  for (unsigned int i = dim*N; i < (dim+1)*N; ++i) { sumw += Z0[i]; } 
   std::cout << "(initial) Sum of weights : " << sumw << std::endl;
   
   if (use_newton) gjquad->newton();
+  
   gjquad->runXW();
-  if (dim > 1) { gjquad->runX(); }
-
-
+  
+  //if (dim > 1) { gjquad->runX(); }
 
   sumw = 0;
-  for (unsigned int i = dim*N; i < (dim+1)*N; ++i)
-  {
-    sumw += Z0[i];
-  } 
-
+  for (unsigned int i = dim*N; i < (dim+1)*N; ++i) { sumw += Z0[i]; } 
   std::cout << "(final ) Sum of weights : " << sumw << std::endl;
+  
   if (dim == 3)
   {
     std::stringstream ss;
@@ -218,6 +212,16 @@ int main(int argc, char* argv[])
     yfile.close();
     zfile.close();
     wfile.close();
+    // integrate test function on the tet
+    double* Ftest = (double*) calloc(N, sizeof(double));
+    for (unsigned int i = 0; i < N; ++i)
+    {
+      Ftest[i] = std::sin(  Z0[i]*Z0[i] + Z0[i+N]*Z0[i+N] + 
+                            std::pow(2.0, Z0[i+2*N])  );
+    }
+    double Ival = cblas_ddot(N, Z0 + 3*N, 1, Ftest, 1);
+    free(Ftest); 
+    printf("Integral : %5.16f \n", Ival / 6.0);
   }  
 
   if (dim == 1)
@@ -233,7 +237,7 @@ int main(int argc, char* argv[])
       double Ival = cblas_ddot(N, Z0 + N, 1, Ftest, 1);
       free(Ftest);
 
-      printf("Integral_T sin(x^2) : %5.16f \n", Ival);
+      printf("Integral : %5.16f \n", Ival);
       std::vector<double> x, y, z;
       x = {0, 1, 0, 0, 1};
       y = {0, 0, 1, 0, 0};
@@ -255,7 +259,7 @@ int main(int argc, char* argv[])
     double Ival = cblas_ddot(N, Z0 + 2*N, 1, Ftest, 1) / wabc;
     free(Ftest);
 
-    printf("Integral_T sin(x^2+y^2) : %5.16f \n", Ival);
+    printf("Integral : %5.16f \n", Ival);
     // plot resulting quadrature nodes
     std::vector<double> X(Z0, Z0+N); std::vector<double> Y(Z0+N, Z0+2*N);
     double tri[6] = {0, 1, 0, 0, 0, 1}; 

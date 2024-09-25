@@ -6,7 +6,7 @@ export EIKONAL_LIB      = $(EIKONAL_ROOT)/lib
 export EIKONAL_BIN      = $(EIKONAL_ROOT)/bin
 export EIKONAL_TESTBIN     = $(EIKONAL_ROOT)/testing/bin
 # if True, compilation will use debug mode for cpu
-export DEBUG           ?= True
+export DEBUG           ?= False
 export PLOT            ?= False
 ################################ END USER EDIT ##################################
 
@@ -14,7 +14,7 @@ CURDIR                = $(shell pwd)
 CXX                   = g++ 
 
 ifneq ($(DEBUG), True)
-  CXXFLAGS_lib            = -I$(CURDIR)/include -Ofast -w -march=native -shared -L$(EIKONAL_LIB) -ftree-vectorize -fopt-info-vec-all  -fopenmp  
+  CXXFLAGS_lib            = -I$(CURDIR)/include -O3 -w -march=native -shared -L$(EIKONAL_LIB) -ftree-vectorize -fopt-info-vec-all  -fopenmp  
   CXXFLAGS_bin            = -I$(CURDIR)/include -w -O3 -march=native -L$(EIKONAL_LIB) -fopenmp 
   CXXFLAGS_test           = -I$(CURDIR)/include -I /usr/include/gtest/ -w -O3 -march=native -L$(EIKONAL_LIB)
 else
@@ -41,7 +41,7 @@ jPolyINC                  = include/jPoly.h
 jMatINC                   = include/jMat.h
 jevdINC                   = include/jevd.h include/timer.h
 ngjquadINC                = include/ngjquad.h
-
+mapquadINC                = include/mapQuad.h
 tetquadSRC                = src/tetquad.cpp
 tetquadINC                = $(jevdINC) 
 
@@ -50,7 +50,7 @@ ngjquadINC                = $(sFactorsINC) $(jpolyINC) $(jMatINC) $(nloptINC) $(
   
 gtestSRC                  = testing/gtest.cpp
 gtestINC                  = include/sFactors.h include/jPoly.h /usr/include/gtest/gtest.h
-LIBS_                     = libsFactors.so libjPoly.so libkMat.so libdMat.so libjMat.so libjevd.so libngjquad.so
+LIBS_                     = libsFactors.so libjPoly.so libkMat.so libdMat.so libjMat.so libjevd.so libngjquad.so libmapquad.so
 gtestLIB                  = /usr/lib/x86_64-linux-gnu/libgtest.a
 EXEC_                     = ngjquad
 GTEST_                    = gtest
@@ -88,6 +88,10 @@ $(EIKONAL_LIB)/libjevd.so: $(jevdINC)
 $(EIKONAL_LIB)/libngjquad.so: $(ngjquadINC) 
 	@mkdir -p $(EIKONAL_LIB)
 	$(CXX) -o $@ $(ngjquadINC) $(CXXFLAGS_lib) -fPIC -lm 
+
+$(EIKONAL_LIB)/libmapquad.so: $(mapquadINC) 
+	@mkdir -p $(EIKONAL_LIB)
+	$(CXX) -o $@ $(mapquadINC) $(CXXFLAGS_lib) -fPIC -lm 
 
 
 $(EXEC): $(ngjquadSRC) $(ngjquadINC) $(LIBS) $(lapackLIBDIR)/$(lapackLIB) $(cblasLIBDIR)/$(cblasLIB) $(nloptLIBDIR)/$(nloptLIB)
