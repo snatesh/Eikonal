@@ -72,7 +72,7 @@ needs to be done in terms of restructuring the algorithm to avoid race condition
 a serial but vectorized code that can handle $d\geq 2$.
 
 UPDATE: It works! JEVD can be used to initialize nodes for Gaussian-like quadrature optimization on the Tetrahedron. See the image below, which I generated for n=5. Implementation of the 
-definitions for the Jacobi polynomials on the tetrahedron remains, along with the structural constants, Jacobi matrix block defintions, etc. However, I have written procedures in 
+definitions for the Jacobi polynomials on the tetrahedron remains, along with the structural constants, Jacobi matrix block defintions, etc (UPDATE: all that is done too). However, I have written procedures in 
 `Mathematica` to symbolically generate most of this stuff. I need to tweak that code a bit so that it gives me nicer formulas, which I can then just port into `C` (I rly don't like algebra).
 
 ![alt_text](https://github.com/snatesh/Eikonal/blob/main/testing/testdata/jevd_works_56.png)
@@ -95,6 +95,20 @@ I realized there exists a straightforward way of numerically computing the entri
 - Use this new rule to approximate the required weighted inner products for 
   entries to the Jacobi matrix, but for a higher order, like n = 5 (if we started with n = 4).
 - Repeat this process until we get SUPER high order!!
+
+(UPDATE:) EHHHH! Wrong - we can't bootstrap because the inner products we need to compute
+involve order 2n+1 total degree polynomials. HOWEVER, we can use mapped quadrature rules to
+achieve the end goal of computing these inner products. I have defined a deformation mapping
+between the unit cube (in R3+) and the standard-right tetrahedron. By making use of the fact that
+in R3+, both regions can be expressed in terms of norms, and exploiting the equivalence of norms
+in finite dimensions up to a constant (which can depend on x, but is uniformly bounded), we have a
+simple mapping : $ \text{C2T} : [0,1]^3 \to \mathcal{T}$ which takes $x\in [0,1]^3$ and maps it to 
+$y = \frac{||x||_{l_\infty}}{||x||_{l_1}} x \in \mathcal{T}$. The trouble here is in computing the 
+deformation gradient of this map. It's Frankenstein's monster analytically, so I just use centered
+second order finite differences to compute each component of the deformation gradient. The integral 
+mapping then appears as:
+
+$ \int_{\mathcal{T}} f(\boldsymbol{y}) d\boldsymbol{y} = \int_{[0,1]^3} f(\text{C2T}[\boldsymbol{x}]) \text{det}[\boldsymbol{\nabla_x}\text{C2T}]d\boldsymbol{x}$
 
 The justification here is that we will certainly be able to compute the required integrals for 
 the next order, to within some relatively acceptable (but still unacceptable) epsilon. Now, if
