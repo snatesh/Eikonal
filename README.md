@@ -16,10 +16,11 @@ The generatable quadrature rules are used to represent to high accuracy and with
 Recent results by Townsend, Oliver and Vasil enable the construction of sparse differential operators on the standard triangle, interoperating within the Koornwinder polynomial family parameter space, and leading to low-storage, banded discrete differential operators. The library provides an implementation of these discrete PDOs. They can be composed together to form solvers for a variety of linear PDEs of arbitrary order, even with variable coefficients (coming soon (i hope)). Non-linearity is handled by passing an appropriately defined problem to `nlopt` in terms of these operators acting on minimization variables (solution coefficients in a Koornwinder expansion).
 
 At the time of writing, the following capabilities exist:
-- representing and manipulating functions in a modal sense under Koornwinder polynomial expansions (global approximation)
-- differentiation up to any order via promotion and ladder operators acting only on modes of a function
-- evaluation at a point in real space of a function represented in the modal basis (coefficients). This could be accelerated with Clenshaw's algorithm, generalized to 2D.
-- Implementation of analytical entries to the Jacobi matrices appearing in the 2D-recurrence relation for the orthogonal Koornwinder polynomials, generalized for any choice of parameters.
+- representing and manipulating functions in a modal sense under Koornwinder polynomial expansions (global approximation) as well
+  the so-called Jacobi polynomials on the Tetrahedron.
+- differentiation up to any order via promotion and ladder operators acting only on modes of a function on the triangle
+- evaluation at a point in real space of a function (dim=1,2,3) represented in the modal basis (coefficients). This could be accelerated with Clenshaw's algorithm, generalized to 2D and 3D
+- Implementation of analytical entries to the Jacobi matrices appearing in the 2D-recurrence relation for the orthogonal Koornwinder polynomials, generalized for any choice of parameters. The 3D ones remain to be derived.
 - Quadrature discovery with optimization parameters from `nlopt` exposed for such use. In particular, I developed an interlaced scheme where first a constrained non-linear optimization problem is solved, then, if needed, a Newton relaxation, followed by another non-linear problem with a different objective, and a last on-demand Newton relaxation.
 
    - The gist is:
