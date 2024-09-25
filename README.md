@@ -100,23 +100,6 @@ I realized there exists a straightforward way of numerically computing the entri
   entries to the Jacobi matrix, but for a higher order, like n = 5 (if we started with n = 4).
 - Repeat this process until we get SUPER high order!!
 
-(UPDATE:) EHHHH! Wrong!! - we can't bootstrap because the inner products we need to compute
-involve order 2n+1 total degree polynomials. 
-
-HOWEVER, we can use mapped quadrature rules to achieve the end goal of computing these inner products.
-I have defined a deformation mapping between the unit cube (in R3+) and the standard-right tetrahedron. 
-By making use of the fact thatin R3+, both regions can be expressed in terms of norms, and exploiting the equivalence of norms
-in finite dimensions up to a constant (which can depend on x, but is uniformly bounded), we have a
-simple mapping : `C2T` : $[0,1]^3 \to T$ which takes $x \in [0,1]^3$ and maps it to 
-$y \in T$. The trouble here is in computing the 
-deformation gradient of this map. It's Frankenstein's monster analytically, so I just use centered
-second order finite differences to compute each component of the deformation gradient. The integral 
-mapping then appears as:
-
-$ \int_T f(y) dy= \int_{[0,1]^3} f(`C2T`[x]) `det`[\nabla_x `C2T`]dx$
-
-where the `det` term is the Jacobian determinant, or change of variable form.
-
 The justification here is that we will certainly be able to compute the required integrals for 
 the next order, to within some relatively acceptable (but still unacceptable) epsilon. Now, if
 this epsilon error is small enough, the JEVD process should still produce nodes that live in 
@@ -129,6 +112,7 @@ We only find the joint eigenvalues of $J_{ij}^k + \epsilon_{ij}^k$ for $k=1,2,..
 So now, we are approximating the approximate joint eigenvalules, but iterating 
 towards the nearly-epsilon-commuting family of Jacobi matrices. 
 
+
 Remark: I'm assuming that this epsilon commuting family exists. That is, I assume the Jacobi matrices
 live on some kind of manifold of non-commuting matrices, but are just far enough away from a point
 on a manifold of commuting matrices. So, I assume that we need only push these matrices a small amount to
@@ -138,10 +122,37 @@ should still be able to push the matrices to the *point* with eigenvalues which 
 of convergence for the underdetermined linear system / quadratic root finding problem
 we seek to solve at the end of the day.
 
-All this is easy to say, but I have yet to get nlopt to solve the problem on the tet. I think
-tomorrow I will try throwing Newton at it with gradient steps. It should actually work well
-for lower adaptive order, and might be all we need to get the bootstrapping to work! 'Imma
-go try now actually.
+(UPDATE:) EHHHH! MORE LIKE BOOTFAP!! - we can't bootstrap because the inner products we need to compute
+involve order 2n+1 total degree polynomials. BUT, we can kinda-sorta bootstrap by incorporating
+the below process, when said process starts lacking in efficacy.
+
+(FIX THE WRONG) We can use mapped quadrature rules to achieve the end goal of computing these inner products.
+I have defined a deformation mapping between the unit cube (in R3+) and the standard-right tetrahedron. 
+By making use of the fact that in $\mathbb{R}^{3+}$, both regions can be expressed in terms of norms, 
+and exploiting the equivalence of norms in finite dimensions up to a constant 
+(which can depend on x, but is uniformly bounded), we have a
+simple mapping : `C2T` : $[0,1]^3 \to T$ which takes $x \in [0,1]^3$ and maps it to 
+$y \in T$ ( there's a stack exchange post on this matter). The trouble here is in computing the 
+deformation gradient of this map. It's Frankenstein's monster's little brother analytically, so I just use centered
+second order finite differences to compute each component of the deformation gradient. The integral 
+mapping then appears as:
+
+$ \int_T f(y) dy= \int_{[0,1]^3} f(`C2T`[x]) `det`[\nabla_x `C2T`]dx$
+
+where the `det` term is the Jacobian determinant, or change of variable form. The utility here is that
+we have recast an integral over a domain for which we do not have a sufficiently accurate quadrature 
+rule into an integral over a domain for which we can use a tensor product of simple 1D quadrature rules. 
+In my case, I just generate the (0,0) Jacobi polynomials (i.e. Legendre basis), and use the Golub-Welsch
+algorithm to *compute* an *optimal* Gaussian quadrature rule of order $2n-1$ with only $n$ nodes. This 
+can be made even fancier with Smolyak's quadrature approach for the case of symmetric weight functions 
+(which lead to symmetric nodes, and nesting of nodes between certain orders). Such multi-level schemes 
+might be the key if inefficiency prevails for higher order, but let me try and generate n=20 total 
+order on the tet first. NOTE: the Pochhammer symbol and hypergeometric 2F1 series functions which appear in the 
+definition of the Jacobi polynomials perform  unstably for high order - (factorials and what not) - 
+so we really can't go beyond a source basis order of 20-30. It becomes a real problem when we 
+have to evaluate polynomials at such high order. (recall that the polynomials or d>1 are still
+definied in terms of the polynomials for d=1). 
+
 
 ## Docker Containerization
 It is likely most simple to install and use the libarary from within a `Docker` container. 
