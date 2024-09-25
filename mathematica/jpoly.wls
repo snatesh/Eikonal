@@ -743,3 +743,8 @@ Dimensions[ArrayFlatten[Jn1,1]]
 Export["J5x_tet.txt", ArrayFlatten[N[Jn1],1]]
 Export["J5y_tet.txt", ArrayFlatten[N[Jn2],1]]
 Export["J5z_tet.txt", ArrayFlatten[N[Jn3],1]]
+
+
+
+
+
