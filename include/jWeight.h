@@ -11,12 +11,30 @@
 using std::tgamma;
 using std::pow;
 
-/* Weight function for L2(T) with Jacobi basis, where
+template<typename T, unsigned int dim> 
+struct pVec 
+{ 
+  static_assert(dim >= 1 && dim <= 3, "ERROR: dim unsupported");  
+  T pvec[dim]; 
+  pVec(T* vec) 
+  {
+    pvec[0] = vec[0];
+    if (dim == 2) pvec[1] = vec[1];
+    if (dim == 3) pvec[2] = vec[2]; 
+  }
+};
+
+
+/*  Weight function for L2(T) with Jacobi basis, where
    T is the standard simplex */
+
+
 
 template<typename T, unsigned int dim>
 class jWeight
 {
+    
+
   static_assert(std::is_same_v<T, double> == true || 
                 std::is_same_v<T, float> == true, 
                 "ERROR: Only double and float template\
@@ -27,19 +45,16 @@ class jWeight
   public:
     T wnorm = 0; 
     T *absc = 0, *wght = 0;
-    T jparams[dim+1]; 
+    pVec<T, dim> jparams; 
     
     T w(T* x)
     {
       return W(x, jparams) / wnorm;
     }    
 
-    jWeight(T* _jparams)
+    jWeight(pVec<T, dim> _jparams) : jparams(_jparams)
     {
-      for (unsigned int i = 0; i < dim+1; ++i) 
-      {
-        jparams[i] = _jparams[i];
-      }
+
       absc = (T*) calloc(n, sizeof(T));
       wght = (T*) calloc(n, sizeof(T));
       ngjQuad* gjquad = new ngjQuad  (  n, n, 0, 0, 1e-16, 1e-16, 0,
@@ -115,24 +130,24 @@ class jWeight
   private:
     unsigned int n = 20;
 
-    T W(T* x, T* jparams) 
+    T W(T* x, pVec<T, dim> jparams) 
     { 
       switch(dim)
       {
         case 1:
         {
-          T a = jparams[0], b = jparams[1];
+          T a = jparams.pvec[0], b = jparams.pvec[1];
           if (a < -1 || b < -1)
           {
             std::cerr << "ERROR: Jacobi 1D params must be > -1\n";
             exit(1);
           }
-          return  pow(1-x[0], jparams[0]) * 
-                  pow(1+x[0], jparams[1]);
+          return  pow(1-x[0], jparams.pvec[0]) * 
+                  pow(1+x[0], jparams.pvec[1]);
         }
         case 2:
         {
-          T a = jparams[0], b = jparams[1], c = jparams[2];
+          T a = jparams.pvec[0], b = jparams.pvec[1], c = jparams.pvec[2];
           if (a < -0.5 || b < -0.5 || c < -0.5)
           {
             std::cerr << "ERROR: Jacobi d>2 params must be > -1/2\n";
@@ -144,7 +159,8 @@ class jWeight
         }
         case 3:
         {
-          T a = jparams[0], b = jparams[1], c = jparams[2], d = jparams[3];
+          T a = jparams.pvec[0], b = jparams.pvec[1];
+          T c = jparams.pvec[2], d = jparams.pvec[3];
           if (a < -0.5 || b < -0.5 || c < -0.5 || d < -0.5)
           {
             std::cerr << "ERROR: Jacobi d>2 params must be > -1/2\n";
