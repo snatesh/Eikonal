@@ -7,7 +7,7 @@ This README is more of a stream of conciousness blog cataloging progress, obstac
 
 
 ## About
-The implementation offers a backend library for computing near-optimal Gaussian-like quadratures on the triangle (see `ngjquad_zgeev.cpp` or `ngjquad_jevd.cpp` for driver code), built on top of `NLOPT`, `BLAS` and `LAPACK`, my own work, theoretical results due to Koornwinder regarding a family of orthogonal polynomials on the triangle, and numerical results due to Vioreanu and Rokhlin on constructing near-optimal Gaussian-like quadratures over convex regions (VR-quadrature). 
+The implementation offers a backend library for computing near-optimal Gaussian-like quadratures on the simplex in dimensions 1,2, and 3 (see `ngjquad.cpp` for driver code), built on top of `NLOPT`, `BLAS` and `LAPACK`, my own work, theoretical results due to Koornwinder regarding a family of orthogonal polynomials on the triangle, and numerical results due to Vioreanu and Rokhlin on constructing near-optimal Gaussian-like quadratures over convex regions (VR-quadrature). 
 
 I term the VR-quadrature approach "Discretize-Orthogonalize-Optimize" (DOO), while my approach is more "Orthogonalize-Discretize-Optimize" (ODO). This nomenclature draws analogy from similar jargon in variational/infinite-dimensional optimzation - Discretize-then-Optimize (DtO) or Optimize-then-Discretize (OtD) - as both concern a choice of an analytical or numerical first step.
 
