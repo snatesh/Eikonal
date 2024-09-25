@@ -113,7 +113,9 @@ deformation gradient of this map. It's Frankenstein's monster analytically, so I
 second order finite differences to compute each component of the deformation gradient. The integral 
 mapping then appears as:
 
-$ \int_{\mathcal{T}} f(\boldsymbol{y}) d\boldsymbol{y} = \int_{[0,1]^3} f(\text{C2T}[\boldsymbol{x}]) \text{det}[\boldsymbol{\nabla_x}\text{C2T}]d\boldsymbol{x}$
+$ \int_T f(y) dy= \int_{[0,1]^3} f(`C2T`[x]) `det`[\nabla_x\text{C2T}]dx$
+
+where the `det` term is the Jacobian determinant, or change of variable form.
 
 The justification here is that we will certainly be able to compute the required integrals for 
 the next order, to within some relatively acceptable (but still unacceptable) epsilon. Now, if
