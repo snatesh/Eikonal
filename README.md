@@ -113,7 +113,7 @@ deformation gradient of this map. It's Frankenstein's monster analytically, so I
 second order finite differences to compute each component of the deformation gradient. The integral 
 mapping then appears as:
 
-$ \int_T f(y) dy= \int_{[0,1]^3} f(`C2T`[x]) `det`[\nabla_x\text{C2T}]dx$
+$ \int_T f(y) dy= \int_{[0,1]^3} f(`C2T`[x]) `det`[\nabla_x `C2T`]dx$
 
 where the `det` term is the Jacobian determinant, or change of variable form.
 
