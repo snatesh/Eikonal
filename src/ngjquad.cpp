@@ -1,4 +1,5 @@
 #include<ngjquad.h>
+#include<legQuad.h>
 #include<../include/matplotlibcpp.h>
 #include<map>
 #include<vector>
@@ -152,6 +153,7 @@ int main(int argc, char* argv[])
   double wabc = tgamma(kap+1.5) / ( tgamma(a+0.5) * tgamma(b+0.5) * tgamma(c+0.5) );
   double wabcd = 6;
   ngjQuad* gjquad;
+  legQuad<double>* legq;
   if (dim == 1)
   {
     gjquad = new ngjQuad  ( n, m, 0, 0, tol, tolc, alph,
@@ -165,9 +167,11 @@ int main(int argc, char* argv[])
   }
   else if (dim == 3)
   {
-    gjquad = new ngjQuad( n, m, a, b, c, d, tol, tolc,
-                          alph, use_newton, use_wolfe, alg,
-                          nthreads, dir );
+    unsigned int nlg = 20;
+    legq = new legQuad<double>(nlg); 
+    gjquad = new ngjQuad( n, m, a, b, c, d, legq->x, legq->w,
+                          tol, tolc, alph, use_newton, use_wolfe, 
+                          alg, nthreads );
   }
 
   gjquad->init();
@@ -268,6 +272,7 @@ int main(int argc, char* argv[])
     plt::show(); 
   }
   delete gjquad;
+  if (dim == 3) { delete legq; }
   return 0;
 }
 

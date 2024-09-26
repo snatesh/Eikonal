@@ -3,9 +3,8 @@
 
 #include<iostream>
 #include<cmath>
-#include<mapQuad.h>
 #include<type_traits>
-
+#include<mapTensorQuad.h>
 
 
 using std::tgamma;
@@ -15,21 +14,29 @@ template<typename T, unsigned int dim>
 struct pVec 
 { 
   static_assert(dim >= 1 && dim <= 3, "ERROR: dim unsupported");  
-  T pvec[dim]; 
+  T pvec[dim+1]; 
   pVec(T* vec) 
   {
-    pvec[0] = vec[0];
-    if (dim == 2) pvec[1] = vec[1];
-    if (dim == 3) pvec[2] = vec[2]; 
+    if (dim == 1) 
+    { 
+      pvec[0] = vec[0]; pvec[1] = vec[1]; 
+    }
+    if (dim == 2) 
+    { 
+      pvec[0] = vec[0]; pvec[1] = vec[1];
+      pvec[2] = vec[2];
+    }
+    if (dim == 3) 
+    {
+      pvec[0] = vec[0]; pvec[1] = vec[1];
+      pvec[2] = vec[2]; pvec[3] = vec[3];
+    }
   }
 };
 
 
 /*  Weight function for L2(T) with Jacobi basis, where
    T is the standard simplex */
-
-
-
 template<typename T, unsigned int dim>
 class jWeight
 {
@@ -51,22 +58,23 @@ class jWeight
     {
       return W(x, jparams) / wnorm;
     }    
-
-    jWeight(pVec<T, dim> _jparams) : jparams(_jparams)
+    
+    jWeight(pVec<T, dim> _jparams, T* _absc, T* _wght) 
+      : jparams(_jparams), absc(_absc), wght(_wght)
     {
-
-      absc = (T*) calloc(n, sizeof(T));
-      wght = (T*) calloc(n, sizeof(T));
-      ngjQuad* gjquad = new ngjQuad  (  n, n, 0, 0, 1e-16, 1e-16, 0,
-                                        0, 0, NLOPT_LN_SBPLX, 1 );
-      gjquad->init();
-      gjquad->runXW();
-      for (unsigned int i = 0; i < n; ++i)
+      bool supported = 1;
+      if (dim > 1)
       {
-        absc[i] = gjquad->optdata->Z0[i];
-        wght[i] = gjquad->optdata->Z0[i + n] * 2.0;
+        for (unsigned int i = 0; i <= dim; ++i)
+        {
+          supported *= (jparams.pvec[i] == 0.5);
+        } 
+        if (not supported)
+        {
+          std::cerr << "ERROR: Only legendre analog weight supported for dim > 1\n";
+          exit(1);
+        }
       }
-      delete gjquad;
       wnorm = 0.0;
       switch(dim)
       {
@@ -76,56 +84,52 @@ class jWeight
           #pragma omp simd reduction(+:wnorm)
           for (unsigned int i = 0; i < n; ++i)
           {
-            X[0] = (T) absc[i];
-            wnorm +=  W(X, jparams) * ( (T) wght[i]);
+            X[0] = absc[i];
+            wnorm +=  W(X, jparams) * (wght[i]);
           } 
           break;
         }
         case 2:
         {
-          T X[2];
-          #pragma omp simd collapse(2) reduction(+:wnorm)
-          for (unsigned int j = 0; j < n; ++j)
-          {
-            for (unsigned int i = 0; i < n; ++i)
-            {
-              X[0] = (T) absc[i];
-              X[1] = (T) absc[j];
-              wnorm += W(X, jparams) * ( wght[i] * wght[j] );
-            }
-          }
+          wnorm = 1.0 / 2.0;
+          //T X[2];
+          //#pragma omp simd collapse(2) reduction(+:wnorm)
+          //for (unsigned int j = 0; j < n; ++j)
+          //{
+          //  for (unsigned int i = 0; i < n; ++i)
+          //  {
+          //    X[0] = absc[i];
+          //    X[1] = absc[j];
+          //    wnorm += W(X, jparams) * ( wght[i] * wght[j] );
+          //  }
+          //}
           break;
         }
         case 3:
         {
-          T X[3];
-          #pragma omp simd collapse(3) reduction(+:wnorm)
-          for (unsigned int k = 0; k < n; ++k)
-          {
+          wnorm = 1.0 / 6.0;
+          //T X[3];
+          //#pragma omp simd collapse(3) reduction(+:wnorm)
+          //for (unsigned int k = 0; k < n; ++k)
+          //{
 
-            for (unsigned int j = 0; j < n; ++j)
-            {
+          //  for (unsigned int j = 0; j < n; ++j)
+          //  {
 
-              for (unsigned int i = 0; i < n; ++i)
-              {
-                X[0] = (T) absc[i];
-                X[1] = (T) absc[j];
-                X[2] = (T) absc[k];
-                wnorm += W(X, jparams) * ( wght[i] * wght[j] * wght[k]);
-              }
-            }
-          }
+          //    for (unsigned int i = 0; i < n; ++i)
+          //    {
+          //      X[0] = absc[i];
+          //      X[1] = absc[j];
+          //      X[2] = absc[k];
+          //      wnorm += W(X, jparams) * ( wght[i] * wght[j] * wght[k]);
+          //    }
+          //  }
+          //}
           break;
         }
       }
     }
  
-
-  ~jWeight() 
-  { 
-    if (absc) { free(absc); absc = 0;}
-    if (wght) { free(wght); wght = 0;}
-  }
          
   private:
     unsigned int n = 20;
@@ -147,29 +151,31 @@ class jWeight
         }
         case 2:
         {
-          T a = jparams.pvec[0], b = jparams.pvec[1], c = jparams.pvec[2];
-          if (a < -0.5 || b < -0.5 || c < -0.5)
-          {
-            std::cerr << "ERROR: Jacobi d>2 params must be > -1/2\n";
-            exit(1);
-          }
-          return  pow(x[0], a - 0.5) * 
-                  pow(x[1], b - 0.5) * 
-                  pow(1 - x[0] - x[1], c - 0.5);
+          return 1.0;
+          //T a = jparams.pvec[0], b = jparams.pvec[1], c = jparams.pvec[2];
+          //if (a < -0.5 || b < -0.5 || c < -0.5)
+          //{
+          //  std::cerr << "ERROR: Jacobi d>2 params must be > -1/2\n";
+          //  exit(1);
+          //}
+          //return  pow(x[0], a - 0.5) * 
+          //        pow(x[1], b - 0.5) * 
+          //        pow(1 - x[0] - x[1], c - 0.5);
         }
         case 3:
         {
-          T a = jparams.pvec[0], b = jparams.pvec[1];
-          T c = jparams.pvec[2], d = jparams.pvec[3];
-          if (a < -0.5 || b < -0.5 || c < -0.5 || d < -0.5)
-          {
-            std::cerr << "ERROR: Jacobi d>2 params must be > -1/2\n";
-            exit(1);
-          }
-          return  pow(x[0], a - 0.5) * 
-                  pow(x[1], b - 0.5) * 
-                  pow(x[2], c - 0.5) * 
-                  pow(1 - x[0] - x[1] - x[2], d - 0.5);
+          return 1.0;
+          //T a = jparams.pvec[0], b = jparams.pvec[1];
+          //T c = jparams.pvec[2], d = jparams.pvec[3];
+          //if (a < -0.5 || b < -0.5 || c < -0.5 || d < -0.5)
+          //{
+          //  std::cerr << "ERROR: Jacobi d>2 params must be > -1/2\n";
+          //  exit(1);
+          //}
+          //return  pow(x[0], a - 0.5) * 
+          //        pow(x[1], b - 0.5) * 
+          //        pow(x[2], c - 0.5) * 
+          //        pow(1 - x[0] - x[1] - x[2], d - 0.5);
         }
       }
     }

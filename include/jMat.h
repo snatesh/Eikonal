@@ -1,14 +1,34 @@
 #ifndef _JMAT_H
 #define _JMAT_H
-#include<sFactors.h>
+
 #include<iomanip>
 #include<fstream>
 #include<string>
+#include<algorithm>
+#include<sFactors.h>
+#include<jWeight.h>
+#include<jPoly.h>
+#include<cblas.h>
+#include<mapTensorQuad.h>
+
+void printMat(const double* A, const unsigned int m, const unsigned int n)
+{
+  for (unsigned int i = 0; i < m; ++i)
+  {
+    for (unsigned int j = 0; j < n; ++j)
+    {
+      std::cout << std::setw(10);
+      std::cout << A[i + m*j] << " ";
+    }
+    std::cout << std::endl;
+  }
+  std::cout << std::endl;
+}
 
 template <typename T> 
 struct jMat
 {
-  unsigned int n, N; 
+  unsigned int n, N, nlg; 
   unsigned int dim; 
   T *Jn1 = 0, *Jn2 = 0, *Jn3 = 0;
   T *H = 0, *A = 0, *B = 0, *C = 0;
@@ -16,6 +36,7 @@ struct jMat
   T **A1 = 0, **A2 = 0, **B1 = 0, **B2 = 0;
   T **A3 = 0, **B3 = 0;
   T a, b, c, d, kap;
+  T *x, *w; // 1d quad rule
 
   T *J, *avecON, *bvec;
 
@@ -68,6 +89,144 @@ struct jMat
    
   } 
     
+  jMat (  unsigned int _n, 
+          T _a, T _b, T _c , T _d, 
+          unsigned int _nlg,
+          T* _x, T* _w,
+          unsigned int nthreads )
+    : n(_n), a(_a), b(_b), c(_c), d(_d), 
+      nlg(_nlg), x(_x), w(_w), dim(3)
+  {
+    if( a != 0.5 || b != 0.5 || c != 0.5 || d != 0.5 )
+    {
+      std::cerr << "ERROR: only legendre analog polys are supported\n"
+                << "       for numerical evaluation of Jacobi matrices with d>2";
+      exit(1);
+    }
+    N = dimPI3(n-1);
+    unsigned int M, NN;
+    Jn1 = (T*) calloc(N*N, sizeof(T));
+    Jn2 = (T*) calloc(N*N, sizeof(T));
+    Jn3 = (T*) calloc(N*N, sizeof(T));
+    /* block array of coefficient matrices in 3-term recurrence*/
+    A1 = (T**) calloc((n+1), sizeof(T*));
+    A2 = (T**) calloc((n+1), sizeof(T*));
+    A3 = (T**) calloc((n+1), sizeof(T*));
+    B1 = (T**) calloc((n+1), sizeof(T*));
+    B2 = (T**) calloc((n+1), sizeof(T*));
+    B3 = (T**) calloc((n+1), sizeof(T*));
+    for (unsigned int nn = 0; nn <= (n-1); ++nn)
+    {
+      M = dimPI3(nn); NN = dimPI3(nn+1); 
+      A1[nn]    = (T*) calloc(M*NN, sizeof(T));
+      A2[nn]    = (T*) calloc(M*NN, sizeof(T));
+      A3[nn]    = (T*) calloc(M*NN, sizeof(T));
+      B1[nn]    = (T*) calloc(M*M, sizeof(T));
+      B2[nn]    = (T*) calloc(M*M, sizeof(T));
+      B3[nn]    = (T*) calloc(M*M, sizeof(T));
+    }
+
+    // mapped quad rule on tet
+    mapTensorQuad<T>* C2T = new mapTensorQuad<T>(nlg, x, w);
+    // evaluate vandermonde on abscissa from mapped rule on tet
+    jPoly<T>* Pn1 = new jPoly<T>(nlg*nlg*nlg, n+1, a, b, c, d, nthreads); 
+    Pn1->computeV(C2T->X, C2T->Y, C2T->Z);
+    // get weight function evaluator for tet
+    T params[4] = {a, b, c, d}; 
+    jWeight<T,3>* jw = new jWeight<T,3>(params, x, w);
+    // accumulate inner products into into blocks 
+    for (unsigned int nn = 0; nn <= (n-1); ++nn)
+    {
+      jBlock3(nn, C2T, Pn1, jw, A1[nn], A2[nn], A3[nn], B1[nn], B2[nn], B3[nn]); 
+    }
+    delete jw;
+    delete Pn1; 
+    delete C2T;
+    
+    unsigned int i, inds1[2], inds[2] = {1, 1}, bsz = 1;
+    for (unsigned int nn = 1; nn <= (n-1); ++nn)
+    {
+      i = 0;
+      for (unsigned int col = inds[0]; col <= inds[1]; ++col)
+      {
+        for (unsigned int row = inds[0]; row <= inds[1]; ++row)
+        {
+          Jn1[(row-1) + N*(col-1)] = B1[nn-1][i]; 
+          Jn2[(row-1) + N*(col-1)] = B2[nn-1][i];
+          Jn3[(row-1) + N*(col-1)] = B3[nn-1][i];
+          i += 1; 
+        }
+      }
+      bsz += nn + 1;
+      inds1[0] = inds[0] + bsz-(nn+1);
+      inds1[1] = inds[0] + bsz;      
+      i = 0;
+      for (unsigned int col = inds1[0]; col <= inds1[1]; ++col)
+      {
+        for (unsigned int row = inds[0]; row <= inds[1]; ++row)
+        {
+          Jn1[(row-1) + N*(col-1)] = A1[nn-1][i];
+          Jn1[(col-1) + N*(row-1)] = A1[nn-1][i];
+          Jn2[(row-1) + N*(col-1)] = A2[nn-1][i];
+          Jn2[(col-1) + N*(row-1)] = A2[nn-1][i];
+          Jn3[(row-1) + N*(col-1)] = A3[nn-1][i];
+          Jn3[(col-1) + N*(row-1)] = A3[nn-1][i];
+          i += 1;
+        }
+      }
+      inds[0] = inds[0] + bsz-(nn+1);
+      inds[1] = inds[1] + bsz;
+    }
+    // get last block
+    i = 0;
+    for (unsigned int col = inds[0]; col <= inds[1]; ++col)
+    {
+      for (unsigned int row = inds[0]; row <= inds[1]; ++row)
+      {
+        Jn1[(row-1) + N*(col-1)] = B1[n-1][i]; 
+        Jn2[(row-1) + N*(col-1)] = B2[n-1][i];
+        Jn3[(row-1) + N*(col-1)] = B2[n-1][i];
+        i += 1;
+      }
+    }
+  }
+
+  void jBlock3( unsigned int n,
+                mapTensorQuad<T>* C2T,
+                jPoly<T>* Pn1,
+                jWeight<T,3>* jw,
+                T* Ax, T* Ay, T* Az,
+                T* Bx, T* By, T* Bz )
+  {
+    T *W = C2T->W;
+    const T *X = Pn1->X, *Y = Pn1->Y, *Z = Pn1->Z, *V = Pn1->V, *v; 
+    T alphax, alphay, alphaz, wval, Xt[3];
+    unsigned int M = dimPI3(n), NN = dimPI3(n+1), nlg3 = nlg *nlg *nlg;
+    #pragma omp simd collapse(3) 
+    for (unsigned int k = 0; k < nlg; ++k)
+    {
+      for (unsigned int j = 0; j < nlg; ++j)
+      {
+        for (unsigned int i = 0; i < nlg; ++i)
+        {
+          Xt[0] = X[i + nlg*(j + nlg*k)];
+          Xt[1] = Y[i + nlg*(j + nlg*k)];
+          Xt[2] = Z[i + nlg*(j + nlg*k)];
+          v = &V[i + nlg*(j + nlg*k)];
+          wval = jw->w(Xt);
+          alphax = wval * Xt[0] * W[i + nlg*(j + nlg*k)];
+          alphay = wval * Xt[1] * W[i + nlg*(j + nlg*k)];
+          alphay = wval * Xt[2] * W[i + nlg*(j + nlg*k)];
+          cblas_dger(CblasColMajor, M, NN, alphax, v, nlg3, v, nlg3, Ax, M); 
+          cblas_dger(CblasColMajor, M, NN, alphay, v, nlg3, v, nlg3, Ay, M); 
+          cblas_dger(CblasColMajor, M, NN, alphaz, v, nlg3, v, nlg3, Az, M); 
+          cblas_dger(CblasColMajor, M, M, alphax, v, nlg3, v, nlg3, Bx, M); 
+          cblas_dger(CblasColMajor, M, M, alphay, v, nlg3, v, nlg3, By, M); 
+          cblas_dger(CblasColMajor, M, M, alphaz, v, nlg3, v, nlg3, Bz, M); 
+        }
+      } 
+    }
+  }
 
   jMat (unsigned int _n, T _a, T _b, T _c, T _d, std::string dir)
     : n(_n), a(_a), b(_b), c(_c), d(_d), dim(3)
@@ -256,31 +415,9 @@ struct jMat
     }
   }
   
-  jMat ( unsigned int _n, T _a, T _b, T _c , T _d)
-    : n(_n), a(_a), b(_b), c(_c), d(_d), dim(3)
-  {
-    N = dimPI3(n-1);
-    Jn1 = (T*) calloc(N*N, sizeof(T));
-    Jn2 = (T*) calloc(N*N, sizeof(T));
-    Jn3 = (T*) calloc(N*N, sizeof(T));
-    /* block array of coefficient matrices in 3-term recurrence*/
-    A1 = (T**) malloc((n+1) * sizeof(T**));
-    A2 = (T**) malloc((n+1) * sizeof(T**));
-    A3 = (T**) malloc((n+1) * sizeof(T**));
-    B1 = (T**) malloc((n+1) * sizeof(T**));
-    B2 = (T**) malloc((n+1) * sizeof(T**));
-    B3 = (T**) malloc((n+1) * sizeof(T**));
-    for (unsigned int nn = 0; nn <= (n-1); ++nn)
-    {
-      A1[nn]    = (T*) calloc((nn+1)*(nn+2), sizeof(T));
-      A2[nn]    = (T*) calloc((nn+1)*(nn+2), sizeof(T));
-      A3[nn]    = (T*) calloc((nn+1)*(nn+2), sizeof(T));
-      B1[nn]    = (T*) calloc((nn+1)*(nn+1), sizeof(T));
-      B2[nn]    = (T*) calloc((nn+1)*(nn+1), sizeof(T));
-      B3[nn]    = (T*) calloc((nn+1)*(nn+1), sizeof(T));
-    }
 
-  }
+
+
 
   ~jMat()
   {
@@ -321,6 +458,5 @@ struct jMat
 }; 
 
 template struct jMat<double>;
-template struct jMat<float>;
    
 #endif

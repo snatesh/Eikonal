@@ -10,7 +10,6 @@
 #include<jPoly.h>
 #include<jevd.h>
 
-
 typedef double _Complex Complex;
 static unsigned long count = 0;
 static unsigned long count1 = 0;
@@ -34,7 +33,7 @@ struct optData
   unsigned int nthreads;
   unsigned int dim;
   double* Z0 = 0; // this holds the optimization variables
-
+  double *legx, *legw; // needed for jmat d=3
 
   std::string dir;
   std::string splxT;
@@ -86,7 +85,9 @@ struct optData
       this->N = dimPI3(n-1); 
       this->M = dimPI3(m-1);
       // generate jacobi matrices for x,y 
-      this->Jn = new jMat<double>(n, a, b, c, d, dir);
+      //this->Jn = new jMat<double>(n, a, b, c, d, dir);
+      unsigned int nlg = 20; 
+      this->Jn = new jMat<double>(n, a, b, c, d, nlg, legx, legw, 1);
       this->Pm = new jPoly<double>(N, m-1, a, b, c, d, nthreads); 
       this->Vm = Pm->V;
       this->Jn1 = Jn->Jn1;
@@ -136,6 +137,14 @@ struct optData
             unsigned int _nthreads )
     : n(_n), m(_m), a(_a), b(_b), c(_c), d(_d), dir(_dir), 
       run0(true), dim(3), nthreads(_nthreads) { this->init(); }
+  
+  optData ( unsigned int _m, unsigned int _n, 
+            double _a, double _b, double _c, 
+            double _d, double* _legx, double* _legw, 
+            unsigned int _nthreads )
+    : n(_n), m(_m), a(_a), b(_b), c(_c), d(_d), 
+      legx(_legx), legw(_legw), run0(true), dim(3),  
+      nthreads(_nthreads) { this->init(); }
   
   ~optData()
   {
@@ -232,6 +241,18 @@ struct ngjQuad
     this->optdata = new optData(m, n, a, b, c, d, dir, nthreads);
   }
   
+  ngjQuad ( unsigned int _n, unsigned int _m, 
+            double a, double b, double c, double d,
+            double* legx, double* legw, 
+            double _tol, double _tolc, double _alph,
+            bool _use_newton, bool _use_wolfe,
+            nlopt_algorithm _alg, unsigned int _nthreads )
+    : n(_n), m(_m), tol(_tol), tolc(_tolc), alph(_alph),
+      use_newton(_use_newton), use_wolfe(_use_wolfe),
+      alg(_alg), nthreads(_nthreads), dim(3)
+  {
+    this->optdata = new optData(m, n, a, b, c, d, legx, legw, nthreads);
+  }
   
   ~ngjQuad() 
   { 
@@ -491,9 +512,9 @@ struct ngjQuad
   
       for (unsigned int i = 0; i < N; ++i) 
       { 
-        optdata->X10[i] = J[i + N*i] * 6.0; 
-        optdata->X20[i] = J[i + N*(i + N)] * 6.0;
-        optdata->X30[i] = J[i + N*(i + 2*N)] * 6.0; 
+        optdata->X10[i] = J[i + N*i] ; 
+        optdata->X20[i] = J[i + N*(i + N)] ;
+        optdata->X30[i] = J[i + N*(i + 2*N)] ; 
       }
       // evaluate Vandermonde on initial nodes
       optdata->Pm->computeV(optdata->X10, optdata->X20, optdata->X30); 

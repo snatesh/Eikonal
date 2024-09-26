@@ -11,8 +11,7 @@
 #include<jMat.h>
 #include<jevd.h>
 #include<ngjquad.h>
-#include<mapQuad.h>
-#include<jWeight.h>
+#include<legQuad.h>
 
 #ifdef PLOT
 #include<../include/matplotlibcpp.h>
@@ -647,23 +646,50 @@ TEST(ngjquadLineTest, TolCheck)
   delete gjquad;
 }
 
-TEST(intTetonCubeTest, RunCheck)
+TEST(jMat3DTest, RunCheck)
 {
-  unsigned int n = 30;
-  intTonC* T2C = new intTonC(n);
-  std::cout << T2C->sum << std::endl;
-  delete T2C;
+  unsigned int nlg = 25;
+  double a = 0.5, b = 0.5, c = 0.5, d = 0.5;
+  unsigned int norder = 3;
+  legQuad<double>* legq = new legQuad<double>(nlg); 
+  jMat<double>* jmat = 
+    new jMat<double>(norder, a, b, c, d, nlg, legq->x, legq->w, 1);
+  printMat(jmat->Jn2, jmat->N, jmat->N);
+
+  delete jmat;
+  delete legq; 
 }
 
-TEST(jweightTest, RunCheck)
-{
-  double params[2] = {0,0};
-  double x[2] = {0,0};
-  jWeight<double,1>* jw = new jWeight<double,1>(params);
+//TEST(jMat3DTest, RunCheck)
+//{
+//  unsigned int n = 20;
+//  double a = 0.5, b = 0.5, c = 0.5, d = 0.5;
+//  intTonC<double>* T2C = new intTonC<double>(n);
+//  
+//  jMat<double>* jmat = new jMat<double>(15, a, b, c, d, T2C->x, T2C->w); 
+//  
+//  delete jmat;
+//  delete T2C;
+//}
 
-  std::cout << jw->w(x) << std::endl;
-  delete jw;
-}
+//TEST(intTetonCubeTest, RunCheck)
+//{
+//  unsigned int n = 30;
+//  intTonC* T2C = new intTonC(n);
+//  std::cout << T2C->sum << std::endl;
+//  delete T2C;
+//}
+
+//TEST(jweightTest, RunCheck)
+//{
+//  double params[2] = {0,0};
+//  double x[2] = {0,0};
+//  jWeight<double,1>* jw = new jWeight<double,1>(params);
+//  jWeight<double,2>* jw1 = new jWeight<double,2>(params);
+//
+//  std::cout << jw1->w(x) << std::endl;
+//  delete jw;
+//}
 
 } // end gtest namespace
 

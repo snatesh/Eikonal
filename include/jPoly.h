@@ -183,7 +183,7 @@ class jPoly
       }
       else if (this->dim == 3)
       {
-        this->Np = dimPI3(n); 
+        this->Np = dimPI3(n);
         this->V = (T*) calloc(Nx*Np, sizeof(T));
       }
       else if (this->dim == 1)
@@ -192,7 +192,7 @@ class jPoly
         this->V = (T*) calloc(Nx*Np, sizeof(T));
       }
     }
-   
+
  
     void computeV(const T* _X, const T* _Y = 0, const T* _Z = 0)
     {
@@ -203,7 +203,7 @@ class jPoly
         #pragma omp parallel num_threads(nthreads)
         { 
           unsigned int blockind = 0;
-          unsigned int blockcol;
+          unsigned int blockcol, count = 0;
           for (unsigned int nn = 0; nn <= n; ++nn)
           {
             blockcol = 0;
@@ -228,7 +228,8 @@ class jPoly
             }
             blockind = blockind + rn3(nn);
           }
-        }
+        } 
+
       }
       
 
