@@ -1,6 +1,7 @@
 #ifndef _MAPTENSORQUAD_H
 #define _MAPTENSORQUAD_H
 #include<algorithm>
+#include<omp.h>
 
 /* map integral from tetrahedron to cube and 
    use a tensor product quadrature rule on the cube
