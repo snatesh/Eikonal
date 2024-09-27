@@ -56,7 +56,8 @@ struct mapTensorQuad
 
   inline void map()
   {
-    T xc[3], xt[3], dF[9], c2tJ;
+    T xc[3], xt[3], dF[9], c2tJ; 
+    unsigned int ind = 0;
     #pragma omp simd collapse(3) 
     for (unsigned int k = 0; k < nlg; ++k)
     {
@@ -71,11 +72,12 @@ struct mapTensorQuad
           // Jacobian at xc 
           c2tJ = jDet(xc, dF);
           // save combined weight at xt
-          W[i + nlg*(j + nlg*k)] = w[i] * w[j] * w[k] * c2tJ;
+          W[ind] = w[i] * w[j] * w[k] * c2tJ;
           // save xt points
-          X[i + nlg*(j + nlg*k)] = xt[0];
-          Y[i + nlg*(j + nlg*k)] = xt[1];
-          Z[i + nlg*(j + nlg*k)] = xt[2];
+          X[ind] = xt[0];
+          Y[ind] = xt[1];
+          Z[ind] = xt[2];
+          ind += 1;
         }
       }
     }

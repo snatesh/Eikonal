@@ -203,7 +203,7 @@ class jPoly
         #pragma omp parallel num_threads(nthreads)
         { 
           unsigned int blockind = 0;
-          unsigned int blockcol, count = 0;
+          unsigned int blockcol = 0;
           for (unsigned int nn = 0; nn <= n; ++nn)
           {
             blockcol = 0;

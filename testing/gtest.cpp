@@ -27,19 +27,19 @@
   gtest routines and main are at bottom of file 
 */
 
-void printMat(const double* A, const unsigned int m, const unsigned int n)
-{
-  for (unsigned int i = 0; i < m; ++i)
-  {
-    for (unsigned int j = 0; j < n; ++j)
-    {
-      std::cout << std::setw(10);
-      std::cout << A[i + m*j] << " ";
-    }
-    std::cout << std::endl;
-  }
-  std::cout << std::endl;
-}
+//void printMat(const double* A, const unsigned int m, const unsigned int n)
+//{
+//  for (unsigned int i = 0; i < m; ++i)
+//  {
+//    for (unsigned int j = 0; j < n; ++j)
+//    {
+//      std::cout << std::setw(10);
+//      std::cout << A[i + m*j] << " ";
+//    }
+//    std::cout << std::endl;
+//  }
+//  std::cout << std::endl;
+//}
 
 
 double twonorm(const double* A, const double* B, const unsigned int N)

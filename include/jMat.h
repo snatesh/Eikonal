@@ -37,8 +37,9 @@ struct jMat
   T **A3 = 0, **B3 = 0;
   T a, b, c, d, kap;
   T *x, *w; // 1d quad rule
-
   T *J, *avecON, *bvec;
+
+  unsigned int blkind;
 
   jMat(unsigned int _n, T _a, T _b)
     : n(_n), a(_a), b(_b), dim(1)
@@ -104,20 +105,20 @@ struct jMat
       exit(1);
     }
     N = dimPI3(n-1);
-    unsigned int M, NN;
     Jn1 = (T*) calloc(N*N, sizeof(T));
     Jn2 = (T*) calloc(N*N, sizeof(T));
     Jn3 = (T*) calloc(N*N, sizeof(T));
     /* block array of coefficient matrices in 3-term recurrence*/
-    A1 = (T**) calloc((n+1), sizeof(T*));
-    A2 = (T**) calloc((n+1), sizeof(T*));
-    A3 = (T**) calloc((n+1), sizeof(T*));
-    B1 = (T**) calloc((n+1), sizeof(T*));
-    B2 = (T**) calloc((n+1), sizeof(T*));
-    B3 = (T**) calloc((n+1), sizeof(T*));
+    A1 = (T**) malloc((n+1) * sizeof(T*));
+    A2 = (T**) malloc((n+1) * sizeof(T*));
+    A3 = (T**) malloc((n+1) * sizeof(T*));
+    B1 = (T**) malloc((n+1) * sizeof(T*));
+    B2 = (T**) malloc((n+1) * sizeof(T*));
+    B3 = (T**) malloc((n+1) * sizeof(T*));
+    unsigned int M, NN;
     for (unsigned int nn = 0; nn <= (n-1); ++nn)
     {
-      M = dimPI3(nn); NN = dimPI3(nn+1); 
+      M = rn3(nn); NN = rn3(nn+1);
       A1[nn]    = (T*) calloc(M*NN, sizeof(T));
       A2[nn]    = (T*) calloc(M*NN, sizeof(T));
       A3[nn]    = (T*) calloc(M*NN, sizeof(T));
@@ -129,17 +130,19 @@ struct jMat
     // mapped quad rule on tet
     mapTensorQuad<T>* C2T = new mapTensorQuad<T>(nlg, x, w);
     // evaluate vandermonde on abscissa from mapped rule on tet
-    jPoly<T>* Pn1 = new jPoly<T>(nlg*nlg*nlg, n+1, a, b, c, d, nthreads); 
+    jPoly<T>* Pn1 = new jPoly<T>(nlg*nlg*nlg, n+2, a, b, c, d, nthreads); 
     Pn1->computeV(C2T->X, C2T->Y, C2T->Z);
     // get weight function evaluator for tet
     T params[4] = {a, b, c, d}; 
-    jWeight<T,3>* jw = new jWeight<T,3>(params, x, w);
+    jWeight<T,3>* Jw = new jWeight<T,3>(params, x, w);
     // accumulate inner products into into blocks 
+    blkind = 0;
     for (unsigned int nn = 0; nn <= (n-1); ++nn)
     {
-      jBlock3(nn, C2T, Pn1, jw, A1[nn], A2[nn], A3[nn], B1[nn], B2[nn], B3[nn]); 
+      jBlock3(nn, C2T, Pn1, Jw, A1[nn], A2[nn], A3[nn], B1[nn], B2[nn], B3[nn]); 
+      blkind += rn3(nn);
     }
-    delete jw;
+    delete Jw;
     delete Pn1; 
     delete C2T;
     
@@ -158,8 +161,8 @@ struct jMat
         }
       }
       bsz += nn + 1;
-      inds1[0] = inds[0] + bsz-(nn+1);
-      inds1[1] = inds[0] + bsz;      
+      inds1[0] = inds[0] + bsz - (nn + 1);
+      inds1[1] = inds[1] + bsz;      
       i = 0;
       for (unsigned int col = inds1[0]; col <= inds1[1]; ++col)
       {
@@ -174,7 +177,7 @@ struct jMat
           i += 1;
         }
       }
-      inds[0] = inds[0] + bsz-(nn+1);
+      inds[0] = inds[0] + bsz - (nn + 1);
       inds[1] = inds[1] + bsz;
     }
     // get last block
@@ -185,7 +188,7 @@ struct jMat
       {
         Jn1[(row-1) + N*(col-1)] = B1[n-1][i]; 
         Jn2[(row-1) + N*(col-1)] = B2[n-1][i];
-        Jn3[(row-1) + N*(col-1)] = B2[n-1][i];
+        Jn3[(row-1) + N*(col-1)] = B3[n-1][i];
         i += 1;
       }
     }
@@ -194,38 +197,47 @@ struct jMat
   void jBlock3( unsigned int n,
                 mapTensorQuad<T>* C2T,
                 jPoly<T>* Pn1,
-                jWeight<T,3>* jw,
+                jWeight<T,3>* Jw,
                 T* Ax, T* Ay, T* Az,
                 T* Bx, T* By, T* Bz )
   {
     T *W = C2T->W;
-    const T *X = Pn1->X, *Y = Pn1->Y, *Z = Pn1->Z, *V = Pn1->V, *v; 
+    const T *X = Pn1->X, *Y = Pn1->Y, *Z = Pn1->Z, *V = Pn1->V;
     T alphax, alphay, alphaz, wval, Xt[3];
-    unsigned int M = dimPI3(n), NN = dimPI3(n+1), nlg3 = nlg *nlg *nlg;
-    #pragma omp simd collapse(3) 
-    for (unsigned int k = 0; k < nlg; ++k)
+    unsigned int M = rn3(n), NN = rn3(n+1);
+    unsigned int coln = dimPI3(n), colnp1 = dimPI3(n+1);
+    std::cout << coln << " " << colnp1 << std::endl;
+    std::cout << M << " " << NN << std::endl;
+    unsigned int nlg3 = nlg *nlg *nlg;
+    unsigned int rn = rn3(n); 
+    T* Pn   = (T*) calloc(M, sizeof(T));
+    T* Pnp1 = (T*) calloc(NN, sizeof(T));
+
+
+    for (unsigned int i = 0; i < nlg3; ++i)
     {
-      for (unsigned int j = 0; j < nlg; ++j)
-      {
-        for (unsigned int i = 0; i < nlg; ++i)
-        {
-          Xt[0] = X[i + nlg*(j + nlg*k)];
-          Xt[1] = Y[i + nlg*(j + nlg*k)];
-          Xt[2] = Z[i + nlg*(j + nlg*k)];
-          v = &V[i + nlg*(j + nlg*k)];
-          wval = jw->w(Xt);
-          alphax = wval * Xt[0] * W[i + nlg*(j + nlg*k)];
-          alphay = wval * Xt[1] * W[i + nlg*(j + nlg*k)];
-          alphay = wval * Xt[2] * W[i + nlg*(j + nlg*k)];
-          cblas_dger(CblasColMajor, M, NN, alphax, v, nlg3, v, nlg3, Ax, M); 
-          cblas_dger(CblasColMajor, M, NN, alphay, v, nlg3, v, nlg3, Ay, M); 
-          cblas_dger(CblasColMajor, M, NN, alphaz, v, nlg3, v, nlg3, Az, M); 
-          cblas_dger(CblasColMajor, M, M, alphax, v, nlg3, v, nlg3, Bx, M); 
-          cblas_dger(CblasColMajor, M, M, alphay, v, nlg3, v, nlg3, By, M); 
-          cblas_dger(CblasColMajor, M, M, alphaz, v, nlg3, v, nlg3, Bz, M); 
-        }
-      } 
+      for (unsigned int iblk = 0; iblk < M; ++iblk)
+      { 
+        Pn[iblk] = V[i + nlg3*(blkind+iblk)]; 
+      }
+      for (unsigned int iblk = 0; iblk < NN; ++iblk)
+      { 
+        Pnp1[iblk] = V[i + nlg3*(blkind+rn+iblk)]; 
+      }
+      Xt[0] = X[i]; Xt[1] = Y[i]; Xt[2] = Z[i];
+      wval = Jw->w(Xt);
+      alphax = wval * Xt[0] * W[i];
+      alphay = wval * Xt[1] * W[i];
+      alphaz = wval * Xt[2] * W[i];
+      cblas_dger(CblasColMajor, M, NN, alphax, Pn, 1, Pnp1, 1, Ax, M); 
+      cblas_dger(CblasColMajor, M, NN, alphay, Pn, 1, Pnp1, 1, Ay, M); 
+      cblas_dger(CblasColMajor, M, NN, alphaz, Pn, 1, Pnp1, 1, Az, M); 
+      cblas_dger(CblasColMajor, M, M, alphax, Pn, 1, Pn, 1, Bx, M); 
+      cblas_dger(CblasColMajor, M, M, alphay, Pn, 1, Pn, 1, By, M); 
+      cblas_dger(CblasColMajor, M, M, alphaz, Pn, 1, Pn, 1, Bz, M); 
     }
+    free(Pn);
+    free(Pnp1);
   }
 
   jMat (unsigned int _n, T _a, T _b, T _c, T _d, std::string dir)
