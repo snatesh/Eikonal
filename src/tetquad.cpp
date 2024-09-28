@@ -37,9 +37,9 @@ int main(int argc, char* argv[])
   jMat<double>* jmat = 
     new jMat<double>(norder, a, b, c, d, nlg, legq->x, legq->w, 1);
 
-  printMat(jmat->Jn1, N, N); 
-  printMat(jmat->Jn2, N, N); 
-  printMat(jmat->Jn3, N, N); 
+  //printMat(jmat->Jn1, N, N); 
+  //printMat(jmat->Jn2, N, N); 
+  //printMat(jmat->Jn3, N, N); 
 
   mapTensorQuad<double>* C2T = new mapTensorQuad<double>(nlg, legq->x, legq->w);
   
