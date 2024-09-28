@@ -1,6 +1,6 @@
-#include<jevd.h>
-#include<jMat.h>
-#include<legQuad.h>
+#include<jevd.hh>
+#include<jMat.hh>
+#include<legQuad.hh>
 #include<fstream>
 #include<cstdio>
 //void printMat(const double* A, const unsigned int m, const unsigned int n)

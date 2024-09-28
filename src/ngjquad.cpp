@@ -1,6 +1,6 @@
-#include<ngjquad.h>
-#include<legQuad.h>
-#include<../include/matplotlibcpp.h>
+#include<ngjquad.hh>
+#include<legQuad.hh>
+#include<matplotlibcpp.h>
 #include<map>
 #include<vector>
 namespace plt = matplotlibcpp;

@@ -4,14 +4,14 @@
 #include<vector>
 #include<cblas.h>
 #include<gtest/gtest.h>
-#include<sFactors.h>
-#include<jPoly.h>
-#include<kMat.h>
-#include<dMat.h>
-#include<jMat.h>
-#include<jevd.h>
-#include<ngjquad.h>
-#include<legQuad.h>
+#include<sFactors.hh>
+#include<jPoly.hh>
+#include<kMat.hh>
+#include<dMat.hh>
+#include<jMat.hh>
+#include<jevd.hh>
+#include<ngjquad.hh>
+#include<legQuad.hh>
 
 #ifdef PLOT
 #include<../include/matplotlibcpp.h>
@@ -152,7 +152,7 @@ TEST(structureFactorTest, TolCheck)
   double a = 0.5; double b = 0.5; double c = 0.5;
   double* H = (double*) calloc(Np*Np, sizeof(double));
   double* Href = (double*) calloc(Np*Np, sizeof(double));
-  std::ifstream Hfile("../testdata/Href.txt");
+  std::ifstream Hfile("../../testing/testdata/Href.txt");
   for (unsigned int i = 0; i < Np*Np; ++i)
   {
     Hfile >> Href[i];
@@ -175,7 +175,7 @@ TEST(jPolyTest, TolCheck)
   double* x = (double*) calloc(Nx, sizeof(double));
   double* V = (double*) malloc(Nx*Np*sizeof(double));
   double* Vref = (double*) calloc(Nx*Np, sizeof(double));
-  std::ifstream Vfile("../testdata/Vref.txt");
+  std::ifstream Vfile("../../testing/testdata/Vref.txt");
   for (unsigned int i = 0; i < Nx*Np; ++i)
   {
     Vfile >> Vref[i];
@@ -206,8 +206,8 @@ TEST(jPolyTriTest, TolCheck)
   double* Yk = (double*) calloc(N, sizeof(double));
   double* Vmref = (double*) calloc(N*Np, sizeof(double));
   // read in test data
-  std::ifstream Zkfile("../testdata/Zkref.txt");
-  std::ifstream Vmfile("../testdata/Vmref.txt");
+  std::ifstream Zkfile("../../testing/testdata/Zkref.txt");
+  std::ifstream Vmfile("../../testing/testdata/Vmref.txt");
   for (unsigned int i = 0; i < N; ++i) { Zkfile >> Xk[i]; }
   for (unsigned int i = 0; i < N; ++i) { Zkfile >> Yk[i]; }
   for (unsigned int i = 0; i < N*Np; ++i) { Vmfile >> Vmref[i]; }
@@ -244,7 +244,7 @@ TEST(jPolyTriConvTest, ConvPlotCheck)
     double* fref  = (double*) malloc(N * sizeof(double));
     double* errs  = (double*) malloc(14 * sizeof(double));  
     unsigned int * Ns = (unsigned int*) malloc(14 * sizeof(unsigned int));
-    std::ifstream Zkreffile("../testdata/Zkref.txt");
+    std::ifstream Zkreffile("../../testing/testdata/Zkref.txt");
     for (unsigned int i = 0; i < N; ++i) { Zkreffile >> Xkref[i]; }
     for (unsigned int i = 0; i < N; ++i) { Zkreffile >> Ykref[i]; }
     for (unsigned int i = 0; i < N; ++i) { Zkreffile >> Wkref[i]; }
@@ -277,7 +277,7 @@ TEST(jPolyTriConvTest, ConvPlotCheck)
       double* Yk = (double*) malloc(N * sizeof(double));
       double* Wk = (double*) malloc(N * sizeof(double));
       double* f  = (double*) malloc(N * sizeof(double));
-      ss << "../testdata/triquadLeg_" << n << "_" << m << ".txt";
+      ss << "../../testing/testdata/triquadLeg_" << n << "_" << m << ".txt";
       std::ifstream Zkfile(ss.str());
       for (unsigned int i = 0; i < N; ++i) { Zkfile >> Xk[i]; }
       for (unsigned int i = 0; i < N; ++i) { Zkfile >> Yk[i]; }
@@ -315,7 +315,7 @@ TEST(jPolyTriConvTest, ConvPlotCheck)
     free(errs);
   }
   #ifdef PLOT
-  plt::save("../testdata/intconv.png");
+  plt::save("../../testing/testdata/intconv.png");
   #endif
 }
 
@@ -331,7 +331,7 @@ TEST(promMatA1Test, TolCheck)
   double* K_a1bc = (double*) calloc(N*N, sizeof(double)); 
   double* K_a1bc_ref = (double*) calloc(N*N, sizeof(double)); 
  
-  std::ifstream K_a1bc_ref_file("../testdata/K_a1bc_ref.txt");
+  std::ifstream K_a1bc_ref_file("../../testing/testdata/K_a1bc_ref.txt");
   for (unsigned int i = 0; i < N*N; ++i) { K_a1bc_ref_file >> K_a1bc_ref[i]; }
   sFactors(n+1, a, b, c, H_abc);
   sFactors(n+1, a+1, b, c, H_a1bc);
@@ -358,7 +358,7 @@ TEST(promMatB1Test, TolCheck)
   double* K_ab1c = (double*) calloc(N*N, sizeof(double)); 
   double* K_ab1c_ref = (double*) calloc(N*N, sizeof(double)); 
  
-  std::ifstream K_ab1c_ref_file("../testdata/K_ab1c_ref.txt");
+  std::ifstream K_ab1c_ref_file("../../testing/testdata/K_ab1c_ref.txt");
   for (unsigned int i = 0; i < N*N; ++i) { K_ab1c_ref_file >> K_ab1c_ref[i]; } 
   sFactors(n+1, a, b, c, H_abc);
   sFactors(n+1, a, b+1.0, c, H_ab1c);
@@ -386,7 +386,7 @@ TEST(promMatC1Test, TolCheck)
   double* K_abc1 = (double*) calloc(N*N, sizeof(double)); 
   double* K_abc1_ref = (double*) calloc(N*N, sizeof(double)); 
  
-  std::ifstream K_abc1_ref_file("../testdata/K_abc1_ref.txt");
+  std::ifstream K_abc1_ref_file("../../testing/testdata/K_abc1_ref.txt");
   for (unsigned int i = 0; i < N*N; ++i) { K_abc1_ref_file >> K_abc1_ref[i]; } 
   sFactors(n+1, a, b, c, H_abc);
   sFactors(n+1, a, b+1.0, c, H_abc1);
@@ -414,7 +414,7 @@ TEST(dxTriTest, TolCheck)
   double* D_a1bc1 = (double*) calloc(N*N, sizeof(double)); 
   double* D_a1bc1_ref = (double*) calloc(N*N, sizeof(double)); 
  
-  std::ifstream D_a1bc1_ref_file("../testdata/Dx_a1bc1_ref.txt");
+  std::ifstream D_a1bc1_ref_file("../../testing/testdata/Dx_a1bc1_ref.txt");
   for (unsigned int i = 0; i < N*N; ++i) { D_a1bc1_ref_file >> D_a1bc1_ref[i]; } 
   sFactors(n+1, a, b, c, H_abc);
   sFactors(n+1, a+1.0, b, c+1.0, H_a1bc1);
@@ -442,7 +442,7 @@ TEST(dyTriTest, TolCheck)
   double* D_ab1c1 = (double*) calloc(N*N, sizeof(double)); 
   double* D_ab1c1_ref = (double*) calloc(N*N, sizeof(double)); 
  
-  std::ifstream D_ab1c1_ref_file("../testdata/Dy_ab1c1_ref.txt");
+  std::ifstream D_ab1c1_ref_file("../../testing/testdata/Dy_ab1c1_ref.txt");
   for (unsigned int i = 0; i < N*N; ++i) { D_ab1c1_ref_file >> D_ab1c1_ref[i]; } 
   sFactors(n+1, a, b, c, H_abc);
   sFactors(n+1, a, b+1.0, c+1.0, H_ab1c1);
@@ -465,7 +465,7 @@ TEST(jMatLineTest, TolCheck)
   double a = -0.5, b = 3.0;
   jMat<double>* Jn = new jMat<double>(n,a,b);
   double* Jref = (double*) calloc(n*n, sizeof(double));
-  std::ifstream Jfile("../testdata/Jline.txt");
+  std::ifstream Jfile("../../testing/testdata/Jline.txt");
   for (unsigned int i = 0; i < n*n; ++i) { Jfile >> Jref[i]; }
   double diff = infnorm(Jn->J, Jref, n*n);
   EXPECT_LT(diff, tol);
@@ -481,8 +481,8 @@ TEST(jMatTriTest, TolCheck)
   unsigned int N = Jn->N;
   double* Jn1_ref = (double*) calloc(N*N, sizeof(double));
   double* Jn2_ref = (double*) calloc(N*N, sizeof(double));
-  std::ifstream Jn1_ref_file("../testdata/Jn1_ref.txt");
-  std::ifstream Jn2_ref_file("../testdata/Jn2_ref.txt");
+  std::ifstream Jn1_ref_file("../../testing/testdata/Jn1_ref.txt");
+  std::ifstream Jn2_ref_file("../../testing/testdata/Jn2_ref.txt");
   for (unsigned int i = 0; i < N*N; ++i) 
   { 
     Jn1_ref_file >> Jn1_ref[i];
@@ -540,8 +540,8 @@ TEST(jevdTest, TolCheck)
   unsigned int nm = n*m;
   double* J = (double*) calloc(m*nm, sizeof(double));
   double* E = (double*) calloc(m*nm, sizeof(double));
-  std::ifstream Jref_file("../testdata/Jref.txt");
-  std::ifstream Eref_file("../testdata/Eref.txt");
+  std::ifstream Jref_file("../../testing/testdata/Jref.txt");
+  std::ifstream Eref_file("../../testing/testdata/Eref.txt");
 
   for (unsigned int i = 0; i < m*nm; ++i) 
   { 
@@ -567,7 +567,7 @@ TEST(jPolySingleTest, TolCheck)
   double* P = (double*) calloc(101, sizeof(double));
   double* Pref = (double*) calloc(101, sizeof(double));
   
-  std::ifstream Pfile("../testdata/Peval1d.txt");
+  std::ifstream Pfile("../../testing/testdata/Peval1d.txt");
   for (unsigned int i = 0; i <= 20; ++i)
   {
     Pfile >> Pref[i];
@@ -595,9 +595,9 @@ TEST(jPolyTetTest, RunCheck)
   double* Yk = (double*) calloc(N, sizeof(double));
   double* Zk = (double*) calloc(N, sizeof(double));
   
-  std::ifstream Xkfile("../testdata/xtet.txt");
-  std::ifstream Ykfile("../testdata/ytet.txt");
-  std::ifstream Zkfile("../testdata/ztet.txt");
+  std::ifstream Xkfile("../../testing/testdata/xtet.txt");
+  std::ifstream Ykfile("../../testing/testdata/ytet.txt");
+  std::ifstream Zkfile("../../testing/testdata/ztet.txt");
   for (unsigned int i = 0; i < N; ++i) 
   { 
     Xkfile >> Xk[i]; 

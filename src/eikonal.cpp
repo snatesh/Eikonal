@@ -1,8 +1,8 @@
 #include<cblas.h>
-#include<jPoly.h>
-#include<ngjquad.h>
-#include<kMat.h>
-#include<dMat.h>
+#include<jPoly.hh>
+#include<ngjquad.hh>
+#include<kMat.hh>
+#include<dMat.hh>
 
 inline void set_args  ( int argc, char* argv[], 
                         nlopt_algorithm& alg, int& dim, int& n, 
