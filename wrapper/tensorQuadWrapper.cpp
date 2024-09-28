@@ -11,11 +11,11 @@ extern "C"
     return tquad; 
   }  
 
-  void copy ( mapTensorQuad<double>* tquad,
-              double* X,
-              double* Y,
-              double* Z,
-              double* W )
+  void copyTensorQuad ( mapTensorQuad<double>* tquad,
+                        double* X,
+                        double* Y,
+                        double* Z,
+                        double* W )
   {
     tquad->copy(X, Y, Z, W);
   }
