@@ -8,7 +8,6 @@ option(build_testing "compile and run tests" ON)
 set(CMAKE_INSTALL_PREFIX "${CMAKE_SOURCE_DIR}")
 # set runtime path for shared libraries
 SET(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
-SET(CMAKE_TEST_DIR "${CMAKE_SOURCE_DIR}/testing")
 
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
@@ -41,13 +40,13 @@ include_directories(include)
 include_directories(${Python_INCLUDE_DIRS})
 
 # setting lib src files
-set(sfactorSRC include/sFactors.hh)
-set(kmatSRC include/kMat.hh)
-set(dmatSRC include/dMat.hh)
-set(jpolySRC include/jPoly.hh)
-set(tensorquadSRC include/mapTensorQuad.hh)
+set(sfactorSRC include/sFactors.hh wrapper/sFactorsWrapper.cpp)
+set(kmatSRC include/kMat.hh wrapper/kMatWrapper.cpp)
+set(dmatSRC include/dMat.hh wrapper/dMatWrapper.cpp)
+set(jpolySRC include/jPoly.hh wrapper/jPolyWrapper.cpp)
+set(tensorquadSRC include/mapTensorQuad.hh wrapper/tensorQuadWrapper.cpp)
 set(jweightSRC include/jWeight.hh)
-set(jmatSRC include/jMat.hh)
+set(jmatSRC include/jMat.hh wrapper/jMatWrapper.cpp)
 set(jevdSRC include/jevd.hh)
 set(ngjquadSRC include/ngjquad.hh)
 set(legquadSRC include/legQuad.hh)

@@ -426,10 +426,6 @@ struct jMat
       }
     }
   }
-  
-
-
-
 
   ~jMat()
   {

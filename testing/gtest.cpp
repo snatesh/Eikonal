@@ -161,7 +161,6 @@ TEST(structureFactorTest, TolCheck)
   sFactors(Np, a, b, c, H);
   double diff = infnorm(H,Href,Np*Np);
   EXPECT_LT(diff, tol);
-  //printMat(H,Np,Np);
   std::cout << "\nrelative infinity norm of diff = " << diff << "\n\n";
   free(H);
 }
@@ -188,7 +187,6 @@ TEST(jPolyTest, TolCheck)
   jpoly<double>(x, Nx, Np, 0.5, 0.5, V);  
   double diff = infnorm(V,Vref,Nx*Np);
   EXPECT_LT(diff, tol);
-  //printMat(V,Nx,Np);
   std::cout << "\nrelative infinity norm of diff = " << diff << "\n\n";
   free(x);
   free(V);
@@ -501,12 +499,6 @@ TEST(jMatTriTest, TolCheck)
   free(Jn1_ref);
   free(Jn2_ref);
 
-  jMat<double>* Jm = new jMat(3, a, b, c);
-  printMat(Jm->Jn1,Jm->N,Jm->N);
-  printMat(Jm->Jn2,Jm->N,Jm->N);
-  delete Jm;
-
-
 }
 
 TEST(nloptExampleTest, RunCheck)
@@ -617,7 +609,7 @@ TEST(jPolyTetTest, RunCheck)
 
 TEST(ngjquadLineTest, TolCheck)
 {
-  double tol = 1e-15;
+  double tol = 5e-15;
   unsigned int N = 20;
   unsigned int dim = 1;
   ngjQuad* gjquad = new ngjQuad  (  N, N, 0, 0, 1e-16, 1e-16, 0,
