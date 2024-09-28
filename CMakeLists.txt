@@ -1,6 +1,5 @@
 cmake_minimum_required(VERSION 3.6)
 project(Eikonal CXX)
-include(CTest)
 option(debug "Build with debugger" OFF)
 option(build_testing "compile and run tests" ON)
 
@@ -27,6 +26,7 @@ elseif(debug)
 endif()
 
 if (build_testing)
+  enable_testing()
   add_subdirectory(testing)
 endif()
 
@@ -162,4 +162,3 @@ install(TARGETS legquad ARCHIVE DESTINATION lib LIBRARY DESTINATION lib)
 install(TARGETS jevd ARCHIVE DESTINATION lib LIBRARY DESTINATION lib)
 install(TARGETS tensorquad ARCHIVE DESTINATION lib LIBRARY DESTINATION lib)
 
-enable_testing()
