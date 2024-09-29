@@ -17,7 +17,7 @@ class eikonal(object):
   acting on coefficients of an order n Jacobi
   Polynomial expansion (on the standard triangle)
   """ 
-  def __init__(self, _a, _b, _c, _n = 4, _m = 6, _nthreads = 6):
+  def __init__(self, _a, _b, _c, _n = 4, _m = 6, _nthreads = 4):
     
     if _n <= 0:  
       exit("eikonal : Range Error ( n > 1) ")
@@ -39,9 +39,12 @@ class eikonal(object):
                           0, 0, 0, _nthreads )
       np.savetxt(self.fname, self.Z0)
     else:
-      Z0 = np.loadtxt(self.fname)
+      self.Z0 = np.loadtxt(self.fname)
     
-
+    self.X = self.Z0[0:self.N]
+    self.Y = self.Z0[self.N:2*self.N]
+    self.W = self.Z0[2*self.N:3*self.N]
+    self.poly = jPoly(self.N, _n, _a, _b, _c, _nthreads)
     self.Habc = sFactors(_n+1, _a, _b, _c)  
     self.Ha1bc = sFactors(_n+1, _a+1, _b, _c)
     self.Ha1b1c = sFactors(_n+1, _a+1, _b+1, _c)
@@ -64,12 +67,33 @@ class eikonal(object):
 
     self.Cf = self.finvsq()
 
-    # constant speed in medium  
-    # coefficient representation is just first # standard basis vector
+  def computeV(self, x, y):
+    Npts = np.size(x,0)
+    V = np.zeros((Npts, self.N))
+    libjpoly.computeV(  self.poly, 
+                        x.ctypes.data_as(
+                          ctypes.POINTER(
+                          ctypes.c_double)),
+                        y.ctypes.data_as(
+                          ctypes.POINTER(
+                          ctypes.c_double)),
+                        V.ctypes.data_as(
+                          ctypes.POINTER(
+                          ctypes.c_double)) )
+    return V
+
+
+  # constant speed in medium  
+  # coefficient representation is just first  
+  # standard basis vector
   def finvsq(self):
     cf = np.zeros((self.N,1))
     cf[0] = 1.0
     return np.outer(cf,cf)
+
+  #def EqC(self, cu):
+    
+       
    
   def F(self, cu):
     vecx = self.Dx.dot(cu)
@@ -78,8 +102,6 @@ class eikonal(object):
                           np.outer(vecy,vecy) - 
                           self.Cf, ord='fro')
     
-
-
 
 def dMat(a, b, c, H, H1, n, mode):
   
@@ -114,6 +136,10 @@ def kMat(a, b, c, H, H1, n, mode):
                     ctypes.POINTER(
                     ctypes.c_double)) )
   return K 
+
+def jPoly(Nx, n, a, b, c, nthreads):
+  poly = libjpoly.jPoly_T2(Nx, n, a, b, c, nthreads)
+  return poly
 
 
 
@@ -153,3 +179,9 @@ libjpoly.jPoly_T2.argtypes = [ctypes.c_uint,\
                               ctypes.c_double,\
                               ctypes.c_uint]
 libjpoly.jPoly_T2.restype = ctypes.c_void_p
+
+libjpoly.computeV.argtypes = [ctypes.c_void_p,\
+                              ctypes.POINTER(ctypes.c_double),\
+                              ctypes.POINTER(ctypes.c_double),\
+                              ctypes.POINTER(ctypes.c_double)]
+libjpoly.computeV.restype = None
