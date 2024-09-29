@@ -11,11 +11,11 @@ export OMP_STACKSIZE=256m
 #thread pinning settings
 export OMP_PLACES="{0}:${num_threads}:1"
 export OMP_PROC_BIND=true
-export OMP_DISPLAY_ENV=true
+export OMP_DISPLAY_ENV=false
 
 # LD_LIBRARY_PATH for so python interpreter can find libs
 export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:$PWD/lib
-
+export PYTHONPATH=${PYTHONPATH}:/usr/local/lib/python3.12/site-packages
 #export OMP_DISPLAY_AFFINITY=true
 #export OMP_NUM_THREADS=${num_threads}
 

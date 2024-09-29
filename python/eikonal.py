@@ -1,3 +1,4 @@
+import nlopt
 import ctypes
 import numpy as np
 from multipledispatch import dispatch
@@ -14,7 +15,6 @@ class eikonal(object):
   acting on coefficients of an order n Jacobi
   Polynomial expansion (on the standard triangle)
   """ 
-  #def __init__(self, _a, _b, _c, _n = 10, _m = 16, _nthreads = 6):
   def __init__(self, _a, _b, _c, _n = 4, _m = 6, _nthreads = 6):
     
     if _n <= 0:  
@@ -47,23 +47,40 @@ class eikonal(object):
     self.Ha1bc1 = sFactors(_n+1, _a+1, _b, _c+1)
     self.Hab1c1 = sFactors(_n+1, _a, _b+1, _c+1)
 
-    self.Kabc_a1bc = kMat(_a, _b, _c, self.Habc, self.Ha1bc, _n-1, 0)
-    self.Ka1bc_a1b1c = kMat(_a+1, _b, _c, self.Ha1bc, self.Ha1b1c, _n-1, 1)
-    self.Ka1b1c_a1b1c1 = kMat(_a+1, _b+1, _c, self.Ha1b1c, self.Ha1b1c1, _n-1, 2)
+    self.Kabc_a1bc = kMat(_a, _b, _c, self.Habc, self.Ha1bc, _n, 0)
+    self.Ka1bc_a1b1c = kMat(_a+1, _b, _c, self.Ha1bc, self.Ha1b1c, _n, 1)
+    self.Ka1b1c_a1b1c1 = kMat(_a+1, _b+1, _c, self.Ha1b1c, self.Ha1b1c1, _n, 2)
     self.K = self.Ka1b1c_a1b1c1.dot(self.Ka1bc_a1b1c.dot(self.Kabc_a1bc))    
 
     self.Dx = self.K.dot(
                 dMat  ( self.a, self.b, self.c,
-                        self.Habc, self.Ha1bc1, _n-1, 0 ) )
+                        self.Habc, self.Ha1bc1, _n, 0 ) )
 
     self.Dy = self.K.dot(
                 dMat  ( self.a, self.b, self.c,
-                        self.Habc, self.Hab1c1, _n-1, 1 ) )
+                        self.Habc, self.Hab1c1, _n, 1 ) )
 
-    print(self.Dx)
-    print(self.Dy)
-    np.savetxt("Dx.txt",self.Dx)
-    np.savetxt("Dy.txt",self.Dy)
+    self.Cf = self.finvsq()
+
+    # constant speed in medium  
+    # coefficient representation is just first 
+    # standard basis vector
+
+
+  def finvsq(self):
+    cf = np.zeros((self.N,1))
+    cf[0] = 1.0
+    return np.outer(cf,cf)
+   
+  def F(self, cu):
+    vecx = self.Dx.dot(cu)
+    vecy = self.Dy.dot(cu)
+    return np.linalg.norm(np.outer(vecx,vecx) + 
+                          np.outer(vecy,vecy) - 
+                          self.Cf, ord='fro')
+    
+
+
 
 def dMat(a, b, c, H, H1, n, mode):
   
