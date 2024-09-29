@@ -8,6 +8,8 @@ from ngjQuad import *
 
 libdmat = ctypes.CDLL('libdmat.so')
 libkmat = ctypes.CDLL('libkmat.so')
+libjpoly = ctypes.CDLL('libjpoly.so')
+
 
 class eikonal(object):
   """ 
@@ -63,10 +65,7 @@ class eikonal(object):
     self.Cf = self.finvsq()
 
     # constant speed in medium  
-    # coefficient representation is just first 
-    # standard basis vector
-
-
+    # coefficient representation is just first # standard basis vector
   def finvsq(self):
     cf = np.zeros((self.N,1))
     cf[0] = 1.0
@@ -116,6 +115,8 @@ def kMat(a, b, c, H, H1, n, mode):
                     ctypes.c_double)) )
   return K 
 
+
+
 def hasfile(fn):
   try:
     open(fn, "r")
@@ -144,3 +145,11 @@ libkmat.kMat.argtypes = [ctypes.c_double,\
                          ctypes.c_uint,\
                          ctypes.POINTER(ctypes.c_double)] 
 libkmat.kMat.restype = None
+  
+libjpoly.jPoly_T2.argtypes = [ctypes.c_uint,\
+                              ctypes.c_uint,\
+                              ctypes.c_double,\
+                              ctypes.c_double,\
+                              ctypes.c_double,\
+                              ctypes.c_uint]
+libjpoly.jPoly_T2.restype = ctypes.c_void_p
