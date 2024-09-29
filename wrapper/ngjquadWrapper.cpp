@@ -31,12 +31,14 @@ extern "C"
                         double alpha,
                         bool use_newton, 
                         bool use_wolfe,
-                        nlopt_algorithm alg, 
                         unsigned int nthreads )
   {
     ngjQuad* gjquad = new ngjQuad ( n, m, a, b, c, tol, tolc,
                                     alpha, use_newton, use_wolfe,
-                                    alg, nthreads );
+                                    NLOPT_LN_SBPLX, nthreads );
+    gjquad->init();
+    gjquad->runXW();
+    gjquad->runX();
     return gjquad; 
   }
 
@@ -59,15 +61,18 @@ extern "C"
     ngjQuad* gjquad = new ngjQuad ( n, m, a, b, c, d, legx, legw, 
                                     tol, tolc, alpha, use_newton, 
                                     use_wolfe, alg, nthreads );
+    gjquad->init();
+    gjquad->runXW();
     return gjquad; 
   }
 
+  unsigned int getN(ngjQuad* gjquad) { return gjquad->optdata->N; }
   void copyGJQuad (ngjQuad* gjquad, double* quad)
   {
     double* Z0 = gjquad->optdata->Z0;
     unsigned int N = gjquad->optdata->N;
     unsigned int dim = gjquad->optdata->dim;
-    for (unsigned int i = 0; i < N*dim; ++i)
+    for (unsigned int i = 0; i < N*(dim+1); ++i)
     {
       quad[i] = Z0[i];
     }

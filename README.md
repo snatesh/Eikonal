@@ -206,17 +206,18 @@ The initial implemenation for such a task can be found in `/Eikonal/src/ngjquad_
 - `dh-autoreconf`,`autoreconf`,`autotools` for `SNOPT` installation (currently not used)
 -  `NLOPT` (open source non linear optimization library, `https://github.com/stevengj/nlopt.git`)
 - `cblas` and `lapack` - Installation is easiest via package manager as:
+- `multipledispatch` library in `Python`. 
 ```shell
 sudo apt install libopenblas-openmp-dev liblapacke-dev
 ```
    which ensures the `C` wrapper to lapack (in headers `lapacke.h`) is 
    installed in a sane location.
 
--  The c++ compoiler should have support for the `OpenMP` shared memory parallelization library, and
+-  The c++ compiler should have support for the `OpenMP` shared memory parallelization library, and
    the library must exist on your system. That is, `omp.h` and `libomp.so` must exist somewhere in the filesystem,
    the compiler must understand `OpenMP` directives, and the linker should be able to find and link to `libomp`
    given the `-fopenmp` flag. Most modern compilers will ship with the header and library files,
-   as well as support for `OpenMP` directives. In case the files don't make it, you can use (on `Linux` with `dpkg`)
+   as well as support/implementation of `OpenMP` directives. In case the files don't make it, you can use (on `Linux` with `dpkg`)
 ```shell
 sudo apt install libomp-dev
 ```

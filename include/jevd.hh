@@ -5,7 +5,7 @@
 #include<iostream>
 #include<iomanip>
 #include<cblas.h>
-#include<timer.h>
+#include<timer.hh>
 
 /*
   Joint diagonalization (possibly
