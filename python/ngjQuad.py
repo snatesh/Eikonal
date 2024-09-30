@@ -13,7 +13,7 @@ def ngjQuad ( n, m, a, b, c, tol, tolc,
                                   alph, use_newton, use_wolfe,
                                   nthreads )
   N = libngjquad.getN(gjquad) 
-  Z0 = np.zeros((3*N,1), dtype=np.double, order='F')
+  Z0 = np.zeros((3*N,), dtype=np.double, order='F')
   libngjquad.copyGJQuad ( gjquad, 
                           Z0.ctypes.data_as(
                             ctypes.POINTER(

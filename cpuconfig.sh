@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # number of threads for OpenMP
-num_threads=4
+num_threads=6
 
 # let the shell use the maximum amount of stack memory
 ulimit -s unlimited

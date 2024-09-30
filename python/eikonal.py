@@ -17,7 +17,7 @@ class eikonal(object):
   acting on coefficients of an order n Jacobi
   Polynomial expansion (on the standard triangle)
   """ 
-  def __init__(self, _a, _b, _c, _n = 4, _m = 6, _nthreads = 4):
+  def __init__(self, _a, _b, _c, _n = 4, _m = 6, _nthreads = 6):
     
     if _n <= 0:  
       exit("eikonal : Range Error ( n > 1) ")
@@ -31,7 +31,8 @@ class eikonal(object):
     self.n = _n
     self.m = _m
     self.nthreads = _nthreads
-    self.N = int(0.5 * (_n + 1) * (_n + 2))
+    self.N = int(0.5 * (_n) * (_n + 1))
+    
     self.fname = 'triquadleg_n' + str(_n-1) + '_m' \
                   + str(_m-1) + '_N' + str(self.N) + '.txt'
     if not hasfile(self.fname):
@@ -44,7 +45,10 @@ class eikonal(object):
     self.X = self.Z0[0:self.N]
     self.Y = self.Z0[self.N:2*self.N]
     self.W = self.Z0[2*self.N:3*self.N]
+    
     self.poly = jPoly(self.N, _n, _a, _b, _c, _nthreads)
+    self.V = self.computeV(self.X, self.Y)
+
     self.Habc = sFactors(_n+1, _a, _b, _c)  
     self.Ha1bc = sFactors(_n+1, _a+1, _b, _c)
     self.Ha1b1c = sFactors(_n+1, _a+1, _b+1, _c)
@@ -52,25 +56,33 @@ class eikonal(object):
     self.Ha1bc1 = sFactors(_n+1, _a+1, _b, _c+1)
     self.Hab1c1 = sFactors(_n+1, _a, _b+1, _c+1)
 
-    self.Kabc_a1bc = kMat(_a, _b, _c, self.Habc, self.Ha1bc, _n, 0)
-    self.Ka1bc_a1b1c = kMat(_a+1, _b, _c, self.Ha1bc, self.Ha1b1c, _n, 1)
-    self.Ka1b1c_a1b1c1 = kMat(_a+1, _b+1, _c, self.Ha1b1c, self.Ha1b1c1, _n, 2)
+    self.Kabc_a1bc = kMat(_a, _b, _c, self.Habc, self.Ha1bc, _n-1, 0)
+    self.Ka1bc_a1b1c = kMat(_a+1, _b, _c, self.Ha1bc, self.Ha1b1c, _n-1, 1)
+    self.Ka1b1c_a1b1c1 = kMat(_a+1, _b+1, _c, self.Ha1b1c, self.Ha1b1c1, _n-1, 2)
     self.K = self.Ka1b1c_a1b1c1.dot(self.Ka1bc_a1b1c.dot(self.Kabc_a1bc))    
 
     self.Dx = self.K.dot(
                 dMat  ( self.a, self.b, self.c,
-                        self.Habc, self.Ha1bc1, _n, 0 ) )
+                        self.Habc, self.Ha1bc1, _n-1, 0 ) )
 
     self.Dy = self.K.dot(
                 dMat  ( self.a, self.b, self.c,
-                        self.Habc, self.Hab1c1, _n, 1 ) )
+                        self.Habc, self.Hab1c1, _n-1, 1 ) )
 
     self.Cf = self.finvsq()
-
-  def computeV(self, x, y):
-    Npts = np.size(x,0)
-    V = np.zeros((Npts, self.N))
-    libjpoly.computeV(  self.poly, 
+    self.edge_zeros = np.zeros_like(self.X)
+    self.vl = self.computeV(self.edge_zeros, self.Y)
+    self.vb = self.computeV(self.X, self.edge_zeros)
+    self.vh = self.computeV(self.X, 1.0 - self.X)
+    self.polypt = jPoly(1, _n, _a, _b, _c, 1)
+  
+  def evalPoly(self, xpt, ypt):
+    x = np.zeros((1,))
+    y = np.zeros((1,))
+    x[0] = xpt
+    y[0] = ypt
+    V = np.zeros((1, self.N), order='F')
+    libjpoly.computeV(  self.polypt, 
                         x.ctypes.data_as(
                           ctypes.POINTER(
                           ctypes.c_double)),
@@ -82,26 +94,40 @@ class eikonal(object):
                           ctypes.c_double)) )
     return V
 
+  def computeV(self, x, y):
+    return computeV(self.poly, self.N, x, y)
+
 
   # constant speed in medium  
   # coefficient representation is just first  
   # standard basis vector
   def finvsq(self):
-    cf = np.zeros((self.N,1))
+    cf = np.zeros((self.N,))
     cf[0] = 1.0
     return np.outer(cf,cf)
-
-  #def EqC(self, cu):
-    
-       
    
   def F(self, cu):
     vecx = self.Dx.dot(cu)
     vecy = self.Dy.dot(cu)
     return np.linalg.norm(np.outer(vecx,vecx) + 
                           np.outer(vecy,vecy) - 
-                          self.Cf, ord='fro')
-    
+                          self.Cf)
+ 
+
+def computeV(poly, N, x, y):
+  Npts = np.size(x,0)
+  V = np.zeros((Npts, N), order='F')
+  libjpoly.computeV(  poly, 
+                      x.ctypes.data_as(
+                        ctypes.POINTER(
+                        ctypes.c_double)),
+                      y.ctypes.data_as(
+                        ctypes.POINTER(
+                        ctypes.c_double)),
+                      V.ctypes.data_as(
+                        ctypes.POINTER(
+                        ctypes.c_double)) )
+  return V
 
 def dMat(a, b, c, H, H1, n, mode):
   
