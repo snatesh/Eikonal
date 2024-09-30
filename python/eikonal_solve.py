@@ -63,7 +63,7 @@ def tracePathGlobal(cu, x, y, r, thetas):
     print(minx, miny, t)
   return path
 
-opt = nlopt.opt(nlopt.LN_COBYLA, ops.N)
+opt = nlopt.opt(nlopt.LN_AUGLAG, ops.N)
 print(opt.get_algorithm_name())
 opt.set_min_objective(f)
 tol = np.ones((ops.N,)) * 1e-14
@@ -79,15 +79,11 @@ cu = np.zeros((ops.N,))
 cu[0] = 1
 #np.random.randn(ops.N)
 cu_opt = opt.optimize(cu)
+np.savetxt("cu_opt1.txt", cu_opt)
 print(cu_opt)
 
 v00 = ops.evalPoly(0.25,0.25)
 print(v00.dot(cu_opt))
-
-#x = 0.5; y = 0.5; 
-thetas = np.linspace(0,2*np.pi, 10)
-path = tracePathGlobal(cu_opt, 0.25, 0.25, 0.001, thetas)
-print(path)
 
 Zfine = np.loadtxt("triquadleg_n22_m35_N253.txt")
 Nfine = 253; 
@@ -95,15 +91,15 @@ Xfine = Zfine[0:Nfine];
 Yfine = Zfine[Nfine:2*Nfine] 
 jP = jPoly(Nfine, ops.n, ops.a, ops.b, ops.c, 4)
 Vfine = computeV(jP, ops.N, Xfine, Yfine)
-tmins = Vfine.dot(cu_opt); tmins = tmins / np.max(tmins)
+tmins = Vfine.dot(cu_opt); #tmins = tmins / np.max(tmins)
 dmins = distToTri(Xfine, Yfine); dmins = dmins / np.max(dmins)
 
 
 fig = plt.figure(1)
 ax = fig.add_subplot(111, projection='3d')
 #ax.plot_trisurf(Xfine, Yfine, tmins)
-ax.scatter(Xfine, Yfine, tmins)
-ax.scatter(Xfine, Yfine, dmins)
+ax.plot_trisurf(Xfine, Yfine, tmins)
+#ax.scatter(Xfine, Yfine, dmins)
 plt.show()
 
 

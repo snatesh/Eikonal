@@ -17,7 +17,7 @@ class eikonal(object):
   acting on coefficients of an order n Jacobi
   Polynomial expansion (on the standard triangle)
   """ 
-  def __init__(self, _a, _b, _c, _n = 4, _m = 6, _nthreads = 6, _r = 0.001, _nthetas = 100):
+  def __init__(self, _a, _b, _c, _n = 4, _m = 6, _nthreads = 6, _r = 0.005, _nthetas = 100):
     
     if _n <= 0:  
       exit("eikonal : Range Error ( n > 1) ")
@@ -59,13 +59,17 @@ class eikonal(object):
     self.Kabc_a1bc = kMat(_a, _b, _c, self.Habc, self.Ha1bc, _n-1, 0)
     self.Ka1bc_a1b1c = kMat(_a+1, _b, _c, self.Ha1bc, self.Ha1b1c, _n-1, 1)
     self.Ka1b1c_a1b1c1 = kMat(_a+1, _b+1, _c, self.Ha1b1c, self.Ha1b1c1, _n-1, 2)
+    # promotion for RHS
     self.K = self.Ka1b1c_a1b1c1.dot(self.Ka1bc_a1b1c.dot(self.Kabc_a1bc))    
+    # promotion so derivs are in same basis
+    self.K_a1bc1_a1b1c1 = kMat(_a+1, _b, _c+1, self.Ha1bc1, self.Ha1b1c1, _n-1, 1)
+    self.K_ab1c1_a1b1c1 = kMat(_a, _b+1, _c+1, self.Hab1c1, self.Ha1b1c1, _n-1, 0)
 
-    self.Dx = self.K.dot(
+    self.Dx = self.K_a1bc1_a1b1c1.dot(
                 dMat  ( self.a, self.b, self.c,
                         self.Habc, self.Ha1bc1, _n-1, 0 ) )
 
-    self.Dy = self.K.dot(
+    self.Dy = self.K_ab1c1_a1b1c1.dot(
                 dMat  ( self.a, self.b, self.c,
                         self.Habc, self.Hab1c1, _n-1, 1 ) )
 
@@ -119,7 +123,7 @@ class eikonal(object):
     vecy = self.Dy.dot(cu)
     return np.linalg.norm(np.outer(vecx,vecx) + 
                           np.outer(vecy,vecy) - 
-                          self.Cf)
+                          self.Cf, ord='fro')**2
  
 
 def computeV(poly, N, x, y):

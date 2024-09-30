@@ -4,7 +4,7 @@ from eikonal import *
 import matplotlib.pyplot as plt
 
 ops = eikonal(0.5, 0.5, 0.5, 11, 13, 4)
-cu_opt = np.loadtxt("cu_opt.txt")
+cu_opt = np.loadtxt("cu_opt1.txt")
 
 def f(cu, grad=None):
   return ops.F(cu)
@@ -48,22 +48,35 @@ def tracePathGlobal(ops, cu, x, y):
   path.append(np.array([x,y]))
   minX = tracePathLocal(ops, cu_opt, x, y)
   path.append(np.array([minX[0], minX[1]]))
-  while minX[2] > 1e-1:
+  while minX[2] > 1e-5:
     minX = tracePathLocal(ops, cu_opt, minX[0], minX[1])
     path.append(np.array([minX[0], minX[1]]))
   return np.ndarray((len(path), 2), buffer = np.array(path))
 
 
-path = tracePathGlobal(ops, cu_opt, 0.25, 0.25)
-path1 = tracePathGlobal(ops, cu_opt, 0.1, 0.8)
-path2 = tracePathGlobal(ops, cu_opt, 0.1, 0.3)
+
+Zfine = np.loadtxt("triquadleg_n22_m35_N253.txt")
+Nfine = 253; 
+Xfine = Zfine[0:Nfine]; 
+Yfine = Zfine[Nfine:2*Nfine] 
+
+xx, yy = np.meshgrid(np.linspace(0,1,20), np.linspace(0,1,20))
+
+X = xx[yy[:]<1-xx[:]]
+Y = yy[yy[:]<1-xx[:]]
+
+
+
+for j in range(np.size(X)):
+  path = tracePathGlobal(ops, cu_opt, X[j], Y[j])
+  plt.plot(path[:,0], path[:,1],'.-')
+  
 
 plt.plot([0,1],[0,0],'k-')
 plt.plot([0,0],[0,1],'k-')
 plt.plot([0,1],[1,0],'k-')
-plt.plot(path[:,0], path[:,1],'r.-')
-plt.plot(path1[:,0], path1[:,1],'b.-')
-plt.plot(path2[:,0], path2[:,1],'g.-')
+#plt.plot(Xfine, Yfine, 'o')
+plt.plot(X, Y,'s')
 plt.show()
 
 
@@ -75,10 +88,7 @@ plt.show()
 #path = tracePathGlobal(cu_opt, 0.25, 0.25, 0.001, thetas)
 #print(path)
 #
-#Zfine = np.loadtxt("triquadleg_n22_m35_N253.txt")
-#Nfine = 253; 
-#Xfine = Zfine[0:Nfine]; 
-#Yfine = Zfine[Nfine:2*Nfine] 
+
 #jP = jPoly(Nfine, ops.n, ops.a, ops.b, ops.c, 4)
 #Vfine = computeV(jP, ops.N, Xfine, Yfine)
 #tmins = Vfine.dot(cu_opt); tmins = tmins / np.max(tmins)
