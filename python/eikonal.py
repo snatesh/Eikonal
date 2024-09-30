@@ -17,7 +17,7 @@ class eikonal(object):
   acting on coefficients of an order n Jacobi
   Polynomial expansion (on the standard triangle)
   """ 
-  def __init__(self, _a, _b, _c, _n = 4, _m = 6, _nthreads = 6):
+  def __init__(self, _a, _b, _c, _n = 4, _m = 6, _nthreads = 6, _r = 0.001, _nthetas = 100):
     
     if _n <= 0:  
       exit("eikonal : Range Error ( n > 1) ")
@@ -75,7 +75,15 @@ class eikonal(object):
     self.vb = self.computeV(self.X, self.edge_zeros)
     self.vh = self.computeV(self.X, 1.0 - self.X)
     self.polypt = jPoly(1, _n, _a, _b, _c, 1)
-  
+    self.nthetas = _nthetas
+    self.polyCirc = jPoly(_nthetas, _n, _a, _b, _c, _nthreads)
+    self.thetas = np.linspace(0, 2*np.pi, _nthetas) 
+    self.r = _r
+    self.Xcirc = _r * np.cos(self.thetas)
+    self.Ycirc = _r * np.sin(self.thetas) 
+
+
+ 
   def evalPoly(self, xpt, ypt):
     x = np.zeros((1,))
     y = np.zeros((1,))
