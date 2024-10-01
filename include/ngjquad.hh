@@ -361,7 +361,7 @@ struct ngjQuad
     }
     double rcond[1];
     cond(data->Pm->V, data->N, data->M, rcond);
-    if ( !(count1 % 100000) ) 
+    if ( !(count1 % 1000) ) 
     { 
       std::cout << "Eval #" << count1 << " : F = " << 1.0 / rcond[0] << std::endl; 
     }
@@ -722,8 +722,8 @@ struct ngjQuad
     nlopt_set_min_objective(opt, optF1, optdata);
     nlopt_add_equality_constraint(opt, opteqC1, optdata, tolc);
   
-    nlopt_set_xtol_rel(opt, 1e-8);
-    nlopt_set_stopval(opt, 1);
+    nlopt_set_xtol_rel(opt, 1e-2);
+    nlopt_set_stopval(opt, 3);
     double minF;
     if (nlopt_optimize(opt, optdata->Z0, &minF) < 0) 
     {

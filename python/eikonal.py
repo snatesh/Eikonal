@@ -9,7 +9,7 @@ from ngjQuad import *
 libdmat = ctypes.CDLL('libdmat.so')
 libkmat = ctypes.CDLL('libkmat.so')
 libjpoly = ctypes.CDLL('libjpoly.so')
-
+libeikonal = ctypes.CDLL('libeikonal.so')
 
 class eikonal(object):
   """ 
@@ -32,7 +32,9 @@ class eikonal(object):
     self.m = _m
     self.nthreads = _nthreads
     self.N = int(0.5 * (_n) * (_n + 1))
-    
+    self.cu = np.asfortranarray(np.zeros((self.N,)))
+    self.cu[0] = 1.0; # initialize to constant poly
+
     self.fname = 'triquadleg_n' + str(_n-1) + '_m' \
                   + str(_m-1) + '_N' + str(self.N) + '.txt'
     if not hasfile(self.fname):
@@ -48,7 +50,7 @@ class eikonal(object):
     
     self.poly = jPoly(self.N, _n, _a, _b, _c, _nthreads)
     self.V = self.computeV(self.X, self.Y)
-
+    
     self.Habc = sFactors(_n+1, _a, _b, _c)  
     self.Ha1bc = sFactors(_n+1, _a+1, _b, _c)
     self.Ha1b1c = sFactors(_n+1, _a+1, _b+1, _c)
@@ -65,13 +67,14 @@ class eikonal(object):
     self.K_a1bc1_a1b1c1 = kMat(_a+1, _b, _c+1, self.Ha1bc1, self.Ha1b1c1, _n-1, 1)
     self.K_ab1c1_a1b1c1 = kMat(_a, _b+1, _c+1, self.Hab1c1, self.Ha1b1c1, _n-1, 0)
 
-    self.Dx = self.K_a1bc1_a1b1c1.dot(
+    self.Dx = np.asfortranarray(
+              self.K_a1bc1_a1b1c1.dot(
                 dMat  ( self.a, self.b, self.c,
-                        self.Habc, self.Ha1bc1, _n-1, 0 ) )
-
-    self.Dy = self.K_ab1c1_a1b1c1.dot(
+                        self.Habc, self.Ha1bc1, _n-1, 0 ) ) )
+    self.Dy = np.asfortranarray(
+              self.K_ab1c1_a1b1c1.dot(
                 dMat  ( self.a, self.b, self.c,
-                        self.Habc, self.Hab1c1, _n-1, 1 ) )
+                        self.Habc, self.Hab1c1, _n-1, 1 ) ) )
 
     self.Cf = self.finvsq()
     self.edge_zeros = np.zeros_like(self.X)
@@ -86,7 +89,31 @@ class eikonal(object):
     self.Xcirc = _r * np.cos(self.thetas)
     self.Ycirc = _r * np.sin(self.thetas) 
 
+    print(np.isfortran(self.vl))
 
+  def solve(self):
+    libeikonal.eikonalSolve(self.N, 
+                            self.Dx.ctypes.data_as(
+                              ctypes.POINTER(
+                              ctypes.c_double)), 
+                            self.Dy.ctypes.data_as(
+                              ctypes.POINTER(
+                              ctypes.c_double)), 
+                            self.vl.ctypes.data_as(
+                              ctypes.POINTER(
+                              ctypes.c_double)), 
+                            self.vb.ctypes.data_as(
+                              ctypes.POINTER(
+                              ctypes.c_double)), 
+                            self.vh.ctypes.data_as(
+                              ctypes.POINTER(
+                              ctypes.c_double)), 
+                            self.cu.ctypes.data_as(
+                              ctypes.POINTER(
+                              ctypes.c_double)))
+    return self.cu 
+
+    
  
   def evalPoly(self, xpt, ypt):
     x = np.zeros((1,))
@@ -223,3 +250,12 @@ libjpoly.computeV.argtypes = [ctypes.c_void_p,\
                               ctypes.POINTER(ctypes.c_double),\
                               ctypes.POINTER(ctypes.c_double)]
 libjpoly.computeV.restype = None
+
+libeikonal.eikonalSolve.argtypes = [ctypes.c_uint,\
+                                    ctypes.POINTER(ctypes.c_double),\
+                                    ctypes.POINTER(ctypes.c_double),\
+                                    ctypes.POINTER(ctypes.c_double),\
+                                    ctypes.POINTER(ctypes.c_double),\
+                                    ctypes.POINTER(ctypes.c_double),\
+                                    ctypes.POINTER(ctypes.c_double)]
+libeikonal.eikonalSolve.restype = None                                    

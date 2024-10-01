@@ -3,7 +3,7 @@ from numpy import *
 from eikonal import *
 import matplotlib.pyplot as plt
 
-ops = eikonal(0.5, 0.5, 0.5, 11, 13, 4)
+ops = eikonal(0.5, 0.5, 0.5, 7, 9, 6)
 cu_opt = np.loadtxt("cu_opt1.txt")
 
 def f(cu, grad=None):

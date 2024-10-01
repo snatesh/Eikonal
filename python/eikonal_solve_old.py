@@ -1,10 +1,21 @@
+import nlopt
 from numpy import *
 from eikonal import *
 import matplotlib.pyplot as plt
 
 ops = eikonal(0.5, 0.5, 0.5, 7, 9, 6)
-cu_opt = ops.solve()
 
+def f(cu, grad=None):
+  return ops.F(cu)
+
+def cl(result, cu, grad=None):
+  result[:] = ops.vl.dot(cu)
+
+def cb(result, cu, grad=None):
+  result[:] = ops.vb.dot(cu)
+
+def ch(result, cu, grad=None):
+  result[:] = ops.vh.dot(cu)
 
 def distToHyp(X,Y):
   xmy = X-Y
@@ -52,14 +63,27 @@ def tracePathGlobal(cu, x, y, r, thetas):
     print(minx, miny, t)
   return path
 
+opt = nlopt.opt(nlopt.LN_COBYLA, ops.N)
+print(opt.get_algorithm_name())
+opt.set_min_objective(f)
+tol = np.ones((ops.N,)) * 1e-14
+opt.set_lower_bounds(-np.inf)
+opt.set_upper_bounds(np.inf)
+opt.add_equality_mconstraint(cl, tol)
+opt.add_equality_mconstraint(cb, tol)
+opt.add_equality_mconstraint(ch, tol)
 
+opt.set_ftol_rel(1e-14)
+opt.set_xtol_abs(1e-14)
+cu = np.zeros((ops.N,))
+cu[0] = 1
+#np.random.randn(ops.N)
+cu_opt = opt.optimize(cu)
+np.savetxt("cu_opt1.txt", cu_opt)
+print(cu_opt)
 
-
-#np.savetxt("cu_opt1.txt", cu_opt)
-#print(cu_opt)
-#
-#v00 = ops.evalPoly(0.25,0.25)
-#print(v00.dot(cu_opt))
+v00 = ops.evalPoly(0.25,0.25)
+print(v00.dot(cu_opt))
 
 Zfine = np.loadtxt("triquadleg_n22_m35_N253.txt")
 Nfine = 253; 

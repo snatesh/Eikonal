@@ -50,9 +50,11 @@ set(jmatSRC include/jMat.hh wrapper/jMatWrapper.cpp)
 set(jevdSRC include/jevd.hh wrapper/jevdWrapper.cpp)
 set(ngjquadSRC include/ngjquad.hh wrapper/ngjquadWrapper.cpp)
 set(legquadSRC include/legQuad.hh wrapper/legQuadWrapper.cpp)
+set(eikonalSRC include/eikonal.hh wrapper/eikonalWrapper.cpp)
 set(tetquadSRC src/tetquad.cpp)
-set(eikonalSRC src/eikonal.cpp)
 set(gjquadoptSRC src/ngjquad.cpp)
+
+#set(eikonalSRC src/eikonal.cpp)
 
 # set build output paths
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
@@ -134,12 +136,17 @@ else()
 endif()
 target_link_libraries(legquad ngjquad) 
 
-set_target_properties(sfactors kmat dmat jmat jweight 
-                      jpoly ngjquad legquad jevd tensorquad
-                      PROPERTIES LINKER_LANGUAGE CXX)
+add_library(eikonal SHARED ${eikonalSRC})
+if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  set_source_files_properties(${eikonalSRC} PROPERTIES COMPILE_FLAGS "-fPIC -fopenmp")
+else()
+  set_source_files_properties(${eikonalSRC} PROPERTIES COMPILE_FLAGS "-xHost -qopenmp -fpic ")
+endif()
+target_link_libraries(eikonal nlopt openblas) 
 
-add_executable(eikonal ${eikonalSRC})
-target_link_libraries(eikonal jpoly kmat dmat ngjquad)  
+set_target_properties(sfactors kmat dmat jmat jweight eikonal
+                      jpoly ngjquad legquad jevd tensorquad 
+                      PROPERTIES LINKER_LANGUAGE CXX)
 
 add_executable(gjquadopt ${gjquadoptSRC})
 set_target_properties(gjquadopt PROPERTIES COMPILE_FLAGS "-DWITHOUT_NUMPY")
@@ -147,8 +154,6 @@ target_link_libraries(gjquadopt legquad ${Python_LIBRARIES})
 
 add_executable(tetquad ${tetquadSRC})
 target_link_libraries(tetquad jevd legquad)    
-
-
 
 install(TARGETS sfactors ARCHIVE DESTINATION lib LIBRARY DESTINATION lib)
 install(TARGETS kmat ARCHIVE DESTINATION lib LIBRARY DESTINATION lib)
@@ -160,6 +165,8 @@ install(TARGETS ngjquad ARCHIVE DESTINATION lib LIBRARY DESTINATION lib)
 install(TARGETS legquad ARCHIVE DESTINATION lib LIBRARY DESTINATION lib)
 install(TARGETS jevd ARCHIVE DESTINATION lib LIBRARY DESTINATION lib)
 install(TARGETS tensorquad ARCHIVE DESTINATION lib LIBRARY DESTINATION lib)
-install(TARGETS eikonal ARCHIVE DESTINATION bin LIBRARY DESTINATION bin)
+install(TARGETS eikonal ARCHIVE DESTINATION lib LIBRARY DESTINATION lib)
 install(TARGETS gjquadopt ARCHIVE DESTINATION bin LIBRARY DESTINATION bin)
 install(TARGETS tetquad ARCHIVE DESTINATION bin LIBRARY DESTINATION bin)
+#add_executable(eikonal ${eikonalSRC})
+#target_link_libraries(eikonal jpoly kmat dmat ngjquad)  

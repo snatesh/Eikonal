@@ -39,6 +39,8 @@ extern "C"
     gjquad->init();
     gjquad->runXW();
     gjquad->runX();
+  
+
     return gjquad; 
   }
 
