@@ -12,16 +12,24 @@ struct optData
   unsigned int N;
   double *vecx, *vecy, *vecxx, *vecyy;
   double *vecf, *vecrhs;
+  double *storl, *storb, *storh;
   double *Dx, *Dy, *Cf;
   double *vl, *vb, *vh;
-  double* cu;
+  unsigned int nl, nb, nh;
+  double *cu;
+ 
+  
  
   optData ( unsigned int _N,
+            unsigned int _nl,
+            unsigned int _nb,
+            unsigned int _nh,
             double* _Dx, double* _Dy,
             double* _vl, double* _vb, 
             double* _vh, double* _cu ) 
     : N(_N), Dx(_Dx), Dy(_Dy), 
       vl(_vl), vb(_vb), vh(_vh),
+      nl(_nl), nb(_nb), nh(_nh),
       cu(_cu)
   {
     // Coeff derivs in x,y
@@ -36,7 +44,11 @@ struct optData
     // outer product of coeffs of (1/f)
     // first is entry is 1 the case of f \equiv 1
     vecrhs = (double*) calloc(N*N, sizeof(double)); 
-    vecrhs[0] = 1; 
+    vecrhs[0] = 1;
+    // storage for contraint result
+    storl = (double*) calloc(nl, sizeof(double));
+    storb = (double*) calloc(nb, sizeof(double));
+    storh = (double*) calloc(nh, sizeof(double));
   }
 
   ~optData ()
@@ -44,6 +56,8 @@ struct optData
     free(vecx); free(vecy);
     free(vecxx); free(vecyy);
     free(vecf); free(vecrhs);
+    free(storb); free(storh);
+    free(storl);
   }
 
 };
@@ -64,8 +78,13 @@ double F  ( unsigned int n, const double* cu,
   double* Dy        = data->Dy;
   double* vecf      = data->vecf;
   double* vecrhs    = data->vecrhs;
-  memset(vecxx, 0, NN * sizeof(double));
-  memset(vecyy, 0, NN * sizeof(double));
+ 
+  memset(vecx, 0, N*sizeof(double));
+  memset(vecy, 0, N*sizeof(double));
+  memset(vecf, 0, NN*sizeof(double)); 
+  memset(vecxx, 0, NN*sizeof(double));
+  memset(vecyy, 0, NN*sizeof(double));
+
   cblas_dgemv ( CblasColMajor, CblasNoTrans,  
                 N, N, 1.0, Dx, N, cu, 1, 0.0, vecx, 1 ); 
   cblas_dgemv ( CblasColMajor, CblasNoTrans,  
@@ -83,7 +102,7 @@ double F  ( unsigned int n, const double* cu,
   // frobenius norm of A \equiv 2 norm vec(A)  
   double nrm = cblas_dnrm2 (NN, vecf, 1);
   double nrm2 = nrm * nrm;
-  if ( !(count % 100) ) 
+  if ( !(count % 100000) ) 
   { 
     std::cout << "Eval #" << count << " : F = " << nrm2 << std::endl; 
   }
@@ -92,35 +111,50 @@ double F  ( unsigned int n, const double* cu,
 
 
 
-void cl ( unsigned int N, double* result, unsigned int n, 
+void cl ( unsigned int m, double* result, unsigned int n, 
           const double* cu, double* grad, void* f_data)
 {
-  n = N;
   optData* data = (optData*) f_data;
   double* vl = data->vl;
+  double* storl = data->storl;
+  memset(storl, 0, m*sizeof(double));
   cblas_dgemv ( CblasColMajor, CblasNoTrans,  
-                N, N, 1.0, vl, N, cu, 1, 0.0, result, 1 ); 
+                m, n, 1.0, vl, n, cu, 1, 0.0, storl, 1 );
+  for (unsigned int i = 0; i < m; ++i)
+  {
+    result[i] = storl[i];
+  } 
 }
 
-void cb ( unsigned int N, double* result, unsigned int n, 
+void cb ( unsigned int m, double* result, unsigned int n, 
           const double* cu, double* grad, void* f_data)
 { 
-  n = N;
 
   optData* data = (optData*) f_data;
   double* vb = data->vb;
+  double* storb = data->storb;
+  memset(storb, 0, m*sizeof(double));
   cblas_dgemv ( CblasColMajor, CblasNoTrans,  
-                N, N, 1.0, vb , N, cu, 1, 0.0, result, 1 ); 
+                m, n, 1.0, vb , n, cu, 1, 0.0, storb, 1 );
+  for (unsigned int i = 0; i < m; ++i)
+  {
+    result[i] = storb[i];
+  } 
 }
 
-void ch ( unsigned int N, double* result, unsigned int n, 
+void ch ( unsigned int m, double* result, unsigned int n, 
           const double* cu, double* grad, void* f_data)
 {
-  n = N;
   optData* data = (optData*) f_data;
   double* vh = data->vh;
+  double* storh = data->storh;
+  memset(storh, 0, m*sizeof(double));
   cblas_dgemv ( CblasColMajor, CblasNoTrans,  
-                N, N, 1.0, vh , N, cu, 1, 0.0, result, 1 ); 
+                m, n, 1.0, vh , n, cu, 1, 0.0, storh, 1 );
+  for (unsigned int i = 0; i < m; ++i)
+  {
+    result[i] = storh[i];
+  } 
 }
 
 
