@@ -1,14 +1,12 @@
-import nlopt
 import ctypes
 import numpy as np
 from multipledispatch import dispatch
 from sys import exit
 from sFactors import * 
 from ngjQuad import *  
+from pMat import *
+from jPoly import *
 
-libdmat = ctypes.CDLL('libdmat.so')
-libkmat = ctypes.CDLL('libkmat.so')
-libjpoly = ctypes.CDLL('libjpoly.so')
 libeikonal = ctypes.CDLL('libeikonal.so')
 
 class eikonal(object):
@@ -62,10 +60,12 @@ class eikonal(object):
     self.Ka1bc_a1b1c = kMat(_a+1, _b, _c, self.Ha1bc, self.Ha1b1c, _n-1, 1)
     self.Ka1b1c_a1b1c1 = kMat(_a+1, _b+1, _c, self.Ha1b1c, self.Ha1b1c1, _n-1, 2)
     # promotion for RHS
-    self.K = self.Ka1b1c_a1b1c1.dot(self.Ka1bc_a1b1c.dot(self.Kabc_a1bc))    
+    self.K = self.Ka1b1c_a1b1c1.dot(self.Ka1bc_a1b1c.dot(self.Kabc_a1bc)) 
     # promotion so derivs are in same basis
-    self.K_a1bc1_a1b1c1 = kMat(_a+1, _b, _c+1, self.Ha1bc1, self.Ha1b1c1, _n-1, 1)
-    self.K_ab1c1_a1b1c1 = kMat(_a, _b+1, _c+1, self.Hab1c1, self.Ha1b1c1, _n-1, 0)
+    self.K_a1bc1_a1b1c1 = np.asfortranarray(
+                            kMat(_a+1, _b, _c+1, self.Ha1bc1, self.Ha1b1c1, _n-1, 1))
+    self.K_ab1c1_a1b1c1 = np.asfortranarray(
+                            kMat(_a, _b+1, _c+1, self.Hab1c1, self.Ha1b1c1, _n-1, 0))
 
     self.Dx = np.asfortranarray(
               self.K_a1bc1_a1b1c1.dot(
@@ -77,22 +77,25 @@ class eikonal(object):
                         self.Habc, self.Hab1c1, _n-1, 1 ) ) )
 
     self.Cf = self.finvsq()
-    self.edge_zeros = np.zeros_like(self.X)
+    self.edge_zeros = np.asfortranarray(np.zeros_like(self.X))
     self.vl = self.computeV(self.edge_zeros, self.Y)
     self.vb = self.computeV(self.X, self.edge_zeros)
-    self.vh = self.computeV(self.X, 1.0 - self.X)
+    self.vh = self.computeV(self.X, np.asfortranarray(1.0 - self.X))
     self.polypt = jPoly(1, _n, _a, _b, _c, 1)
     self.nthetas = _nthetas
     self.polyCirc = jPoly(_nthetas, _n, _a, _b, _c, _nthreads)
     self.thetas = np.linspace(0, 2*np.pi, _nthetas) 
     self.r = _r
-    self.Xcirc = _r * np.cos(self.thetas)
-    self.Ycirc = _r * np.sin(self.thetas) 
+    self.Xcirc = np.asfortranarray(_r * np.cos(self.thetas))
+    self.Ycirc = np.asfortranarray(_r * np.sin(self.thetas))
 
     print(np.isfortran(self.vl))
 
   def solve(self):
-    libeikonal.eikonalSolve(self.N, 
+    libeikonal.eikonalSolve(self.N,
+                            self.N,
+                            self.N,
+                            self.N, 
                             self.Dx.ctypes.data_as(
                               ctypes.POINTER(
                               ctypes.c_double)), 
@@ -153,61 +156,6 @@ class eikonal(object):
                           self.Cf, ord='fro')**2
  
 
-def computeV(poly, N, x, y):
-  Npts = np.size(x,0)
-  V = np.zeros((Npts, N), order='F')
-  libjpoly.computeV(  poly, 
-                      x.ctypes.data_as(
-                        ctypes.POINTER(
-                        ctypes.c_double)),
-                      y.ctypes.data_as(
-                        ctypes.POINTER(
-                        ctypes.c_double)),
-                      V.ctypes.data_as(
-                        ctypes.POINTER(
-                        ctypes.c_double)) )
-  return V
-
-def dMat(a, b, c, H, H1, n, mode):
-  
-  N = int(0.5 * (n + 1) * (n + 2))
-  D = np.zeros((N,N), dtype=np.double, order='F')
-  libdmat.dMat  ( a, b, c,  
-                  H.ctypes.data_as(
-                    ctypes.POINTER(
-                    ctypes.c_double)),
-                  H1.ctypes.data_as(
-                    ctypes.POINTER(
-                    ctypes.c_double)),
-                  n, mode, 
-                  D.ctypes.data_as(
-                    ctypes.POINTER(
-                    ctypes.c_double)) )
-  return D 
-
-def kMat(a, b, c, H, H1, n, mode):
-  
-  N = int(0.5 * (n + 1) * (n + 2))
-  K = np.zeros((N,N), dtype=np.double, order='F')
-  libkmat.kMat  ( a, b, c,  
-                  H.ctypes.data_as(
-                    ctypes.POINTER(
-                    ctypes.c_double)),
-                  H1.ctypes.data_as(
-                    ctypes.POINTER(
-                    ctypes.c_double)),
-                  n, mode, 
-                  K.ctypes.data_as(
-                    ctypes.POINTER(
-                    ctypes.c_double)) )
-  return K 
-
-def jPoly(Nx, n, a, b, c, nthreads):
-  poly = libjpoly.jPoly_T2(Nx, n, a, b, c, nthreads)
-  return poly
-
-
-
 def hasfile(fn):
   try:
     open(fn, "r")
@@ -217,41 +165,10 @@ def hasfile(fn):
   print("Reading quad rule from " + fn)
   return 1
 
-libdmat.dMat.argtypes = [ctypes.c_double,\
-                         ctypes.c_double,\
-                         ctypes.c_double,\
-                         ctypes.POINTER(ctypes.c_double),\
-                         ctypes.POINTER(ctypes.c_double),\
-                         ctypes.c_uint,\
-                         ctypes.c_uint,\
-                         ctypes.POINTER(ctypes.c_double)] 
-libdmat.dMat.restype = None
-
-libkmat.kMat.argtypes = [ctypes.c_double,\
-                         ctypes.c_double,\
-                         ctypes.c_double,\
-                         ctypes.POINTER(ctypes.c_double),\
-                         ctypes.POINTER(ctypes.c_double),\
-                         ctypes.c_uint,\
-                         ctypes.c_uint,\
-                         ctypes.POINTER(ctypes.c_double)] 
-libkmat.kMat.restype = None
-  
-libjpoly.jPoly_T2.argtypes = [ctypes.c_uint,\
-                              ctypes.c_uint,\
-                              ctypes.c_double,\
-                              ctypes.c_double,\
-                              ctypes.c_double,\
-                              ctypes.c_uint]
-libjpoly.jPoly_T2.restype = ctypes.c_void_p
-
-libjpoly.computeV.argtypes = [ctypes.c_void_p,\
-                              ctypes.POINTER(ctypes.c_double),\
-                              ctypes.POINTER(ctypes.c_double),\
-                              ctypes.POINTER(ctypes.c_double)]
-libjpoly.computeV.restype = None
-
 libeikonal.eikonalSolve.argtypes = [ctypes.c_uint,\
+                                    ctypes.c_uint,\
+                                    ctypes.c_uint,\
+                                    ctypes.c_uint,\
                                     ctypes.POINTER(ctypes.c_double),\
                                     ctypes.POINTER(ctypes.c_double),\
                                     ctypes.POINTER(ctypes.c_double),\

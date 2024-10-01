@@ -2,7 +2,7 @@ from numpy import *
 from eikonal import *
 import matplotlib.pyplot as plt
 
-ops = eikonal(0.5, 0.5, 0.5, 7, 9, 6)
+ops = eikonal(0.5, 0.5, 0.5, 11, 13, 6)
 cu_opt = ops.solve()
 
 
@@ -23,39 +23,8 @@ def distToTri(X,Y):
     mins[j] = np.min([X[j],Y[j],Z[j]])
   return mins
 
-def tracePathLocal(cu, x, y, r, thetas):
-  v = ops.evalPoly(x, y)
-  t0 = v.dot(cu)
-  minx = x
-  miny = y
-  for j in range(np.size(thetas,0)):
-    xt = r * np.cos(thetas[j]) + x
-    yt = r * np.sin(thetas[j]) + y
-    v = ops.evalPoly(xt, yt)
-    t1 = v.dot(cu)
-    if t0 > t1:
-      t0 = t1
-      minx = xt
-      miny = yt   
-  return np.array([minx, miny, t0[0]])
 
-def tracePathGlobal(cu, x, y, r, thetas):
-  path = [] 
-  path.append(np.array([x, y]))
-  v = ops.evalPoly(x, y)
-  t = v.dot(cu)
-  while np.abs(t) > 1e-4:
-    [minx, miny, t] = tracePathLocal(cu, x, y, r, thetas)
-    x = minx
-    y = miny
-    path.append(np.array([minx, miny]))
-    print(minx, miny, t)
-  return path
-
-
-
-
-#np.savetxt("cu_opt1.txt", cu_opt)
+np.savetxt("cu_opt_new.txt", cu_opt)
 #print(cu_opt)
 #
 #v00 = ops.evalPoly(0.25,0.25)

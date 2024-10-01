@@ -3,8 +3,8 @@ from numpy import *
 from eikonal import *
 import matplotlib.pyplot as plt
 
-ops = eikonal(0.5, 0.5, 0.5, 7, 9, 6)
-cu_opt = np.loadtxt("cu_opt1.txt")
+ops = eikonal(0.5, 0.5, 0.5, 11, 13, 6)
+cu_opt = np.loadtxt("cu_opt_new.txt")
 
 def f(cu, grad=None):
   return ops.F(cu)
@@ -43,7 +43,10 @@ def tracePathLocal(ops, cu, x, y):
   minInd = np.argmin(t)
   return np.array([X[minInd], Y[minInd], t[minInd]])
 
-def tracePathGlobal(ops, cu, x, y): 
+def tracePathGlobal(ops, cu, x, y):
+  if x == y:
+    x = x + 1e-3
+    y = y - 1e-3 
   path = []
   path.append(np.array([x,y]))
   minX = tracePathLocal(ops, cu_opt, x, y)
@@ -51,6 +54,10 @@ def tracePathGlobal(ops, cu, x, y):
   while minX[2] > 1e-5:
     minX = tracePathLocal(ops, cu_opt, minX[0], minX[1])
     path.append(np.array([minX[0], minX[1]]))
+    if  minX[0] < 0 or minX[1] < 0 or\
+        minX[0] > 1 or minX[1] > 1 or\
+        minX[1] > 1 - minX[0]:
+      break
   return np.ndarray((len(path), 2), buffer = np.array(path))
 
 
