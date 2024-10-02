@@ -1,9 +1,9 @@
 # Eikonal
 A modal spectral method for the Eikonal equation applied to continuous shortest path problems on simplicial tesselations. 
 
-The primarily goal in developing this library is for use in solving continuous shortest path problems, with application in navigation, and more interestingly (to me) infrastructure design. For example, consider finding the optimal path a tunnel boring machine (for underground transportation infrastructure) should take in going from point A to point B, given obstructing inclusions provided by geological/civil survey data (feasibility/difficulty/cost varies depending on soil/rock composition, existing civil works, etc.), or undocumented inclusions encountered during excavation. The library can admit fast computations for such purposes, possibly in real-time/on-line, even if we assume the machine has freedom to maneuver 3-dimensionally. Other interesting areas include trajectory mapping given time-varying gravitational surfaces, and in general, any problems for a which a PDE is a variational casting of an infinite dimensional optimization problem - many processes follow some kind of principle of least or minimal action. These are the sort of problems on which I'd like to apply the routines contained herein, which for shortest-paths, are modeled by appropriate configuration of the right-hand-side in Eikonal equations. The twist is that we aim to minimize the solution of the equation (time) by changing the boundary with pre-defined/newly-found constraints. I will think of some toy problems in 2D, and see if I can get things to work with some amusing movies to illustrate!
+The primarily goal in developing this library is for use in solving continuous shortest path problems, with application in navigation, infrastructure design, and GR. For example, consider finding the optimal path a tunnel boring machine (for underground transportation infrastructure) should take in going from point A to point B, given obstructing inclusions provided by geological/civil survey data (feasibility/difficulty/cost varies depending on soil/rock composition, existing civil works, etc.), or undocumented inclusions encountered during excavation. The library can admit fast computations for such purposes, possibly in real-time/on-line, even if we assume the machine has freedom to maneuver 3-dimensionally. Other interesting areas include trajectory mapping given time-varying gravitational surfaces, and in general, any problems for a which a PDE is a variational casting of an infinite dimensional optimization problem - many processes follow some kind of principle of least or minimal action. These are the sort of problems on which I'd like to apply the routines contained herein, which for shortest-paths, are modeled by appropriate configuration of the right-hand-side and boundary conditions in Eikonal equations. I will think of some toy problems in 2D, and see if I can get things to work with some amusing movies to illustrate!
 
-This README is more of a stream of conciousness blog cataloging progress, obstacles, solutions, and new ideas, all as they relate to this project.
+This README is more of a stream of conciousness blogging of progress, obstacles, solutions, and new ideas, all as they relate to this project.
 
 
 ## About
@@ -75,6 +75,7 @@ packing of the input matrices into a combined matrix so as to minimize cache inc
 needs to be done in terms of restructuring the algorithm to avoid race conditions on matrix updates, but not require any critical barriers on execution per thread. For now, I'm happy with 
 a serial but vectorized code that can handle $d\geq 2$.
 
+#### UPDATE ####
 UPDATE: It works! JEVD can be used to initialize nodes for Gaussian-like quadrature optimization on the Tetrahedron. See the image below, which I generated for n=5. Implementation of the 
 definitions for the Jacobi polynomials on the tetrahedron remains, along with the structural constants, Jacobi matrix block defintions, etc (UPDATE: all that is done too). However, I have written procedures in 
 `Mathematica` to symbolically generate most of this stuff. I need to tweak that code a bit so that it gives me nicer formulas, which I can then just port into `C` (I rly don't like algebra).
@@ -122,6 +123,7 @@ should still be able to push the matrices to the *point* with eigenvalues which 
 of convergence for the underdetermined linear system / quadratic root finding problem
 we seek to solve at the end of the day.
 
+#### UPDATE ####
 (UPDATE:) EHHHH! MORE LIKE BOOTFAP!! - we can't bootstrap because the inner products we need to compute
 involve order 2n+1 total degree polynomials. BUT, we can kinda-sorta bootstrap by incorporating
 the below process, when said process starts lacking in efficacy.
@@ -152,6 +154,11 @@ definition of the Jacobi polynomials perform  unstably for high order - (factori
 so we really can't go beyond a source basis order of 20-30. It becomes a real problem when we 
 have to evaluate polynomials at such high order. (recall that the polynomials or d>1 are still
 definied in terms of the polynomials for d=1). 
+
+#### UPDATE ####
+(UPDATE:) This worked swimmingly, and I can now generate high order quadrature on the tetrahedron relatively quickly! It turns out that the error in numerically approximating the derivatives is within the tolerable error required for JEVD routines on the approximate Jacobi matrices to converge. There are research cookies here in terms of proving the relationship between the integration error, the off-diagonality minimization error, and interiority of matched eigenvalues to the simplex. I'll leave it to a numerical analyst to prove this stuff.
+
+I've moved on to making the library routines callable from `Python`, and playing around with solving Eikoinal problems on the triangle. 
 
 
 ## Docker Containerization
