@@ -187,24 +187,13 @@ cd Eikonal
 docker build -t ngj_tri_opt:latest .
 docker run -it ngj_tri_opt:latest bash
 cd Eikonal
-make test
+cd build && ctest --verbose
 ```
 Above, the `docker run` command with `bash` post-fixed will instantiate a 
 `bash` shell running in the container, within which you can read/write/execute
 files as you please. The last two commands above change directory into
 the `/Eikonal` folder in the container context, compile the 
 `gtest` code (located in `/Eikonal/testing/gtest.cpp`), and run the tests therein.
-
-As another example, to generate near optimal Gaussian-like quadrature with unit
-weight sum and nodes interior to the standard triangle from order `n=4` Koornwinder 
-polynomials that can integrate order `m=6` polynomials exactly, 
-try:
-
-```shell
-cd /Eikonal/bin && ./ngjquad_zgeev
-```
-
-The initial implemenation for such a task can be found in `/Eikonal/src/ngjquad_zgeev.cpp`.
 
 ## Dependencies ##
 - `g++` compiler (tested on V13.2.0) 
@@ -213,10 +202,11 @@ The initial implemenation for such a task can be found in `/Eikonal/src/ngjquad_
 - `dh-autoreconf`,`autoreconf`,`autotools` for `SNOPT` installation (currently not used)
 -  `NLOPT` (open source non linear optimization library, `https://github.com/stevengj/nlopt.git`)
 - `cblas` and `lapack` - Installation is easiest via package manager as:
-- `multipledispatch` library in `Python`. 
 ```shell
 sudo apt install libopenblas-openmp-dev liblapacke-dev
 ```
+- `multipledispatch` library in `Python`. 
+
    which ensures the `C` wrapper to lapack (in headers `lapacke.h`) is 
    installed in a sane location.
 
@@ -254,6 +244,15 @@ export OMP_NUM_THREADS=${num_threads}
 ```
 
 Note, the `OMP_NUM_THREADS` variable is set here, though this will change. It is not advisable to set such an environmental variable if you link to other programs which also use `OpenMP`. They may have their own tested/working heuristics for setting the number of threads. and fixing it in the shell context can mess up the performance of their threaded functions when called from within the same context. The `num_threads` variable set above will eventually be passed to the program at runtime (set by calling `omp_set_num_threads`), while `OMP_NUM_THREADS` will be unset/empty.
+
+## Python Bindings ##
+The wrapper libraries are compiled by default, and the `Python` bindings are available in the `python` folder. You have to 
+set the relevant environment variables so the interpreter can link to the libraries declared in the bindings files. From the `Eikonal` directory, run
+```shell
+export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:$PWD/lib
+export PYTHONPATH=${PYTHONPATH}:/usr/local/lib/python3.12/site-packages
+```
+ensuring to replace the location of your `Python` installation accordingly. If using `Docker`, this is handled on image creation. 
 
 ## NLOPT Installation ##
 The open-source nonlinear optimization libary which we use is `nlopt`, by our favorite `FFTW` co-creator Steven Johnson! 
