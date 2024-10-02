@@ -15,7 +15,7 @@ class eikonal(object):
   acting on coefficients of an order n Jacobi
   Polynomial expansion (on the standard triangle)
   """ 
-  def __init__(self, _a, _b, _c, _n = 4, _m = 6, _nthreads = 6, _r = 0.005, _nthetas = 100):
+  def __init__(self, _a, _b, _c, _n = 4, _m = 6, _nthreads = 6, _r = 0.001, _nthetas = 50):
     
     if _n <= 0:  
       exit("eikonal : Range Error ( n > 1) ")
@@ -30,8 +30,10 @@ class eikonal(object):
     self.m = _m
     self.nthreads = _nthreads
     self.N = int(0.5 * (_n) * (_n + 1))
-    self.cu = np.asfortranarray(np.zeros((self.N,)))
-    self.cu[0] = 1.0; # initialize to constant poly
+    #self.cu = np.asfortranarray(np.zeros((self.N,)))
+    #self.cu[0] = 1.0; # initialize to constant poly
+    self.cu  = np.asfortranarray(
+                np.random.randn(self.N))
 
     self.fname = 'triquadleg_n' + str(_n-1) + '_m' \
                   + str(_m-1) + '_N' + str(self.N) + '.txt'
@@ -60,7 +62,7 @@ class eikonal(object):
     self.Ka1bc_a1b1c = kMat(_a+1, _b, _c, self.Ha1bc, self.Ha1b1c, _n-1, 1)
     self.Ka1b1c_a1b1c1 = kMat(_a+1, _b+1, _c, self.Ha1b1c, self.Ha1b1c1, _n-1, 2)
     # promotion for RHS
-    self.K = self.Ka1b1c_a1b1c1.dot(self.Ka1bc_a1b1c.dot(self.Kabc_a1bc)) 
+    self.K = np.asfortranarray(self.Ka1b1c_a1b1c1.dot(self.Ka1bc_a1b1c.dot(self.Kabc_a1bc)))
     # promotion so derivs are in same basis
     self.K_a1bc1_a1b1c1 = np.asfortranarray(
                             kMat(_a+1, _b, _c+1, self.Ha1bc1, self.Ha1b1c1, _n-1, 1))
@@ -75,8 +77,10 @@ class eikonal(object):
               self.K_ab1c1_a1b1c1.dot(
                 dMat  ( self.a, self.b, self.c,
                         self.Habc, self.Hab1c1, _n-1, 1 ) ) )
+    self.rhscoeffs = np.asfortranarray(
+                      self.K.dot( 
+                        self.rhsCoeffs() ) )
 
-    self.Cf = self.finvsq()
     self.edge_zeros = np.asfortranarray(np.zeros_like(self.X))
     self.vl = self.computeV(self.edge_zeros, self.Y)
     self.vb = self.computeV(self.X, self.edge_zeros)
@@ -89,7 +93,6 @@ class eikonal(object):
     self.Xcirc = np.asfortranarray(_r * np.cos(self.thetas))
     self.Ycirc = np.asfortranarray(_r * np.sin(self.thetas))
 
-    print(np.isfortran(self.vl))
 
   def solve(self):
     libeikonal.eikonalSolve(self.N,
@@ -100,6 +103,9 @@ class eikonal(object):
                               ctypes.POINTER(
                               ctypes.c_double)), 
                             self.Dy.ctypes.data_as(
+                              ctypes.POINTER(
+                              ctypes.c_double)),
+                            self.rhscoeffs.ctypes.data_as(
                               ctypes.POINTER(
                               ctypes.c_double)), 
                             self.vl.ctypes.data_as(
@@ -140,21 +146,23 @@ class eikonal(object):
     return computeV(self.poly, self.N, x, y)
 
 
-  # constant speed in medium  
-  # coefficient representation is just first  
-  # standard basis vector
-  def finvsq(self):
-    cf = np.zeros((self.N,))
-    cf[0] = 1.0
-    return np.outer(cf,cf)
+  def rhsCoeffs(self):
    
-  def F(self, cu):
-    vecx = self.Dx.dot(cu)
-    vecy = self.Dy.dot(cu)
-    return np.linalg.norm(np.outer(vecx,vecx) + 
-                          np.outer(vecy,vecy) - 
-                          self.Cf, ord='fro')**2
- 
+    Qrule = np.loadtxt("triquadLeg_10_17.txt"); 
+    N = int(len(Qrule) / 3)
+    X = Qrule[0:N]
+    Y = Qrule[N:2*N]
+    W = Qrule[2*N:3*N]
+    cF, _ = computeCoeffs(finv, self.n-1, 0.5, 0.5, 0.5, X, Y, W, 1)
+    return cF
+
+def finv(X, Y):
+  #return np.asfortranarray(np.ones_like(X))
+  return np.asfortranarray(X*Y*(1-X-Y))
+  #centX = 1./3.
+  #centY = 1./3.
+  #return 1./(np.exp(-( (X-centX)**2 + (Y-centY)**2 )) * X * Y)
+
 
 def hasfile(fn):
   try:
@@ -169,6 +177,7 @@ libeikonal.eikonalSolve.argtypes = [ctypes.c_uint,\
                                     ctypes.c_uint,\
                                     ctypes.c_uint,\
                                     ctypes.c_uint,\
+                                    ctypes.POINTER(ctypes.c_double),\
                                     ctypes.POINTER(ctypes.c_double),\
                                     ctypes.POINTER(ctypes.c_double),\
                                     ctypes.POINTER(ctypes.c_double),\

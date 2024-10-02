@@ -13,7 +13,7 @@ struct optData
   double *vecx, *vecy, *vecxx, *vecyy;
   double *vecf, *vecrhs;
   double *storl, *storb, *storh;
-  double *Dx, *Dy, *Cf;
+  double *Dx, *Dy, *rhs;
   double *vl, *vb, *vh;
   unsigned int nl, nb, nh;
   double *cu;
@@ -25,9 +25,10 @@ struct optData
             unsigned int _nb,
             unsigned int _nh,
             double* _Dx, double* _Dy,
+            double* _rhs,
             double* _vl, double* _vb, 
             double* _vh, double* _cu ) 
-    : N(_N), Dx(_Dx), Dy(_Dy), 
+    : N(_N), Dx(_Dx), Dy(_Dy), rhs(_rhs), 
       vl(_vl), vb(_vb), vh(_vh),
       nl(_nl), nb(_nb), nh(_nh),
       cu(_cu)
@@ -44,7 +45,8 @@ struct optData
     // outer product of coeffs of (1/f)
     // first is entry is 1 the case of f \equiv 1
     vecrhs = (double*) calloc(N*N, sizeof(double)); 
-    vecrhs[0] = 1;
+    cblas_dger  ( CblasColMajor, N, N, 
+                  1.0, rhs, 1, rhs, 1, vecrhs, N );
     // storage for contraint result
     storl = (double*) calloc(nl, sizeof(double));
     storb = (double*) calloc(nb, sizeof(double));
@@ -100,12 +102,16 @@ double F  ( unsigned int n, const double* cu,
   } 
 
   // frobenius norm of A \equiv 2 norm vec(A)  
-  double nrm = cblas_dnrm2 (NN, vecf, 1);
+  double nrm  = cblas_dnrm2 (NN, vecf, 1);
   double nrm2 = nrm * nrm;
+  
   if ( !(count % 100000) ) 
   { 
-    std::cout << "Eval #" << count << " : F = " << nrm2 << std::endl; 
+    std::cout << "Eval #" << count 
+              << " : F = " << nrm2 
+              << std::endl; 
   }
+  
   return nrm2;
 }
 
@@ -119,7 +125,8 @@ void cl ( unsigned int m, double* result, unsigned int n,
   double* storl = data->storl;
   memset(storl, 0, m*sizeof(double));
   cblas_dgemv ( CblasColMajor, CblasNoTrans,  
-                m, n, 1.0, vl, n, cu, 1, 0.0, storl, 1 );
+                m, n, 1.0, vl, n, cu, 1, 1.0, storl, 1 );
+
   for (unsigned int i = 0; i < m; ++i)
   {
     result[i] = storl[i];

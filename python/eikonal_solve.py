@@ -2,8 +2,9 @@ from numpy import *
 from eikonal import *
 import matplotlib.pyplot as plt
 
-ops = eikonal(0.5, 0.5, 0.5, 11, 13, 6)
+ops = eikonal(0.5, 0.5, 0.5, 16, 19, 6)
 cu_opt = ops.solve()
+
 
 
 def distToHyp(X,Y):
@@ -24,7 +25,7 @@ def distToTri(X,Y):
   return mins
 
 
-np.savetxt("cu_opt_new.txt", cu_opt)
+np.savetxt("cu_opt_new1.txt", cu_opt)
 #print(cu_opt)
 #
 #v00 = ops.evalPoly(0.25,0.25)

@@ -24,6 +24,7 @@ extern "C"
                       unsigned int nh,
                       double* Dx, 
                       double* Dy,
+                      double* rhs,
                       double* vl, 
                       double* vb, 
                       double* vh, 
@@ -45,15 +46,16 @@ extern "C"
     for (unsigned int i = 0; i < nh; ++i) { toleqh[i] = 1e-14; }
     double tol = 1e-3;
     optData* data = new optData ( N, nl, nb, nh,
-                                  Dx, Dy, vl, vb, vh, cu_opt );  
-    nlopt_opt opt = nlopt_create(NLOPT_LN_SBPLX, N); 
-    nlopt_opt local_opt = nlopt_create(NLOPT_LN_SBPLX, N);
+                                  Dx, Dy, rhs, 
+                                  vl, vb, vh, cu_opt );  
+    nlopt_opt opt = nlopt_create(NLOPT_LN_COBYLA, N); 
+    //nlopt_opt local_opt = nlopt_create(NLOPT_LN_SBPLX, N);
     nlopt_set_lower_bounds(opt, lb);
     nlopt_set_upper_bounds(opt, ub);
     nlopt_set_min_objective(opt, F, data);
-    //nlopt_add_equality_mconstraint(opt, N, cl, data, toleql);
-    //nlopt_add_equality_mconstraint(opt, N, cb, data, toleqb);
-    //nlopt_add_equality_mconstraint(opt, N, ch, data, toleqh);
+    nlopt_add_equality_mconstraint(opt, N, cl, data, toleql);
+    nlopt_add_equality_mconstraint(opt, N, cb, data, toleqb);
+    nlopt_add_equality_mconstraint(opt, N, ch, data, toleqh);
     nlopt_set_xtol_rel(opt, tol);
     nlopt_set_stopval(opt, tol);
     //nlopt_set_xtol_rel(local_opt, tol);
@@ -68,6 +70,6 @@ extern "C"
     count = 0;
     delete data; 
     nlopt_destroy(opt);
-    nlopt_destroy(local_opt);
+    //nlopt_destroy(local_opt);
   } 
 }

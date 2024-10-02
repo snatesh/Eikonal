@@ -722,7 +722,7 @@ struct ngjQuad
     nlopt_set_min_objective(opt, optF1, optdata);
     nlopt_add_equality_constraint(opt, opteqC1, optdata, tolc);
   
-    nlopt_set_xtol_rel(opt, 1e-2);
+    nlopt_set_xtol_rel(opt, 1e-1);
     nlopt_set_stopval(opt, 3);
     double minF;
     if (nlopt_optimize(opt, optdata->Z0, &minF) < 0) 
