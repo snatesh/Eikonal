@@ -2,7 +2,7 @@ from numpy import *
 from eikonal import *
 import matplotlib.pyplot as plt
 
-ops = eikonal(0.5, 0.5, 0.5, 16, 19, 6)
+ops = eikonal(0.5, 0.5, 0.5, 16, 19, 4)
 cu_opt = ops.solve()
 
 

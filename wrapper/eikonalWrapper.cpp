@@ -53,9 +53,9 @@ extern "C"
     nlopt_set_lower_bounds(opt, lb);
     nlopt_set_upper_bounds(opt, ub);
     nlopt_set_min_objective(opt, F, data);
-    nlopt_add_equality_mconstraint(opt, N, cl, data, toleql);
-    nlopt_add_equality_mconstraint(opt, N, cb, data, toleqb);
-    nlopt_add_equality_mconstraint(opt, N, ch, data, toleqh);
+    nlopt_add_equality_mconstraint(opt, nl, cl, data, toleql);
+    nlopt_add_equality_mconstraint(opt, nb, cb, data, toleqb);
+    nlopt_add_equality_mconstraint(opt, nh, ch, data, toleqh);
     nlopt_set_xtol_rel(opt, tol);
     nlopt_set_stopval(opt, tol);
     //nlopt_set_xtol_rel(local_opt, tol);

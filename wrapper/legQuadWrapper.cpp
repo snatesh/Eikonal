@@ -20,4 +20,9 @@ extern "C"
     }
   }
 
+  void deleteQuad(legQuad<double>* leg)
+  {
+    delete leg;
+  }
+
 }

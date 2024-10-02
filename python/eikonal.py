@@ -5,6 +5,7 @@ from sys import exit
 from sFactors import * 
 from ngjQuad import *  
 from pMat import *
+from legendre import *
 from jPoly import *
 
 libeikonal = ctypes.CDLL('libeikonal.so')
@@ -30,10 +31,10 @@ class eikonal(object):
     self.m = _m
     self.nthreads = _nthreads
     self.N = int(0.5 * (_n) * (_n + 1))
-    #self.cu = np.asfortranarray(np.zeros((self.N,)))
-    #self.cu[0] = 1.0; # initialize to constant poly
-    self.cu  = np.asfortranarray(
-                np.random.randn(self.N))
+    self.cu = np.asfortranarray(np.zeros((self.N,)))
+    self.cu[0] = 1.0; # initialize to constant poly
+    #self.cu  = np.asfortranarray(
+    #            np.random.randn(self.N))
 
     self.fname = 'triquadleg_n' + str(_n-1) + '_m' \
                   + str(_m-1) + '_N' + str(self.N) + '.txt'
@@ -62,7 +63,8 @@ class eikonal(object):
     self.Ka1bc_a1b1c = kMat(_a+1, _b, _c, self.Ha1bc, self.Ha1b1c, _n-1, 1)
     self.Ka1b1c_a1b1c1 = kMat(_a+1, _b+1, _c, self.Ha1b1c, self.Ha1b1c1, _n-1, 2)
     # promotion for RHS
-    self.K = np.asfortranarray(self.Ka1b1c_a1b1c1.dot(self.Ka1bc_a1b1c.dot(self.Kabc_a1bc)))
+    self.K = np.asfortranarray(
+              self.Ka1b1c_a1b1c1.dot(self.Ka1bc_a1b1c.dot(self.Kabc_a1bc)))
     # promotion so derivs are in same basis
     self.K_a1bc1_a1b1c1 = np.asfortranarray(
                             kMat(_a+1, _b, _c+1, self.Ha1bc1, self.Ha1b1c1, _n-1, 1))
@@ -82,9 +84,19 @@ class eikonal(object):
                         self.rhsCoeffs() ) )
 
     self.edge_zeros = np.asfortranarray(np.zeros_like(self.X))
-    self.vl = self.computeV(self.edge_zeros, self.Y)
-    self.vb = self.computeV(self.X, self.edge_zeros)
-    self.vh = self.computeV(self.X, np.asfortranarray(1.0 - self.X))
+    self.nl = _n
+    self.nb = _n
+    self.nh = int(np.ceil(np.sqrt(2) * _n))
+    self.legl, _ = legendre(self.nl)
+    self.legb, _ = legendre(self.nb)
+    self.legh, _ = legendre(self.nh) 
+    self.polyl = jPoly(self.nl, _n, _a, _b, _c, 1)
+    self.polyb = jPoly(self.nb, _n, _a, _b, _c, 1)
+    self.polyh = jPoly(self.nh, _n, _a, _b, _c, 1)
+    self.vl = computeV(self.polyl, self.N, self.edge_zeros, self.legl)
+    self.vb = computeV(self.polyb, self.N, self.legb, self.edge_zeros)
+    self.vh = computeV(self.polyh, self.N, self.legh, 
+                       np.asfortranarray(1.0 - self.legh))
     self.polypt = jPoly(1, _n, _a, _b, _c, 1)
     self.nthetas = _nthetas
     self.polyCirc = jPoly(_nthetas, _n, _a, _b, _c, _nthreads)
@@ -96,9 +108,9 @@ class eikonal(object):
 
   def solve(self):
     libeikonal.eikonalSolve(self.N,
-                            self.N,
-                            self.N,
-                            self.N, 
+                            self.nl,
+                            self.nb,
+                            self.nh, 
                             self.Dx.ctypes.data_as(
                               ctypes.POINTER(
                               ctypes.c_double)), 
@@ -157,8 +169,8 @@ class eikonal(object):
     return cF
 
 def finv(X, Y):
-  #return np.asfortranarray(np.ones_like(X))
-  return np.asfortranarray(X*Y*(1-X-Y))
+  return np.asfortranarray(np.ones_like(X))
+  #return np.asfortranarray(X*Y*(1-X-Y))
   #centX = 1./3.
   #centY = 1./3.
   #return 1./(np.exp(-( (X-centX)**2 + (Y-centY)**2 )) * X * Y)
