@@ -158,7 +158,7 @@ definied in terms of the polynomials for d=1).
 #### UPDATE ####
 (UPDATE:) This worked swimmingly, and I can now generate high order quadrature on the tetrahedron relatively quickly! It turns out that the error in numerically approximating the inner products is within the tolerable error required for JEVD routines on the approximate Jacobi matrices to converge. There are research cookies here in terms of proving the relationship between the integration error, the off-diagonality minimization error, and interiority of matched eigenvalues to the simplex. I'll leave it to a numerical analyst to prove this stuff.
 
-I've moved on to making the library routines callable from `Python`, and playing around with solving Eikonal problems on the triangle. 
+I've moved on to making the library routines callable from `Python`, and playing around with solving Eikonal problems on the triangle. I migrated from plain-old `make` to `CMake` as the build system, which has made compilation a lot faster, and I guess I was linking things incorrectly, so the code runs faster too!
 
 
 ## Docker Containerization
@@ -205,10 +205,9 @@ the `/Eikonal` folder in the container context, compile the
 ```shell
 sudo apt install libopenblas-openmp-dev liblapacke-dev
 ```
-- `multipledispatch` library in `Python`. 
-
    which ensures the `C` wrapper to lapack (in headers `lapacke.h`) is 
    installed in a sane location.
+- `multipledispatch` library in `Python`. 
 
 -  The c++ compiler should have support for the `OpenMP` shared memory parallelization library, and
    the library must exist on your system. That is, `omp.h` and `libomp.so` must exist somewhere in the filesystem,
