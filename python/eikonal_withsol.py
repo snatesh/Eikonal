@@ -3,8 +3,17 @@ from numpy import *
 from eikonal import *
 import matplotlib.pyplot as plt
 
-ops = eikonal(0.5, 0.5, 0.5, 16, 19, 6)
+ops = eikonal(0.5, 0.5, 0.5, 23, 35, 6)
 cu_opt = np.loadtxt("cu_opt_new1.txt")
+
+vecx = ops.Dx.dot(cu_opt)
+vecxx = np.outer(vecx, vecx)
+vecy = ops.Dy.dot(cu_opt)
+vecyy = np.outer(vecy,vecy)
+vecrr = np.outer(ops.rhscoeffs, ops.rhscoeffs)
+
+reserr = np.linalg.norm(vecxx+vecyy-vecrr)
+print(reserr)
 
 def tracePathLocal(ops, cu, x, y):
   X = ops.Xcirc + x

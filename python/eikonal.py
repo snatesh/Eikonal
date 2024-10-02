@@ -16,14 +16,16 @@ class eikonal(object):
   acting on coefficients of an order n Jacobi
   Polynomial expansion (on the standard triangle)
   """ 
-  def __init__(self, _a, _b, _c, _n = 4, _m = 6, _nthreads = 6, _r = 0.001, _nthetas = 50):
+  def __init__( self, _rhs, _a = 0.5, _b = 0.5, _c = 0.5, 
+                _n = 4, _m = 6, _nthreads = 6, 
+                _r = 0.001, _nthetas = 50 ):
     
     if _n <= 0:  
       exit("eikonal : Range Error ( n > 1) ")
     if _a <= -0.5 or _b <= -0.5 or _c <= -0.5:
       exit("eikonal : Range Error (a,b,c > -1/2)")
 
-    # jacobi parameters
+    ## jacobi parameters / method order / thread config
     self.a = _a
     self.b = _b
     self.c = _c
@@ -31,34 +33,18 @@ class eikonal(object):
     self.m = _m
     self.nthreads = _nthreads
     self.N = int(0.5 * (_n) * (_n + 1))
+    # solution variables
     self.cu = np.asfortranarray(np.zeros((self.N,)))
     self.cu[0] = 1.0; # initialize to constant poly
-    #self.cu  = np.asfortranarray(
-    #            np.random.randn(self.N))
-
-    self.fname = 'triquadleg_n' + str(_n-1) + '_m' \
-                  + str(_m-1) + '_N' + str(self.N) + '.txt'
-    if not hasfile(self.fname):
-      self.Z0 = ngjQuad ( _n, _m, _a, _b, _c, 1e-14, 1e-14, 
-                          0, 0, 0, _nthreads )
-      np.savetxt(self.fname, self.Z0)
-    else:
-      self.Z0 = np.loadtxt(self.fname)
-    
-    self.X = self.Z0[0:self.N]
-    self.Y = self.Z0[self.N:2*self.N]
-    self.W = self.Z0[2*self.N:3*self.N]
-    
-    self.poly = jPoly(self.N, _n, _a, _b, _c, _nthreads)
-    self.V = self.computeV(self.X, self.Y)
-    
+    self.rhs = _rhs   
+ 
+    ## derivative operators 
     self.Habc = sFactors(_n+1, _a, _b, _c)  
     self.Ha1bc = sFactors(_n+1, _a+1, _b, _c)
     self.Ha1b1c = sFactors(_n+1, _a+1, _b+1, _c)
     self.Ha1b1c1 = sFactors(_n+1, _a+1, _b+1, _c+1)
     self.Ha1bc1 = sFactors(_n+1, _a+1, _b, _c+1)
     self.Hab1c1 = sFactors(_n+1, _a, _b+1, _c+1)
-
     self.Kabc_a1bc = kMat(_a, _b, _c, self.Habc, self.Ha1bc, _n-1, 0)
     self.Ka1bc_a1b1c = kMat(_a+1, _b, _c, self.Ha1bc, self.Ha1b1c, _n-1, 1)
     self.Ka1b1c_a1b1c1 = kMat(_a+1, _b+1, _c, self.Ha1b1c, self.Ha1b1c1, _n-1, 2)
@@ -83,20 +69,42 @@ class eikonal(object):
                       self.K.dot( 
                         self.rhsCoeffs() ) )
 
-    self.edge_zeros = np.asfortranarray(np.zeros_like(self.X))
-    self.nl = _n
-    self.nb = _n
-    self.nh = int(np.ceil(np.sqrt(2) * _n))
-    self.legl, _ = legendre(self.nl)
-    self.legb, _ = legendre(self.nb)
-    self.legh, _ = legendre(self.nh) 
+
+    ## boundary evaluators
+    self.nl = self.N
+    self.nb = self.N
+    self.nh = self.N
+    self.xl = np.zeros((self.nl,))
+    self.yl, _ = legendre(self.nl); self.yl = (self.yl + 1.0) / 2.0 
+    self.xb, _ = legendre(self.nb); self.xb = (self.xb + 1.0) / 2.0 
+    self.yb = np.zeros((self.nb,))
+    self.xh, _ = legendre(self.nh); self.xh = (self.xh + 1.0) / 2.0 
+    self.yh = 1.0 - self.xh
     self.polyl = jPoly(self.nl, _n, _a, _b, _c, 1)
     self.polyb = jPoly(self.nb, _n, _a, _b, _c, 1)
     self.polyh = jPoly(self.nh, _n, _a, _b, _c, 1)
-    self.vl = computeV(self.polyl, self.N, self.edge_zeros, self.legl)
-    self.vb = computeV(self.polyb, self.N, self.legb, self.edge_zeros)
-    self.vh = computeV(self.polyh, self.N, self.legh, 
-                       np.asfortranarray(1.0 - self.legh))
+    self.vl = computeV(self.polyl, self.N, self.xl, self.yl)
+    self.vb = computeV(self.polyb, self.N, self.xb, self.yb)
+    self.vh = computeV(self.polyh, self.N, self.xh, self.yh)
+
+    ## post / path processing
+    
+    # quadrature nodes
+    self.fname = 'triquadleg_n' + str(_n-1) + '_m' \
+                  + str(_m-1) + '_N' + str(self.N) + '.txt'
+    if not hasfile(self.fname):
+      self.Z0 = ngjQuad ( _n, _m, _a, _b, _c, 1e-14, 1e-14, 
+                          0, 0, 0, _nthreads )
+      np.savetxt(self.fname, self.Z0)
+    else:
+      self.Z0 = np.loadtxt(self.fname)
+    
+    self.X = self.Z0[0:self.N]
+    self.Y = self.Z0[self.N:2*self.N]
+    self.W = self.Z0[2*self.N:3*self.N]
+    
+    self.poly = jPoly(self.N, _n, _a, _b, _c, _nthreads)
+    self.V = self.computeV(self.X, self.Y)
     self.polypt = jPoly(1, _n, _a, _b, _c, 1)
     self.nthetas = _nthetas
     self.polyCirc = jPoly(_nthetas, _n, _a, _b, _c, _nthreads)
@@ -106,34 +114,59 @@ class eikonal(object):
     self.Ycirc = np.asfortranarray(_r * np.sin(self.thetas))
 
 
-  def solve(self):
-    libeikonal.eikonalSolve(self.N,
-                            self.nl,
-                            self.nb,
-                            self.nh, 
-                            self.Dx.ctypes.data_as(
-                              ctypes.POINTER(
-                              ctypes.c_double)), 
-                            self.Dy.ctypes.data_as(
-                              ctypes.POINTER(
-                              ctypes.c_double)),
-                            self.rhscoeffs.ctypes.data_as(
-                              ctypes.POINTER(
-                              ctypes.c_double)), 
-                            self.vl.ctypes.data_as(
-                              ctypes.POINTER(
-                              ctypes.c_double)), 
-                            self.vb.ctypes.data_as(
-                              ctypes.POINTER(
-                              ctypes.c_double)), 
-                            self.vh.ctypes.data_as(
-                              ctypes.POINTER(
-                              ctypes.c_double)), 
-                            self.cu.ctypes.data_as(
-                              ctypes.POINTER(
-                              ctypes.c_double)))
+  def solveH(self):
+    libeikonal.eikonalSolveH(self.N,
+                             self.Dx.ctypes.data_as(
+                               ctypes.POINTER(
+                               ctypes.c_double)), 
+                             self.Dy.ctypes.data_as(
+                               ctypes.POINTER(
+                               ctypes.c_double)),
+                             self.rhscoeffs.ctypes.data_as(
+                               ctypes.POINTER(
+                               ctypes.c_double)), 
+                             self.cu.ctypes.data_as(
+                               ctypes.POINTER(
+                               ctypes.c_double)))
     return self.cu 
 
+  def solveP(self, ul, ub, uh):
+    libeikonal.eikonalSolveP(self.N,
+                             self.nl,
+                             self.nb,
+                             self.nh, 
+                             self.Dx.ctypes.data_as(
+                               ctypes.POINTER(
+                               ctypes.c_double)), 
+                             self.Dy.ctypes.data_as(
+                               ctypes.POINTER(
+                               ctypes.c_double)),
+                             self.rhscoeffs.ctypes.data_as(
+                               ctypes.POINTER(
+                               ctypes.c_double)), 
+                             self.vl.ctypes.data_as(
+                               ctypes.POINTER(
+                               ctypes.c_double)),
+                             ul.ctypes.data_as(
+                               ctypes.POINTER(
+                               ctypes.c_double)),
+                             self.vb.ctypes.data_as(
+                               ctypes.POINTER(
+                               ctypes.c_double)), 
+                             ub.ctypes.data_as(
+                               ctypes.POINTER(
+                               ctypes.c_double)),
+                             self.vh.ctypes.data_as(
+                               ctypes.POINTER(
+                               ctypes.c_double)), 
+                             uh.ctypes.data_as(
+                               ctypes.POINTER(
+                               ctypes.c_double)),
+                             self.cu.ctypes.data_as(
+                               ctypes.POINTER(
+                               ctypes.c_double)))
+
+    return self.cu 
     
  
   def evalPoly(self, xpt, ypt):
@@ -165,15 +198,10 @@ class eikonal(object):
     X = Qrule[0:N]
     Y = Qrule[N:2*N]
     W = Qrule[2*N:3*N]
-    cF, _ = computeCoeffs(finv, self.n-1, 0.5, 0.5, 0.5, X, Y, W, 1)
+    cF, _ = computeCoeffs(self.rhs, self.n-1, 0.5, 0.5, 0.5, X, Y, W, 1)
     return cF
 
-def finv(X, Y):
-  return np.asfortranarray(np.ones_like(X))
-  #return np.asfortranarray(X*Y*(1-X-Y))
-  #centX = 1./3.
-  #centY = 1./3.
-  #return 1./(np.exp(-( (X-centX)**2 + (Y-centY)**2 )) * X * Y)
+
 
 
 def hasfile(fn):
@@ -185,15 +213,25 @@ def hasfile(fn):
   print("Reading quad rule from " + fn)
   return 1
 
-libeikonal.eikonalSolve.argtypes = [ctypes.c_uint,\
-                                    ctypes.c_uint,\
-                                    ctypes.c_uint,\
-                                    ctypes.c_uint,\
-                                    ctypes.POINTER(ctypes.c_double),\
-                                    ctypes.POINTER(ctypes.c_double),\
-                                    ctypes.POINTER(ctypes.c_double),\
-                                    ctypes.POINTER(ctypes.c_double),\
-                                    ctypes.POINTER(ctypes.c_double),\
-                                    ctypes.POINTER(ctypes.c_double),\
-                                    ctypes.POINTER(ctypes.c_double)]
-libeikonal.eikonalSolve.restype = None                                    
+libeikonal.eikonalSolveH.argtypes = [ctypes.c_uint,\
+                                     ctypes.POINTER(ctypes.c_double),\
+                                     ctypes.POINTER(ctypes.c_double),\
+                                     ctypes.POINTER(ctypes.c_double),\
+                                     ctypes.POINTER(ctypes.c_double)]
+libeikonal.eikonalSolveH.restype = None                                    
+
+libeikonal.eikonalSolveP.argtypes = [ctypes.c_uint,\
+                                     ctypes.c_uint,\
+                                     ctypes.c_uint,\
+                                     ctypes.c_uint,\
+                                     ctypes.POINTER(ctypes.c_double),\
+                                     ctypes.POINTER(ctypes.c_double),\
+                                     ctypes.POINTER(ctypes.c_double),\
+                                     ctypes.POINTER(ctypes.c_double),\
+                                     ctypes.POINTER(ctypes.c_double),\
+                                     ctypes.POINTER(ctypes.c_double),\
+                                     ctypes.POINTER(ctypes.c_double),\
+                                     ctypes.POINTER(ctypes.c_double),\
+                                     ctypes.POINTER(ctypes.c_double),\
+                                     ctypes.POINTER(ctypes.c_double)]
+libeikonal.eikonalSolveP.restype = None                                    

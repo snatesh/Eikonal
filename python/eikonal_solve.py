@@ -2,10 +2,25 @@ from numpy import *
 from eikonal import *
 import matplotlib.pyplot as plt
 
-ops = eikonal(0.5, 0.5, 0.5, 16, 19, 4)
-cu_opt = ops.solve()
+def fzero(X,Y):
+  return np.zeros_like(X)
 
+def finv(X, Y):
+  return np.asfortranarray(np.ones_like(X))
+  #return np.asfortranarray(X*Y*(1-X-Y))
+  #centX = 1./3.
+  #centY = 1./3.
+  #return 1./(np.exp(-( (X-centX)**2 + (Y-centY)**2 )) * X * Y)
 
+opsH = eikonal(finv, 0.5, 0.5, 0.5, 23, 35, 6)
+cu_optH = opsH.solveH()
+ul = opsH.vl.dot(cu_optH)
+ub = opsH.vb.dot(cu_optH)
+uh = opsH.vh.dot(cu_optH)
+opsP = eikonal(fzero, 0.5, 0.5, 0.5, 23, 35, 6)
+cu_optP = opsP.solveP(ul, ub, uh)
+
+cu_opt = cu_optH + cu_optP
 
 def distToHyp(X,Y):
   xmy = X-Y
@@ -16,35 +31,34 @@ def distToHyp(X,Y):
   return dh
   
 
-def distToTri(X,Y):
-  Z = distToHyp(X,Y)
-  mins = np.zeros_like(X)
-  N = np.size(X,0)
-  for j in range(N):
-    mins[j] = np.min([X[j],Y[j],Z[j]])
-  return mins
+
+def u(x1, x2):
+  dists = np.zeros_like(x1)
+  for j in range(np.size(x1,0)):
+    x = np.array([x1[j],x2[j]])
+    z = np.array([(x1[j]-x2[j]+1.0)/2.0, (x2[j]-x1[j]+1.0)/2.0])
+    d = np.linalg.norm(x-z)
+    dists[j] = np.min([x1[j],x2[j],d])
+  return dists
 
 
 np.savetxt("cu_opt_new1.txt", cu_opt)
-#print(cu_opt)
-#
-#v00 = ops.evalPoly(0.25,0.25)
-#print(v00.dot(cu_opt))
 
-Zfine = np.loadtxt("triquadleg_n22_m35_N253.txt")
-Nfine = 253; 
+Zfine = np.loadtxt("triquadleg_n22_m34_N276.txt")
+Nfine = 276; 
 Xfine = Zfine[0:Nfine]; 
 Yfine = Zfine[Nfine:2*Nfine] 
-jP = jPoly(Nfine, ops.n, ops.a, ops.b, ops.c, 4)
-Vfine = computeV(jP, ops.N, Xfine, Yfine)
-tmins = Vfine.dot(cu_opt); #tmins = tmins / np.max(tmins)
-dmins = distToTri(Xfine, Yfine); dmins = dmins / np.max(dmins)
+jP = jPoly(Nfine, opsH.n, opsH.a, opsH.b, opsH.c, 4)
+Vfine = computeV(jP, opsH.N, Xfine, Yfine)
+tmins = Vfine.dot(cu_opt); tmins = tmins / np.max(tmins)
+dmins = u(Xfine, Yfine); dmins = dmins / np.max(dmins)
 
 
 fig = plt.figure(1)
 ax = fig.add_subplot(111, projection='3d')
 #ax.plot_trisurf(Xfine, Yfine, tmins)
-ax.plot_trisurf(Xfine, Yfine, tmins)
+ax.plot_trisurf(Xfine, Yfine, tmins, alpha = 0.7)
+ax.plot_trisurf(Xfine, Yfine, dmins, alpha = 0.7)
 #ax.scatter(Xfine, Yfine, dmins)
 plt.show()
 

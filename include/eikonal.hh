@@ -16,22 +16,26 @@ struct optData
   double *Dx, *Dy, *rhs;
   double *vl, *vb, *vh;
   unsigned int nl, nb, nh;
-  double *cu;
+  double *cu, *ul, *ub, *uh;
  
   
  
   optData ( unsigned int _N,
-            unsigned int _nl,
-            unsigned int _nb,
-            unsigned int _nh,
             double* _Dx, double* _Dy,
-            double* _rhs,
-            double* _vl, double* _vb, 
-            double* _vh, double* _cu ) 
+            double* _rhs, double* _cu,
+            unsigned int _nl = 0,
+            unsigned int _nb = 0,
+            unsigned int _nh = 0,
+            double* _vl = nullptr, 
+            double* _vb = nullptr, 
+            double* _vh = nullptr, 
+            double* _ul = nullptr, 
+            double* _ub = nullptr,
+            double* _uh = nullptr ) 
     : N(_N), Dx(_Dx), Dy(_Dy), rhs(_rhs), 
       vl(_vl), vb(_vb), vh(_vh),
       nl(_nl), nb(_nb), nh(_nh),
-      cu(_cu)
+      cu(_cu), ul(_ul), ub(_ub), uh(_uh)
   {
     // Coeff derivs in x,y
     vecx = (double*) calloc(N, sizeof(double));
@@ -122,6 +126,7 @@ void cl ( unsigned int m, double* result, unsigned int n,
 {
   optData* data = (optData*) f_data;
   double* vl = data->vl;
+  double* ul = data->ul;
   double* storl = data->storl;
   memset(storl, 0, m*sizeof(double));
   cblas_dgemv ( CblasColMajor, CblasNoTrans,  
@@ -129,7 +134,7 @@ void cl ( unsigned int m, double* result, unsigned int n,
 
   for (unsigned int i = 0; i < m; ++i)
   {
-    result[i] = storl[i];
+    result[i] = storl[i] + ul[i];
   } 
 }
 
@@ -139,13 +144,14 @@ void cb ( unsigned int m, double* result, unsigned int n,
 
   optData* data = (optData*) f_data;
   double* vb = data->vb;
+  double* ub = data->ub;
   double* storb = data->storb;
   memset(storb, 0, m*sizeof(double));
   cblas_dgemv ( CblasColMajor, CblasNoTrans,  
                 m, n, 1.0, vb , n, cu, 1, 0.0, storb, 1 );
   for (unsigned int i = 0; i < m; ++i)
   {
-    result[i] = storb[i];
+    result[i] = storb[i] + ub[i];
   } 
 }
 
@@ -154,13 +160,14 @@ void ch ( unsigned int m, double* result, unsigned int n,
 {
   optData* data = (optData*) f_data;
   double* vh = data->vh;
+  double* uh = data->uh;
   double* storh = data->storh;
   memset(storh, 0, m*sizeof(double));
   cblas_dgemv ( CblasColMajor, CblasNoTrans,  
                 m, n, 1.0, vh , n, cu, 1, 0.0, storh, 1 );
   for (unsigned int i = 0; i < m; ++i)
   {
-    result[i] = storh[i];
+    result[i] = storh[i] + uh[i];
   } 
 }
 
