@@ -154,7 +154,7 @@ have to evaluate polynomials at such high order. (recall that the polynomials or
 definied in terms of the polynomials for d=1). 
 
 #### UPDATE ####
-(UPDATE:) This worked swimmingly, and I can now generate high order quadrature on the tetrahedron relatively quickly! It turns out that the error in numerically approximating the inner products is within the tolerable error required for JEVD routines on the approximate Jacobi matrices to converge. There are research cookies here in terms of proving the relationship between the integration error, the off-diagonality minimization error, and interiority of matched eigenvalues to the simplex. I'll leave it to a numerical analyst to prove this stuff.
+(UPDATE:) This worked swimmingly, and I can now generate high order quadrature on the tetrahedron relatively quickly! It turns out that the error in numerically approximating the inner products is within the tolerable error required for JEVD routines on the approximate Jacobi matrices to converge. There are research cookies here in terms of proving the relationship between the integration error, the off-diagonality minimization error, and interiority of matched eigenvalues to the simplex. I'll leave it to a numerical analyst to prove this stuff, though the relations are readibly observable in numerical experiments.
 
 I've moved on to making the library routines callable from `Python`, and playing around with solving Eikonal problems on the triangle. I migrated from plain-old `make` to `CMake` as the build system, which has made compilation a lot faster, and I guess I was linking things incorrectly, so the code runs faster too! I can add support for the `Intel icc` compilers too, but don't have the free version yet, so haven't bothered.
 
