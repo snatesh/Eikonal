@@ -3,17 +3,13 @@ from numpy import *
 from eikonal import *
 import matplotlib.pyplot as plt
 
-ops = eikonal(0.5, 0.5, 0.5, 23, 35, 6)
+def fzero(X,Y):
+  return np.zeros_like(X)
+
+ops = eikonal(fzero, 0.5, 0.5, 0.5, 5, 8, 6)
 cu_opt = np.loadtxt("cu_opt_new1.txt")
 
-vecx = ops.Dx.dot(cu_opt)
-vecxx = np.outer(vecx, vecx)
-vecy = ops.Dy.dot(cu_opt)
-vecyy = np.outer(vecy,vecy)
-vecrr = np.outer(ops.rhscoeffs, ops.rhscoeffs)
 
-reserr = np.linalg.norm(vecxx+vecyy-vecrr)
-print(reserr)
 
 def tracePathLocal(ops, cu, x, y):
   X = ops.Xcirc + x
@@ -28,12 +24,13 @@ def tracePathGlobal(ops, cu, x, y):
   path.append(np.array([x,y]))
   minX = tracePathLocal(ops, cu_opt, x, y)
   path.append(np.array([minX[0], minX[1]]))
+  buf = 1e-3
   while minX[2] > 1e-5:
     minX = tracePathLocal(ops, cu_opt, minX[0], minX[1])
     path.append(np.array([minX[0], minX[1]]))
-    if  minX[0] < 0 or minX[1] < 0 or\
-        minX[0] > 1 or minX[1] > 1 or\
-        minX[1] > 1 - minX[0]:
+    if  minX[0] < buf or minX[1] < buf or\
+        minX[0] > 1-buf or minX[1] > 1-buf or\
+        minX[1] > (1 - minX[0])-buf:
       break
   return np.ndarray((len(path), 2), buffer = np.array(path))
 
@@ -61,6 +58,8 @@ def distToTri(X,Y):
 #Xfine = Zfine[0:Nfine]; 
 #Yfine = Zfine[Nfine:2*Nfine] 
 
+print(np.sum(ops.W))
+print(np.linalg.norm(ops.W.dot(ops.V.dot(cu_opt) - distToTri(ops.X,ops.Y)))/np.linalg.norm(ops.W.dot(distToTri(ops.X,ops.Y))))
 xx, yy = np.meshgrid(np.linspace(0,1,20), np.linspace(0,1,20))
 
 X = xx[yy[:]<1-xx[:]]

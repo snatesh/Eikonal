@@ -10,7 +10,7 @@ extern "C"
                         double* rhs,
                         double* cu_opt )
   {
-    double *lb, *ub, *toleql, *toleqb, *toleqh; 
+    double *lb, *ub;
     lb      = (double*) malloc(N * sizeof(double));
     ub      = (double*) malloc(N * sizeof(double));
     for (unsigned int i = 0; i < N; ++i)

@@ -84,6 +84,7 @@ double F  ( unsigned int n, const double* cu,
   double* Dy        = data->Dy;
   double* vecf      = data->vecf;
   double* vecrhs    = data->vecrhs;
+  double* rhs       = data->rhs;
  
   memset(vecx, 0, N*sizeof(double));
   memset(vecy, 0, N*sizeof(double));
@@ -95,19 +96,22 @@ double F  ( unsigned int n, const double* cu,
                 N, N, 1.0, Dx, N, cu, 1, 0.0, vecx, 1 ); 
   cblas_dgemv ( CblasColMajor, CblasNoTrans,  
                 N, N, 1.0, Dy, N, cu, 1, 0.0, vecy, 1 ); 
-  cblas_dger  ( CblasColMajor, N, N, 
-                1.0, vecx, 1, vecx, 1, vecxx, N );
-  cblas_dger  ( CblasColMajor, N, N, 
-                1.0, vecy, 1, vecy, 1, vecyy, N );
-  #pragma omp simd
-  for (unsigned int i = 0; i < NN; ++i)
-  {
-    vecf[i] = vecxx[i] + vecyy[i] - vecrhs[i];
-  } 
+  //cblas_dger  ( CblasColMajor, N, N, 
+  //              1.0, vecx, 1, vecx, 1, vecxx, N );
+  //cblas_dger  ( CblasColMajor, N, N, 
+  //              1.0, vecy, 1, vecy, 1, vecyy, N );
+  //#pragma omp simd
+  //for (unsigned int i = 0; i < NN; ++i)
+  //{
+  //  vecf[i] = vecxx[i] + vecyy[i] - vecrhs[i];
+  //} 
 
   // frobenius norm of A \equiv 2 norm vec(A)  
-  double nrm  = cblas_dnrm2 (NN, vecf, 1);
-  double nrm2 = nrm * nrm;
+  double nrmx = cblas_dnrm2(N, vecx, 1);
+  double nrmy = cblas_dnrm2(N, vecy, 1);
+  double nrmrhs = cblas_dnrm2(N, rhs, 1);
+  //double nrm  = cblas_dnrm2 (NN, vecf, 1);
+  double nrm2 = nrmx * nrmx + nrmy * nrmy - nrmrhs * nrmrhs;
   
   if ( !(count % 100000) ) 
   { 
@@ -131,7 +135,8 @@ void cl ( unsigned int m, double* result, unsigned int n,
   memset(storl, 0, m*sizeof(double));
   cblas_dgemv ( CblasColMajor, CblasNoTrans,  
                 m, n, 1.0, vl, n, cu, 1, 1.0, storl, 1 );
-
+  
+  // u2 = q-ul, q=0 => c = u2_l +ul
   for (unsigned int i = 0; i < m; ++i)
   {
     result[i] = storl[i] + ul[i];

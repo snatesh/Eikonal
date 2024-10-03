@@ -35,7 +35,7 @@ class eikonal(object):
     self.N = int(0.5 * (_n) * (_n + 1))
     # solution variables
     self.cu = np.asfortranarray(np.zeros((self.N,)))
-    self.cu[0] = 1.0; # initialize to constant poly
+    self.cu[0:4] = 1.0; # initialize to constant poly
     self.rhs = _rhs   
  
     ## derivative operators 

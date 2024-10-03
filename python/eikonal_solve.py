@@ -12,12 +12,12 @@ def finv(X, Y):
   #centY = 1./3.
   #return 1./(np.exp(-( (X-centX)**2 + (Y-centY)**2 )) * X * Y)
 
-opsH = eikonal(finv, 0.5, 0.5, 0.5, 23, 35, 6)
+opsH = eikonal(finv, 0.5, 0.5, 0.5, 14, 16, 6)
 cu_optH = opsH.solveH()
 ul = opsH.vl.dot(cu_optH)
 ub = opsH.vb.dot(cu_optH)
 uh = opsH.vh.dot(cu_optH)
-opsP = eikonal(fzero, 0.5, 0.5, 0.5, 23, 35, 6)
+opsP = eikonal(fzero, 0.5, 0.5, 0.5, 14, 16, 6)
 cu_optP = opsP.solveP(ul, ub, uh)
 
 cu_opt = cu_optH + cu_optP
