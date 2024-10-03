@@ -1,9 +1,7 @@
 # Eikonal
 A modal spectral method for the Eikonal equation applied to continuous shortest path problems on simplicial tesselations. 
 
-The primarily goal in developing this library is for use in solving continuous shortest path problems, with application in navigation, infrastructure design, and GR. For example, consider finding the optimal path a tunnel boring machine (for underground transportation infrastructure) should take in going from point A to point B, given obstructing inclusions provided by geological/civil survey data (feasibility/difficulty/cost varies depending on soil/rock composition, existing civil works, etc.), or undocumented inclusions encountered during excavation. The library can admit fast computations for such purposes, possibly in real-time/on-line, even if we assume the machine has freedom to maneuver 3-dimensionally. Other interesting areas include trajectory mapping given time-varying gravitational surfaces, and in general, any problems for a which a PDE is a variational casting of an infinite dimensional optimization problem - many processes follow some kind of principle of least or minimal action. These are the sort of problems on which I'd like to apply the routines contained herein, which for shortest-paths, are modeled by appropriate configuration of the right-hand-side and boundary conditions in Eikonal equations. I will think of some toy problems in 2D, and see if I can get things to work with some amusing movies to illustrate!
-
-This README is more of a stream of conciousness blogging of progress, obstacles, solutions, and new ideas, all as they relate to this project.
+The primarily goal in developing this library is for use in solving continuous shortest path problems, with application in navigation, infrastructure design, and GR. This README is more of a stream of conciousness blogging of progress, obstacles, solutions, and new ideas, all as they relate to this project.
 
 
 ## About
