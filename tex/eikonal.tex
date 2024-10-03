@@ -162,8 +162,27 @@ That is, we seek to minimize the square of the gradient norm, where the squared 
 
 Parsing this equation out a bit further (condensing sub/super scripts), we have
 \begin{align*}
-&\int_{\Tau^2}\bs{P}^{(\bs{a+1})}(\bs{x})^T\big(\mathcal{\tilde{D}}_{x_1}\bs{u}\bs{u}^T\mathcal{\tilde{D}}_{x_1}^T + \mathcal{\tilde{D}}_{x_2}\bs{u}\bs{u}^T\mathcal{\tilde{D}}_{x_2}^T \big)w^{(\bs{a+1})}(\bs{x})\bs{P}^{(\bs{a+1})}(\bs{x})d\bs{x}\\
-&\int_{\Tau^2}
+&=\int_{\Tau^2} \bs{P}(\bs{x})^T (\bs{u_x}\bs{u_x}^T + \bs{u_y}\bs{u_y}^T)w(\bs{x})\bs{P}(\bs{x})d\bs{x}\\
+&=\int_{\Tau^2}\bs{P}(\bs{x})^T 
+\begin{bmatrix}
+	 u_{x,1}^2 & u_{x,1}u_{x,2} & \cdots & u_{x,1}u_{x,N}\\
+	 u_{x,2}u_{x,1} & u_{x,2}^2 & \cdots & u_{x,2}u_{x,N}\\
+	 \vdots & \ddots&\ddots \\
+	 u_{x,N}u_{x,1} & u_{x,N}u_{x,2} & \cdots & u_{x,N}^2
+\end{bmatrix}\bs{P}(\bs{x})w(\bs{x})d\bs{x} \\
+&= \int_{\Tau^2}
+ \begin{bmatrix}
+	P_1(\bs{x}) & P_2(\bs{x}) & \cdots & P_N(\bs{x})
+\end{bmatrix}
+\begin{bmatrix}
+u_{x,1}^2 & u_{x,1}u_{x,2} & \cdots & u_{x,1}u_{x,N}\\
+u_{x,2}u_{x,1} & u_{x,2}^2 & \cdots & u_{x,2}u_{x,N}\\
+\vdots & \ddots&\ddots \\
+u_{x,N}u_{x,1} & u_{x,N}u_{x,2} & \cdots & u_{x,N}^2
+\end{bmatrix}
+\begin{bmatrix}
+P_1(\bs{x}) \\ P_2(\bs{x}) \\ \vdots \\ P_N(\bs{x})
+\end{bmatrix}w(\bs{x})d\bs{x}
 \end{align*}
 
 There are some errors above which I need to address.
