@@ -50,7 +50,7 @@
 
 % REQUIRED
 \begin{abstract}
-In this paper, we describe a method for solving the Eikonal equation on domains in $\mathbb{R}^2$ or $\mathbb{R}^3$ tesselated by triangles or tetrahedra. Our method generalizes to simplices in higher dimensions, owing to our choice of solution representation under the Jacobi family of orthogonal polynomials on the simplex. First, we describe a spectral decomposition for functions supported on the simplex in terms of their weighted $L_2$ expansion coefficients under the Jacobi basis. Computing this expansion requires an accurate and efficient quadrature, and we provide a novel optimization routine based on approximate joint-diagonalization of Jacobi matrices for generating such quadratures. Then, we consider differential operators acting on coefficients of a Jacobi expansion. Recent results due to Townsend, Oliver and Vasil enable the construction of sparse differential operators on the standard triangle, interoperating within the Jacobi polynomial family parameter space, and leading to low-storage, banded discrete differential operators. We generalize these results to the tetrahedra (laying the path for generalizing to $d>3$), and use the resulting differential operators to construct the Eikonal operator on the simplex. Ultimately, we must solve a non-linear PDE, and working in coefficient space implies that our solution variables must be thought of as functions. Hence, we reformulate the Eikonal problem in terms of an infinite-dimensional $L_2$ mininization problem, which can be discretized with the aforementioned  numerical quadrature.
+In this paper, we describe a method for solving the Eikonal equation on domains in $\mathbb{R}^2$ or $\mathbb{R}^3$ tesselated by triangles or tetrahedra. Our method generalizes to simplices in higher dimensions, owing to our choice of solution representation under the Jacobi family of orthogonal polynomials on the simplex. First, we describe a spectral decomposition for functions supported on the simplex in terms of their weighted $L_2$ expansion coefficients under the Jacobi basis. Computing this expansion requires an accurate and efficient quadrature, and we provide a novel optimization routine based on approximate joint-diagonalization of Jacobi matrices for generating such quadratures. Then, we consider differential operators acting on coefficients of a Jacobi expansion. Recent results due to Townsend, Oliver and Vasil enable the construction of sparse differential operators on the standard triangle, interoperating within the Jacobi polynomial family parameter space, and leading to low-storage, banded discrete differential operators. We generalize these results to the tetrahedra (laying the path for generalizing to $d>3$), and use the resulting differential operators to construct the Eikonal operator on the simplex. Ultimately, we must solve a non-linear PDE, and working in coefficient space implies that our solution variables must be thought of as functions. Hence, we reformulate the Eikonal problem in terms of an infinite-dimensional $L_2$ mininization problem, which can be discretized with the aforementioned  numerical quadrature. As with the README, this is more of a blog, but it's much easier to typeset math here.
 \end{abstract}
 
 % REQUIRED
@@ -77,7 +77,7 @@ The \emph{minimal} time $u(x)$ to reach the boundary $\partial \Tau^d$ from a po
 &u = q,\quad x \in \partial \Tau^d,
 	\end{cases}
 \end{equation}
-where $f : \overline{\Tau^d} \to \bb{R}_\star^+$ is the speed in the medium, $q : \partial\Tau^d \to \bb{R}^+$ is the time to leave $\Tau^d$ from a point on $\partial\Tau^d$. Splitting \eqref{eq:eikonal} into homogeneous and particular problems lends itself well to numerical approximation with optimization libraries. As such, we can solve the problem in two steps. First, solve for $u_1$ in
+where $f : \overline{\Tau^d} \to \bb{R}_\star^+$ is the speed in the medium, $q : \partial\Tau^d \to \bb{R}^+$ is the time to leave $\Tau^d$ from a point on $\partial\Tau^d$ (0 if no exit cost). Splitting \eqref{eq:eikonal} into homogeneous and particular problems lends itself well to numerical approximation with optimization libraries. As such, we can solve the problem in two steps. First, solve for $u_1$ in
 \begin{equation}
 	\begin{cases}
 	&\sum_{i = 1}^d (\partial_{x_i} u_1)^2 = \big(\frac{1}{f}^2\big),\quad x \in \Tau^d
@@ -162,7 +162,7 @@ That is, we seek to minimize the square of the gradient norm, where the squared 
 
 Parsing this equation out a bit further (condensing sub/super scripts), we have
 \begin{align*}
-&=\int_{\Tau^2} \bs{P}(\bs{x})^T (\bs{u_x}\bs{u_x}^T + \bs{u_y}\bs{u_y}^T)w(\bs{x})\bs{P}(\bs{x})d\bs{x}\\
+&=\int_{\Tau^2} \bs{P}(\bs{x})^T (\bs{u_x}\bs{u_x}^T + \bs{u_y}\bs{u_y}^T)w(\bs{x})\bs{P}(\bs{x})d\bs{x} \quad \text{ (\textbf{Only $x$ part handled below})}\\
 &=\int_{\Tau^2}\bs{P}(\bs{x})^T 
 \begin{bmatrix}
 	 u_{x,1}^2 & u_{x,1}u_{x,2} & \cdots & u_{x,1}u_{x,N}\\
@@ -182,10 +182,26 @@ u_{x,N}u_{x,1} & u_{x,N}u_{x,2} & \cdots & u_{x,N}^2
 \end{bmatrix}
 \begin{bmatrix}
 P_1(\bs{x}) \\ P_2(\bs{x}) \\ \vdots \\ P_N(\bs{x})
-\end{bmatrix}w(\bs{x})d\bs{x}
+\end{bmatrix}w(\bs{x})d\bs{x}\\
+&= \int_{\Tau^2}
+\begin{bmatrix}
+	P_1(\bs{x}) & P_2(\bs{x}) & \cdots & P_N(\bs{x})
+\end{bmatrix}
+\begin{bmatrix}
+	u_{x,1}\sum_{j=1}^N u_{x,j}P_j(\bs{x})\\
+	u_{x,2}\sum_{j=1}^N u_{x,j}P_j(\bs{x})\\
+	\vdots \\
+	u_{x,N}\sum_{j=1}^N u_{x,j}P_j(\bs{x})
+\end{bmatrix}
+w(\bs{x})d\bs{x}\\
+&=\int_{\Tau^2}
+	w(\bs{x})\sum_{k=1}^N P_k(\bs{x}) u_{x,k}\sum_{j=1}^Nu_{x,j}P_j(\bs{x}) d\bs{x} = \int_{\Tau^2}
+w(\bs{x})\sum_{k=1}^N \sum_{j=1}^N  u_{x,k}u_{x,j}P_k(\bs{x})P_j(\bs{x}) d\bs{x} \\
+&= \int_{\Tau^2}\sum_{k=1}^N u_{x,k}^2P_k^2(\bs{x})w(\bs{x}) d\bs{x} = \sum_{k=1}^N u_{x,k}^2 \int_{\Tau^2} P_k^2(\bs{x})dw(\bs{x})  \quad \text{(\textbf{ now we add back in $y$ part })}\\
+&= \sum_{k=1}^N u_{x,k}^2 + \sum_{k=1}^N u_{y,k}^2,
 \end{align*}
 
-There are some errors above which I need to address.
+where we've used the mutual orthonormality relations, which persist even within a subspace of homogeneous polynomials of degree $m$, to eliminate all off-diagonal terms in the sum. Note, not all orthonormal bases are created equal, and we normally would have to retain many outer product terms in the sum because orthonormality between vectors of the same subspace is not a given. 
 
 %The remaining integral term should result in the identity matrix of size $\text{dim}\Pi_{n-1}^2$ by the orthonormality relations. If the promotion matrices for the derivatives weren't handled correctly, this might be the source of my problems..and I may need to multiply the constant outer product term by some weights. All of this is to say that when looking at errors for convergence analysis, I need to make sure to look at my own stated definition for $\approx$, i.e. in the weighted $L_2$ sense..
 
