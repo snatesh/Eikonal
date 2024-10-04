@@ -73,14 +73,14 @@ multivariate orthogonal polynomials, spectral methods, partial differential equa
 The \emph{minimal} time $u(x)$ to reach the boundary $\partial \Tau^d$ from a point $x\in \Tau^d$ is computable through solving the Eikonal equation on $\Tau^d$:
 \begin{equation}\label{eq:eikonal}
 	\begin{cases}
-&\sum_{i = 1}^d (\partial_{x_i} u)^2 = \big(\frac{1}{f}^2\big),\quad x \in \Tau^d,\\
+&\sum_{i = 1}^d (\partial_{x_i} u)^2 = \big(\frac{1}{f}\big)^2,\quad x \in \Tau^d,\\
 &u = q,\quad x \in \partial \Tau^d,
 	\end{cases}
 \end{equation}
 where $f : \overline{\Tau^d} \to \bb{R}_\star^+$ is the speed in the medium, $q : \partial\Tau^d \to \bb{R}^+$ is the time to leave $\Tau^d$ from a point on $\partial\Tau^d$ (0 if no exit cost). Splitting \eqref{eq:eikonal} into homogeneous and particular problems lends itself well to numerical approximation with optimization libraries. As such, we can solve the problem in two steps. First, solve for $u_1$ in
 \begin{equation}
 	\begin{cases}
-	&\sum_{i = 1}^d (\partial_{x_i} u_1)^2 = \big(\frac{1}{f}^2\big),\quad x \in \Tau^d
+	&\sum_{i = 1}^d (\partial_{x_i} u_1)^2 = \big(\frac{1}{f}\big)^2,\quad x \in \Tau^d
 \end{cases}
 \end{equation}
 with no boundary constraints. Then, solve for $u_2$ in
@@ -91,8 +91,14 @@ with no boundary constraints. Then, solve for $u_2$ in
 	\end{cases}
 \end{equation}
 with trivial RHS, and non-trivial boundary constraints.
-Noting that the value of $u_1$ on the boundary is annihilated in the combined solution $$u=u_1+u_2,$$ we conclude that $u$  solves \eqref{eq:eikonal} 
+Noting that the value of $u_1$ on the boundary is annihilated in the combined solution $$u=u_1+u_2,$$ we conclude that $u$  solves \eqref{eq:eikonal}. \color{red} WRONG: I forgot to take account the fact of nonlinearity in the PDO. What we really want is
+\begin{align*}
+	\big(\frac{1}{f}\big)^2 &=\sum_{i=1}^d (\partial_{x_i} u)^2 = \sum_{i=1}^d \big(\partial_{x_i} (u_1 + u_2)\big)^2 = \sum_{i=1}^d (\partial_{x_i}u_1 + \partial_{x_i}u_2)^2\\
+	 &= \sum_{i=1}^d \partial_{x_i}u_1^2 + \partial_{x_i}u_2^2 + 2(\partial_{x_i}u_1)(\partial_{x_i}u_2)
+\end{align*}
+I missed those cross terms, which is one of the reasons I'm getting incorrect results as of now. We don't need to split the problem as such, so I will return to the original way of relying on the COBYLA algorithm for the fully constrained problem \eqref{eq:eikonal}.
 
+\color{black}
 We seek to represent $u$ under an optimal, finite, weighted $L_2$ expansion, wherein $$u(\bs{x}) \approx \sum_{j = 1}^n u_jP_j(\bs{x}) = \bs{u}\cdot \bs{P}(\bs{x}),$$
 and $\bs{u}$ is the vector in $\bb{R}^n$ of coefficients of $u$ under the elements of the basis $\bs{P}(\bs{x}) : \bb{R}^d \to \bb{R}^n$. Here $\approx$ must be taken in the sense of weighted $L_2$ convergence of the series to $u$ as $n\to \infty$.
 
