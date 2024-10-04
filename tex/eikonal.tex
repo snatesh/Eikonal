@@ -77,7 +77,7 @@ The \emph{minimal} time $u(x)$ to reach the boundary $\partial \Tau^d$ from a po
 &u = q,\quad x \in \partial \Tau^d,
 	\end{cases}
 \end{equation}
-where $f : \overline{\Tau^d} \to \bb{R}_\star^+$ is the speed in the medium, $q : \partial\Tau^d \to \bb{R}^+$ is the time to leave $\Tau^d$ from a point on $\partial\Tau^d$ (0 if no exit cost). Splitting \eqref{eq:eikonal} into homogeneous and particular problems lends itself well to numerical approximation with optimization libraries. As such, we can solve the problem in two steps. First, solve for $u_1$ in
+where $f : \overline{\Tau^d} \to \bb{R}_\star^+$ is the speed in the medium, $q : \partial\Tau^d \to \bb{R}^+$ is the time to leave $\Tau^d$ from a point on $\partial\Tau^d$ ($q \equiv 0$ if no exit cost). Splitting \eqref{eq:eikonal} into homogeneous and particular problems lends itself well to numerical approximation with optimization libraries. As such, we can solve the problem in two steps. First, solve for $u_1$ in
 \begin{equation}
 	\begin{cases}
 	&\sum_{i = 1}^d (\partial_{x_i} u_1)^2 = \big(\frac{1}{f}\big)^2,\quad x \in \Tau^d
@@ -120,11 +120,11 @@ with $a,b,c > -1/2$ the Jacobi parameters, and $|\kappa| = a+b+c$. The orthonorm
 \end{equation}
 and they satisfy a mutual orthonormality condition under the weighted inner product:
 \begin{equation}\label{eq:koornorth}
-	\langle P_j^m,P_k^n\rangle_W = \delta_{jk}\delta_{mn}. 
+	\langle P_{j,m}^{(a,b,c)},P_{k,n}^{(a,b,c)}\rangle_{w^{(a,b,c)}} = \delta_{jk}\delta_{mn}. 
 \end{equation}
-That is to say, a given polynomial is not only orthonormal to those with different total degree, but also to those of the same degree. Notice, $P_k^n,\s0\leq k\leq n$ forms a basis for the space of homogeneous polynomials of degree $n$. By considering ordered collections of these subspaces, ordered by the degree $n$ of the space, instead of individual polynomials, we can more elegantly reformulate the Eikonal problem into a weak-type form. Let $$\bb{P}_n(x_1,x_2) = (P_0^n(x_1,x_2),\cdots P_n^n(x_1,x_2))^T,$$ and let $$\bs{P} = (\bb{P}_0^T,\bb{P}_1^T,\cdots,\bb{P}_{n-1}^T)^T.$$ The above notation amounts to a vectorization of the basis for the general space of polynomials in two variables $\Pi_{n-1}^2$ defined of $\Tau^2$.
+That is to say, a given basis polynomial is not only orthonormal to those with different total degree, but also to those others within the same-degree homogeneous subspace with that degree. Notice, $P_k^n,\s0\leq k\leq n$ forms a basis for the space of homogeneous polynomials of degree $n$. By considering ordered collections of these subspaces (where ordering is in terms of the degree $n$ of the space), instead of individual polynomials, we can more elegantly reformulate the Eikonal problem into a weak-type form. Let $$\bb{P}_n(x_1,x_2) = (P_0^n(x_1,x_2),\cdots P_n^n(x_1,x_2))^T,$$ and let $$\bs{P} = (\bb{P}_0^T,\bb{P}_1^T,\cdots,\bb{P}_{n-1}^T)^T.$$ The above notation amounts to a vectorization of the basis for the general space of polynomials in two variables $\Pi_{n-1}^2$ defined of $\Tau^2$.
 
-Now, consider the $(n-1)$ order Jacobi polynomial expansion of the solution $u$ under the parameter family $(a,b,c)$. For $\bs{x} \in \Tau^d$, and $\text{dim}\Pi_{n-1}^2$ coefficients $\bs{u}$, we can write it as 
+Now, consider the $(n-1)$ order Jacobi polynomial expansion of the solution $u$ under the parameter family $(a,b,c)$. For $\bs{x} \in \Tau^d$, and $N = \text{dim}\Pi_{n-1}^2$ coefficients $\bs{u} \in \bb{R}^N$, we can write it as 
 \begin{equation}
 	u(\bs{x}) = \bs{P}^{a,b,c}(\bs{x})^T\bs{u}.
 \end{equation}

@@ -12,15 +12,20 @@ def finv(X, Y):
   #centY = 1./3.
   #return 1./(np.exp(-( (X-centX)**2 + (Y-centY)**2 )) * X * Y)
 
-opsH = eikonal(finv, 0.5, 0.5, 0.5, 14, 16, 6)
-cu_optH = opsH.solveH()
-ul = opsH.vl.dot(cu_optH)
-ub = opsH.vb.dot(cu_optH)
-uh = opsH.vh.dot(cu_optH)
-opsP = eikonal(fzero, 0.5, 0.5, 0.5, 14, 16, 6)
-cu_optP = opsP.solveP(ul, ub, uh)
+#opsH = eikonal(finv, 0.5, 0.5, 0.5, 14, 16, 6)
+#cu_optH = opsH.solveH()
+#ul = opsH.vl.dot(cu_optH)
+#ub = opsH.vb.dot(cu_optH)
+#uh = opsH.vh.dot(cu_optH)
+#opsP = eikonal(fzero, 0.5, 0.5, 0.5, 14, 16, 6)
+ops = eikonal(finv, 0.5, 0.5, 0.5, 14, 16, 6)
+ul = np.zeros((ops.N,))#opsP.vl.dot(cu_optH)
+ub = np.zeros((ops.N,))#opsP.vb.dot(cu_optH)
+uh = np.zeros((ops.N,))#opsP.vh.dot(cu_optH)
 
-cu_opt = cu_optH + cu_optP
+cu_opt = ops.solveP(ul, ub, uh)
+
+#cu_opt = cu_optH + cu_optP
 
 def distToHyp(X,Y):
   xmy = X-Y
@@ -48,8 +53,8 @@ Zfine = np.loadtxt("triquadleg_n22_m34_N276.txt")
 Nfine = 276; 
 Xfine = Zfine[0:Nfine]; 
 Yfine = Zfine[Nfine:2*Nfine] 
-jP = jPoly(Nfine, opsH.n, opsH.a, opsH.b, opsH.c, 4)
-Vfine = computeV(jP, opsH.N, Xfine, Yfine)
+jP = jPoly(Nfine, ops.n, ops.a, ops.b, ops.c, 4)
+Vfine = computeV(jP, ops.N, Xfine, Yfine)
 tmins = Vfine.dot(cu_opt); tmins = tmins / np.max(tmins)
 dmins = u(Xfine, Yfine); dmins = dmins / np.max(dmins)
 
