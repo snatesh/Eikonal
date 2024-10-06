@@ -137,15 +137,14 @@ There exists sparse discrete operators which map $\bs{u}$ to the coefficients of
 	\end{split}
 \end{equation}
 
-Inserting this into the homogeneous constraint Eikonal equation gives
+Inserting this into the fully constrained Eikonal equation gives
 \begin{align}\label{eq:eikpdcoef}
-	0 = &\big(\bs{P}^{(a+1,b+1,c+1)}(\bs{x})^T\mathcal{K}_{(a+1,b,c+1)}^{(a+1,b+1,c+1)}\mathcal{D}_{x_1}\bs{u}\big)^2 +\nonumber \\ &\big(\bs{P}^{(a+1, b+1,c+1)}(\bs{x})^T\mathcal{K}_{(a,b+1,c+1)}^{(a+1,b+1,c+1)}\mathcal{D}_{x_2}\bs{u}\big)^2 \nonumber \\
-	=
+	&\Big(\bs{P}^{(a+1,b+1,c+1)}(\bs{x})^T\mathcal{K}_{(a,b,c)}^{(a+1,b+1,c+1)}\bs{c}_{\frac{1}{f}}\Big)^2 =\\ &\big(\bs{P}^{(a+1,b+1,c+1)}(\bs{x})^T\mathcal{K}_{(a+1,b,c+1)}^{(a+1,b+1,c+1)}\mathcal{D}_{x_1}\bs{u}\big)^2 +\nonumber \\ &\big(\bs{P}^{(a+1, b+1,c+1)}(\bs{x})^T\mathcal{K}_{(a,b+1,c+1)}^{(a+1,b+1,c+1)}\mathcal{D}_{x_2}\bs{u}\big)^2 = \nonumber \\
 	 &\bs{P}^{(a+1,b+1,c+1)}(\bs{x})^T\big(\mathcal{\tilde{D}}_{x_1}\bs{u}\bs{u}^T\mathcal{\tilde{D}}_{x_1}^T + \mathcal{\tilde{D}}_{x_2}\bs{u}\bs{u}^T\mathcal{\tilde{D}}_{x_2}^T \big)\bs{P}^{(a+1,b,c+1)}(\bs{x}),
 \end{align}
-where $$\mathcal{\tilde{D}}_{x_1} = \mathcal{K}_{(a+1,b,c+1)}^{(a+1,b+1,c+1)}\mathcal{D}_{x_1},$$ and $$\mathcal{\tilde{D}}_{x_2} = \mathcal{K}_{(a,b+1,c+1)}^{(a+1,b+1,c+1)}\mathcal{D}_{x_2}.$$ The above equality holds for any point $\bs{x}\in \Tau^2$. So, for a solution $\bs{u}$, the coefficient operation must be identically zero:
+where $$\mathcal{\tilde{D}}_{x_1} = \mathcal{K}_{(a+1,b,c+1)}^{(a+1,b+1,c+1)}\mathcal{D}_{x_1},\quad \mathcal{\tilde{D}}_{x_2} = \mathcal{K}_{(a,b+1,c+1)}^{(a+1,b+1,c+1)}\mathcal{D}_{x_2}$$ and, the coefficients of $(1/f)$ are represented as $\bs{c}_{\frac{1}{f}}$ but promoted to the $(a+1,b+1,c+1)$ Jacobi basis. We let $\tilde{\cdot}$ indicate promotion \emph{to} $(a+1,b+1,c+1)$ from any other parameter set. The above equality holds for any point $\bs{x}\in \Tau^2$. So, for a solution $\bs{u}$, the coefficient operation must be such that:
 \begin{equation}\label{eq:eikdcoef}
-	\big(\mathcal{\tilde{D}}_{x_1}\bs{u}\bs{u}^T\mathcal{\tilde{D}}_{x_1}^T + \mathcal{\tilde{D}}_{x_2}\bs{u}\bs{u}^T\mathcal{\tilde{D}}_{x_2}^T \big) \equiv 0.
+	\big(\mathcal{\tilde{D}}_{x_1}\bs{u}\bs{u}^T\mathcal{\tilde{D}}_{x_1}^T + \mathcal{\tilde{D}}_{x_2}\bs{u}\bs{u}^T\mathcal{\tilde{D}}_{x_2}^T \big) = \tilde{\bs{c}}_{\frac{1}{f}}\tilde{\bs{c}}_{\frac{1}{f}}^T .
 \end{equation}
  Now, we seek a coefficient solution $\bs{u}$ which represents the solution \emph{globally} in $\Tau^2$. However, polynomials are differentiable, and some of the problems we are interested in yield non-differentiable solutions. This is true even in the most basic case of $f \equiv 1$, in which $u$ is the signed distance function from $\bs{x}$ to $\partial\Tau^2$, depicted below:
 
@@ -159,16 +158,17 @@ where $$\mathcal{\tilde{D}}_{x_1} = \mathcal{K}_{(a+1,b,c+1)}^{(a+1,b+1,c+1)}\ma
 We cannot hope to recover a solution $\bs{u}$ which  satisfies \eqref{eq:eikdcoef} to machine precision, as that would imply the global solution has zero residual \emph{pointwise} everywhere. Hence, we must return to \eqref{eq:eikpdcoef}, and consider solving it weakly, in the sense of:
 \begin{equation}\label{eq:eikonalweak}
 	\begin{split}
-		0&\approx\\
-\int_{\Tau^2}w^{(a+1,b+1,c+1)}&(\bs{x})\bs{P}^{(a+1,b+1,c+1)}(\bs{x})^T\big(\mathcal{\tilde{D}}_{x_1}\bs{u}\bs{u}^T\mathcal{\tilde{D}}_{x_1}^T + \mathcal{\tilde{D}}_{x_2}\bs{u}\bs{u}^T\mathcal{\tilde{D}}_{x_2}^T \big)\bs{P}^{(a+1,b+1,c+1)}(\bs{x})d\bs{x}\\
+		&\int_{\Tau^2} w^{(a+1,b+1,c+1)}(\bs{x})\bs{P}^{(a+1,b+1,c+1)}(\bs{x})^T\tilde{\bs{c}}_{\frac{1}{f}}\tilde{\bs{c}}_{\frac{1}{f}}^T \bs{P}^{(a+1,b+1,c+1)}(\bs{x})d\bs{x}
+		\approx ||1/f||_{w_{(a+1,b+1,c+1)}}^2\\&\approx
+\int_{\Tau^2}w^{(a+1,b+1,c+1)}(\bs{x})\bs{P}^{(a+1,b+1,c+1)}(\bs{x})^T\big(\mathcal{\tilde{D}}_{x_1}\bs{u}\bs{u}^T\mathcal{\tilde{D}}_{x_1}^T + \mathcal{\tilde{D}}_{x_2}\bs{u}\bs{u}^T\mathcal{\tilde{D}}_{x_2}^T \big)\bs{P}^{(a+1,b+1,c+1)}(\bs{x})d\bs{x}\\
 &\approx ||\partial_x u||_{w^{(a+1,b+1,c+1)}}^2 +  ||\partial_y u||_{w^{(a+1,b+1,c+1)}}^2.
 	\end{split}
 \end{equation}
-That is, we seek to minimize the square of the gradient norm, where the squared norm is viewed as a function in $L^2(\Tau^2,w^{(a+1,b+1,c+1)})$. Incorporating non-zero RHS of the Eikonal problem amounts to subtracting the outer-product of coefficients (promoted to $(a+1,b+1,c+1)$ ) of $(1/f)$ from the constant vector parenthetical term in \eqref{eq:eikonalweak}.
+Here the norm is viewed as that of a function in $L^2(\Tau^2,w^{(a+1,b+1,c+1)})$.  
 
 Parsing this equation out a bit further (condensing sub/super scripts), we have
 \begin{align*}
-&=\int_{\Tau^2} \bs{P}(\bs{x})^T (\bs{u_x}\bs{u_x}^T + \bs{u_y}\bs{u_y}^T)w(\bs{x})\bs{P}(\bs{x})d\bs{x} \quad \text{ (\textbf{Only $x$ part handled below})}\\
+&\int_{\Tau^2} \bs{P}(\bs{x})^T (\bs{u_x}\bs{u_x}^T + \bs{u_y}\bs{u_y}^T)w(\bs{x})\bs{P}(\bs{x})d\bs{x} \quad \text{ (\textbf{Only $x$ part handled below})}\\
 &=\int_{\Tau^2}\bs{P}(\bs{x})^T 
 \begin{bmatrix}
 	 u_{x,1}^2 & u_{x,1}u_{x,2} & \cdots & u_{x,1}u_{x,N}\\
@@ -204,10 +204,30 @@ w(\bs{x})d\bs{x}\\
 	w(\bs{x})\sum_{k=1}^N P_k(\bs{x}) u_{x,k}\sum_{j=1}^Nu_{x,j}P_j(\bs{x}) d\bs{x} = \int_{\Tau^2}
 w(\bs{x})\sum_{k=1}^N \sum_{j=1}^N  u_{x,k}u_{x,j}P_k(\bs{x})P_j(\bs{x}) d\bs{x} \\
 &= \int_{\Tau^2}\sum_{k=1}^N u_{x,k}^2P_k^2(\bs{x})w(\bs{x}) d\bs{x} = \sum_{k=1}^N u_{x,k}^2 \int_{\Tau^2} P_k^2(\bs{x})dw(\bs{x})  \quad \text{(\textbf{ now we add back in $y$ part })}\\
-&= \sum_{k=1}^N u_{x,k}^2 + \sum_{k=1}^N u_{y,k}^2,
+&= \sum_{k=1}^N u_{x,k}^2 + \sum_{k=1}^N u_{y,k}^2 \\
+&= \bs{u}^T(\mathcal{\tilde D}_x^T\mathcal{\tilde D}_x + \mathcal{\tilde D}_y^T \mathcal{\tilde D}_y) \bs{u} = \tilde{\bs{c}}_{\frac{1}{f}}^T\tilde{\bs{c}}_{\frac{1}{f}}
 \end{align*}
 
 where we've used the mutual orthonormality relations, which persist even within a subspace of homogeneous polynomials of degree $m$, to eliminate all off-diagonal terms in the sum. Note, not all orthonormal bases are created equal, and we normally would have to retain many outer product terms in the sum because orthonormality between vectors of the same subspace is not a given. 
+
+Hence, we can frame the discrete Eikonal solver in terms of a quadratic program with equality constraints:
+
+\begin{equation}
+	\begin{split}
+		&\min_{\bs{u}\in \bb{R}^n} \frac{1}{2}\bs{u}^T G \bs{u} + \bs{u}^T c\\
+		&\text{subject to } A\bs{u} = b,
+	\end{split}
+\end{equation}
+where $G = \mathcal{\tilde D}_x^T\mathcal{\tilde D}_x + \mathcal{\tilde D}_y^T \mathcal{\tilde D}_y \in \bb{R}^{N\times N}$ is symmetric, and we need to derive the form of $A$ for enforcing conditions on the boundary. \color{red} If $u$ is the time to exit, and $f$ is the speed in the medium, then there must be a way to write $f$ in terms of $u$, so that we can cast the problem completely as a QP. However, this is a non-linear relation, so I'm not sure yet how to do this with linear operations. Perhaps we proceed weakly as
+\begin{equation}
+	||fu||_{L^2(\Tau^2,w^{(a+1,b+1,c+1)})} = \alpha
+\end{equation}
+and use Parseval's theorem? Then, $||fu|| = \bs{}$ ... I'm tired and need to think/sleep/think tomorrow. But, I'm hoping that we can let $c\equiv 0$, and incorporate the speed into the constraint relation.
+
+\color{black}
+	
+
+
 
 %The remaining integral term should result in the identity matrix of size $\text{dim}\Pi_{n-1}^2$ by the orthonormality relations. If the promotion matrices for the derivatives weren't handled correctly, this might be the source of my problems..and I may need to multiply the constant outer product term by some weights. All of this is to say that when looking at errors for convergence analysis, I need to make sure to look at my own stated definition for $\approx$, i.e. in the weighted $L_2$ sense..
 
