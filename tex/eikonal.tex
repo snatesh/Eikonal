@@ -1,6 +1,7 @@
 % SIAM Article Template
 
-\documentclass[review,hidelinks,onefignum,onetabnum]{siamart220329}
+\documentclass[article,hidelinks,onefignum,onetabnum]{siamart220329}
+%\documentclass[review,hidelinks,onefignum,onetabnum]{siamart220329}
 \newcommand{\bs}{\boldsymbol}
 \newcommand{\eps}{\varepsilon}
 \newcommand{\s}{\;}
@@ -77,31 +78,9 @@ The \emph{minimal} time $u(x)$ to reach the boundary $\partial \Tau^d$ from a po
 &u = q,\quad x \in \partial \Tau^d,
 	\end{cases}
 \end{equation}
-where $f : \overline{\Tau^d} \to \bb{R}_\star^+$ is the speed in the medium, $q : \partial\Tau^d \to \bb{R}^+$ is the time to leave $\Tau^d$ from a point on $\partial\Tau^d$ ($q \equiv 0$ if no exit cost). Splitting \eqref{eq:eikonal} into homogeneous and particular problems lends itself well to numerical approximation with optimization libraries. As such, we can solve the problem in two steps. First, solve for $u_1$ in
-\begin{equation}
-	\begin{cases}
-	&\sum_{i = 1}^d (\partial_{x_i} u_1)^2 = \big(\frac{1}{f}\big)^2,\quad x \in \Tau^d
-\end{cases}
-\end{equation}
-with no boundary constraints. Then, solve for $u_2$ in
-\begin{equation}
-	\begin{cases}
-	&\sum_{i = 1}^d (\partial_{x_i} u_2)^2 = 0,\quad x \in \Tau^d\\
-	&u_2 = q - u_1,\quad x \in \partial \Tau^d,
-	\end{cases}
-\end{equation}
-with trivial RHS, and non-trivial boundary constraints.
-Noting that the value of $u_1$ on the boundary is annihilated in the combined solution $$u=u_1+u_2,$$ we conclude that $u$  solves \eqref{eq:eikonal}. \color{red} WRONG: I forgot to take account the fact of nonlinearity in the PDO. What we really want is
-\begin{align*}
-	\big(\frac{1}{f}\big)^2 &=\sum_{i=1}^d (\partial_{x_i} u)^2 = \sum_{i=1}^d \big(\partial_{x_i} (u_1 + u_2)\big)^2 = \sum_{i=1}^d (\partial_{x_i}u_1 + \partial_{x_i}u_2)^2\\
-	 &= \sum_{i=1}^d \partial_{x_i}u_1^2 + \partial_{x_i}u_2^2 + 2(\partial_{x_i}u_1)(\partial_{x_i}u_2)
-\end{align*}
-I missed those cross terms, which is one of the reasons I'm getting incorrect results as of now. We don't need to split the problem as such, so I will return to the original way of relying on the COBYLA algorithm for the fully constrained problem \eqref{eq:eikonal}.
-
-\color{black}
-We seek to represent $u$ under an optimal, finite, weighted $L_2$ expansion, wherein $$u(\bs{x}) \approx \sum_{j = 1}^n u_jP_j(\bs{x}) = \bs{u}\cdot \bs{P}(\bs{x}),$$
-and $\bs{u}$ is the vector in $\bb{R}^n$ of coefficients of $u$ under the elements of the basis $\bs{P}(\bs{x}) : \bb{R}^d \to \bb{R}^n$. Here $\approx$ must be taken in the sense of weighted $L_2$ convergence of the series to $u$ as $n\to \infty$.
-
+where $f : \overline{\Tau^d} \to \bb{R}_\star^+$ is the speed in the medium, $q : \partial\Tau^d \to \bb{R}^+$ is the time to leave $\Tau^d$ from a point on $\partial\Tau^d$. We seek to represent $u$ under an optimal, finite, weighted $L_2$ expansion, wherein $$u(\bs{x}) \approx \sum_{j = 1}^n u_jP_j(\bs{x}) = \bs{u}\cdot \bs{P}(\bs{x}),$$
+and $\bs{u}$ is the vector in $\bb{R}^n$ of coefficients of $u$ under the elements of the basis $\bs{P}(\bs{x}) : \bb{R}^d \to \bb{R}^n$. Here $\approx$ must be taken in the sense of weighted $L_2$ convergence of the series to $u$ as $n\to \infty$. For the typical case of $q\equiv 0$ (i.e. time to boundary is 0 if on the boundary), we employ a weighted basis which evaluates to 0 on the boundary, thereby naturally satisfying homogeneous Dirichlet conditions. 
+\subsection{Jacobi bases on the Triangle}{}
 Let us specialize for $d=2$. By $P_k^n$, we denote the $k^{\text{th}}$ Jacobi polynomial on the triangle of degree $n$ with parameters $(a,b,c)$. When the parameters must be specified, we will refer to the same polynomial by $P_{k,n}^{(a,b,c)}$. The weight function is
 \begin{equation}\label{eq:koornweight}
 	\begin{split}
@@ -126,7 +105,7 @@ That is to say, a given basis polynomial is not only orthonormal to those with d
 
 Now, consider the $(n-1)$ order Jacobi polynomial expansion of the solution $u$ under the parameter family $(a,b,c)$. For $\bs{x} \in \Tau^d$, and $N = \text{dim}\Pi_{n-1}^2$ coefficients $\bs{u} \in \bb{R}^N$, we can write it as 
 \begin{equation}
-	u(\bs{x}) = \bs{P}^{a,b,c}(\bs{x})^T\bs{u}.
+	u(\bs{x}) = \bs{P}^{(a,b,c)}(\bs{x})^T\bs{u}.
 \end{equation}
 There exists sparse discrete operators which map $\bs{u}$ to the coefficients of the derivative of $u$ under a modified basis, as well as those which promote the basis parameters without taking derivatives:
 \begin{equation}
@@ -164,7 +143,7 @@ We cannot hope to recover a solution $\bs{u}$ which  satisfies \eqref{eq:eikdcoe
 &\approx ||\partial_x u||_{w^{(a+1,b+1,c+1)}}^2 +  ||\partial_y u||_{w^{(a+1,b+1,c+1)}}^2.
 	\end{split}
 \end{equation}
-Here the norm is viewed as that of a function in $L^2(\Tau^2,w^{(a+1,b+1,c+1)})$.  
+Here, the norm is viewed as that of a function in $L^2(\Tau^2,w^{(a+1,b+1,c+1)})$.  
 
 Parsing this equation out a bit further (condensing sub/super scripts), we have
 \begin{align*}
@@ -205,26 +184,75 @@ w(\bs{x})d\bs{x}\\
 w(\bs{x})\sum_{k=1}^N \sum_{j=1}^N  u_{x,k}u_{x,j}P_k(\bs{x})P_j(\bs{x}) d\bs{x} \\
 &= \int_{\Tau^2}\sum_{k=1}^N u_{x,k}^2P_k^2(\bs{x})w(\bs{x}) d\bs{x} = \sum_{k=1}^N u_{x,k}^2 \int_{\Tau^2} P_k^2(\bs{x})dw(\bs{x})  \quad \text{(\textbf{ now we add back in $y$ part })}\\
 &= \sum_{k=1}^N u_{x,k}^2 + \sum_{k=1}^N u_{y,k}^2 \\
-&= \bs{u}^T(\mathcal{\tilde D}_x^T\mathcal{\tilde D}_x + \mathcal{\tilde D}_y^T \mathcal{\tilde D}_y) \bs{u} = \tilde{\bs{c}}_{\frac{1}{f}}^T\tilde{\bs{c}}_{\frac{1}{f}}
+&= \bs{u}^T(\mathcal{\tilde D}_x^T\mathcal{\tilde D}_x + \mathcal{\tilde D}_y^T \mathcal{\tilde D}_y) \bs{u} = \tilde{\bs{c}}_{\frac{1}{f}}^T\tilde{\bs{c}}_{\frac{1}{f}},
 \end{align*}
-
 where we've used the mutual orthonormality relations, which persist even within a subspace of homogeneous polynomials of degree $m$, to eliminate all off-diagonal terms in the sum. Note, not all orthonormal bases are created equal, and we normally would have to retain many outer product terms in the sum because orthonormality between vectors of the same subspace is not a given. 
 
-Hence, we can frame the discrete Eikonal solver in terms of a quadratic program with equality constraints:
+Thus, we want to solve the following quadratic program with equality constraints:
 
-\begin{equation}
-	\begin{split}
-		&\min_{\bs{u}\in \bb{R}^n} \frac{1}{2}\bs{u}^T G \bs{u} + \bs{u}^T c\\
-		&\text{subject to } A\bs{u} = b,
-	\end{split}
+\begin{align*}
+	\min_{\bs{u}\in \bb{R}^N}F(\bs{u}) = \frac{1}{2}\big(\bs{u}^T G \bs{u} - \tilde{\bs{c}}_{\frac{1}{f}}^T\tilde{\bs{c}}_{\frac{1}{f}}\big)\\
+	\text{subject to }\quad  \bs{u} \cdot \bs{P}(\bs{x}) = 0,\quad \bs{x} \in \partial \Omega,
+\end{align*}
+where $G = \mathcal{\tilde D}_x^T\mathcal{\tilde D}_x + \mathcal{\tilde D}_y^T \mathcal{\tilde D}_y \in \bb{R}^{N\times N}$ is symmetric and positive semi-definite \footnote{Note, $\forall \bs{x}\in \bb{R}^{n^+}_\star, \bs{x}^T G \bs{x} = \bs{x}^T\mathcal{\tilde D}_x ^T \mathcal{\tilde D}_x\bs{x} + \bs{x}^T\mathcal{\tilde D}_y ^T \mathcal{\tilde D}_y\bs{x} = ||\mathcal{\tilde{D}}_x\bs{x}||^2 + ||\mathcal{\tilde D}_y\bs{x}||^2 \geq 0$. We have equality only for any $\bs{x} = \alpha \bs{e}_1$, as derivatives of the constant polynomial are 0.}. The gradient and Hessian of $F$ are given by
+\begin{align}
+	\nabla_{\bs{u}}F(\bs{u}) &= G\bs{u},\\
+	\nabla^2_{\bs{u}}F(\bs{u}) &= G,
+\end{align}
+and we still need to consider the constraint equation. However, by making use of a weighted basis $\bs{\tilde{P}}(\bs{x})$, and expressing our solution coefficients and differential operators in terms of this weighted basis, we can eliminate the constraint equation and solve a completely unconstrained quadratic optimization problem. 
+\subsubsection{The weighted Jacobi basis}
+The weighted basis 
+\begin{equation}\label{eq:wbasis}
+	\tilde{\bs{P}}^{(a,b,c)}(x,y) = x^{a-\frac{1}{2}}y^{b-\frac{1}{2}}(1-x-y)^{c-\frac{1}{2}}\bs{P}^{(a,b,c)}
 \end{equation}
-where $G = \mathcal{\tilde D}_x^T\mathcal{\tilde D}_x + \mathcal{\tilde D}_y^T \mathcal{\tilde D}_y \in \bb{R}^{N\times N}$ is symmetric, and we need to derive the form of $A$ for enforcing conditions on the boundary. \color{red} If $u$ is the time to exit, and $f$ is the speed in the medium, then there must be a way to write $f$ in terms of $u$, so that we can cast the problem completely as a QP. However, this is a non-linear relation, so I'm not sure yet how to do this with linear operations. Perhaps we proceed weakly as
-\begin{equation}
-	||fu||_{L^2(\Tau^2,w^{(a+1,b+1,c+1)})} = \alpha
-\end{equation}
-and use Parseval's theorem? Then, $||fu|| = \bs{}$ ... I'm tired and need to think/sleep/think tomorrow. But, I'm hoping that we can let $c\equiv 0$, and incorporate the speed into the constraint relation. Or, we require that the fist coefficient of $u$ is 1, i.e. that the constant polynomial has non-zero contribution to the expansion. Then, $c$ could just be $\text{1/speed} \times \bs{e}_1$, or something like that?
+will prove useful for incorporating boundary conditions to the discrete operator, while preserving its sparsity. This is accomplished using the following weighted ladder operators corresponding to differentiation of the weighted basis:
+\begin{align}
+	-(2k+b+c+1)h_{k,n}^{(a,b,c)}\partial_x\tilde{P}_{k,n}^{(a,b,c)} &=  (k+c)(n-k+1)h_{k,n+1}^{(a-1,b,c-1)}\tilde{P}_{k,n+1}^{(a-1,b,c-1)} \nonumber \\&+ (k+1)(n-k+a)h_{k+1,n+1}^{(a-1,b,c-1)}\tilde{P}_{k+1,n+1}^{(a-1,b,c-1)}\\
+	h_{k,n}^{(a,b,c)}\partial_y\tilde{P}_{k,n}^{(a,b,c)} &= -(k+1)h_{k+1,n+1}^{(a,b-1,c-1)}\tilde{P}_{k+1,n+1}^{(a,b-1,c-1)}.
+\end{align}
+If $\bs{f}$ are the coefficients of $f$ under the $(a,b,c)$  basis, then we have sparse banded matrices $\mathcal{W}_{x,(a,b,c)}^{(a-1,b,c-1)},\mathcal{W}_{y,(a,b,c)}^{(a,b-1,c-1)}$ such that
+\begin{align}
+	\partial_x [x^{a-\frac{1}{2}}y^{b-\frac{1}{2}}(1-x-y)^{c-\frac{1}{2}}f(x,y)] &= \partial_x (\tilde{\bs{P}}^{(a,b,c)}(x,y)^T\bs{f}) \\&= \tilde{\bs{P}}^{(a-1,b,c-1)}(x,y)^T \mathcal{W}_{x,(a,b,c)}^{(a-1,b,c-1)}\bs{f}, \nonumber\\
+	\partial_y [x^{a-\frac{1}{2}}y^{b-\frac{1}{2}}(1-x-y)^{c-\frac{1}{2}}f(x,y)] &= \partial_y (\tilde{\bs{P}}^{(a,b,c)}(x,y)^T\bs{f}) \\ &= \tilde{\bs{P}}^{(a,b-1,c-1)}(x,y)^T \mathcal{W}_{y,(a,b,c)}^{(a,b-1,c-1)}\bs{f} \nonumber
+\end{align}
+\subsubsection{Lowering operators}{}
+Additionally, we have lowering operators which relate $xP_{k,n}^{(a,b,c)}$ to $P_{k,n}^{(a-1,b,c)}$ and $yP_{k,n}^{(a,b,c)}$ to $P_{k,n}^{(a,b-1,c)}$. These are given by the following recurrences:
+\begin{align}
+	(2n+a+b+c+2)h_{k,n}^{(a,b,c)}xP_{k,n}^{(a,b,c)} &= (n-k+a)h_{k,n}^{(a-1,b,c)}P_{k,n}^{(a-1,b,c)} \\ &+ (n-k+1)h_{k,n+1}^{(a-1,b,c)}P_{k,n+1}^{(a-1,b,c)},\\
+	(2k+b+c+1)(2n+a+b+c+2)h_{k,n}^{(a,b,c)}yP_{k,n}^{(a,b,c)} &= (k+b)(n+k+b+c+1)h_{k,n}^{(a,b-1,c)}P_{k,n}^{(a,b-1,c)} \nonumber \\
+	&-(k+1)(n-k+a)h_{k+1,n}^{(a,b-1,c)}P_{k+1,n}^{(a,b-1,c)} \nonumber \\
+	&-(k+b)(n-k+1)h_{k,n+1}^{(a,b-1,c)}P_{k,n+1}^{(a,b-1,c)} \nonumber \\
+	&+(k+1)(n+k+a+b+c+2)h_{k+1,n+1}^{(a,b-1,c)}P_{k+1,n+1}^{(a,b-1,c)}.
+\end{align}
+So, there are sparse banded matrices $\mathcal{L}_{(a,b,c)}^{(a-1,b,c)}$ and $\mathcal{L}_{(a,b,c)}^{(a,b-1,c)}$ corresponding to multiplication by $x$ and $y$, respectively, such that
+\begin{align}
+	xf(x,y) &= x\bs{P}^{(a,b,c)}(x,y)^T\bs{f} = \bs{P}^{(a-1,b,c)}(x,y)^T\mathcal{L}_{(a,b,c)}^{(a-1,b,c)}\bs{f},\\
+	yf(x,y) &= y\bs{P}^{(a,b,c)}(x,y)^T\bs{f} = \bs{P}^{(a,b-1,c)}(x,y)^T\mathcal{L}_{(a,b,c)}^{(a,b-1,c)}\bs{f}.
+\end{align}
+We will construct the modal Eikonal operator which operates on coefficients under the basis $\tilde{\bs{P}}^{(3/2,3/2,3/2)}$ and produces coefficients under $\bs{P}^{(3/2,3/2,3/2)}$. Note, \emph{the conversion from the weighted to regular Jacobi basis depends on our choice of parameters $a=b=c=3/2$}. With $\bs{f}$ the coefficients of $f(x,y)$ in the $(a,b,c)$ basis, 
+\begin{align*}
+	\partial_x f(x,y) &= \tilde{\bs{P}}^{(a-1,b,c-1)}(x,y)^T \mathcal{W}_{x,(a,b,c)}^{(a-1,b,c-1)}\bs{f} \\
+	& = x^{a-\frac{3}{2}}y^{b-\frac{3}{2}}(1-x-y)^{c-\frac{3}{2}}\big(y\bs{P}^{(a-1,b,c-1)}(x,y)\big)^T(\mathcal{W}_{x,(a,b,c)}^{(a-1,b,c-1)}\bs{f})\\
+	&= x^{a-\frac{3}{2}}y^{b-\frac{3}{2}}(1-x-y)^{c-\frac{3}{2}}\bs{P}^{(a-1,b-1,c-1)}(x,y)^T(\mathcal{L}_{(a-1,b,c-1)}^{(a-1,b-1,c-1)}\mathcal{W}_{x,(a,b,c)}^{(a-1,b,c-1)}\bs{f}),\\
+	\partial_y f(x,y) &= \tilde{\bs{P}}^{(a,b-1,c-1)}(x,y)^T \mathcal{W}_{y,(a,b,c)}^{(a,b-1,c-1)}\bs{f} \\
+	&= x^{a-\frac{3}{2}}y^{b-\frac{3}{2}}(1-x-y)^{c-\frac{3}{2}}\big(x\bs{P}^{(a,b-1,c-1)}(x,y)\big)^T(\mathcal{W}_{y,(a,b,c)}^{(a,b-1,c-1)}\bs{f})\\
+	&=x^{a-\frac{3}{2}}y^{b-\frac{3}{2}}(1-x-y)^{c-\frac{3}{2}}\bs{P}^{(a-1,b-1,c-1)}(x,y)^T(\mathcal{L}_{(a,b-1,c-1)}^{(a-1,b-1,c-1)}\mathcal{W}_{y,(a,b,c)}^{(a,b-1,c-1)}\bs{f})
+\end{align*}
+When $a=b=c=3/2$, we have 
+\begin{align*}
+	\partial_x f(x,y) &=  \bs{P}^{(a-1,b-1,c-1)}(x,y)^T(\mathcal{L}_{(a-1,b,c-1)}^{(a-1,b-1,c-1)}\mathcal{W}_{x,(a,b,c)}^{(a-1,b,c-1)}\bs{f}),\\
+	\partial_yf(x,y) &= \bs{P}^{(a-1,b-1,c-1)}(x,y)^T(\mathcal{L}_{(a,b-1,c-1)}^{(a-1,b-1,c-1)}\mathcal{W}_{y,(a,b,c)}^{(a,b-1,c-1)}\bs{f}),
+\end{align*}
+\subsection{Numerical solution to the Eikonal equation}
 
-\color{black}
+
+The process for solving \eqref{eq:eikonal} with zero Dirichlet conditions is as follows:
+\begin{itemize}
+	\item Expand the right-hand side $f(x,y)$ in the basis $\bs{P}^{(\frac{3}{2},\frac{3}{2},\frac{3}{2})}$ by first computing the coefficients in $\bs{P}^{(\frac{1}{2},\frac{1}{2},\frac{1}{2})}$ and promoting them by composing the three single-parameter promotion matrices. 
+	\item Assemble $\Delta_W$ and solve for the coefficients $\bs{u}$ of $u(x,y)$ in the weighted basis $\tilde{\bs{P}}^{(\frac{3}{2},\frac{3}{2},\frac{3}{2})}$ through $$\bs{u} = \Delta_W^{-1}\bs{f},$$ where $\bs{f}$ are the coefficients of the right-hand side under $\bs{P}^{(\frac{3}{2},\frac{3}{2},\frac{3}{2})}$ obtained in step (i).
+	\item Evaluate the approximation $\hat{u}(x,y)$ using the weighted Vandermonde matrix as $$\hat{u}(\bs{x},\bs{y}) = \tilde{\bs{P}}^{(\frac{3}{2},\frac{3}{2},\frac{3}{2})}(\bs{x},\bs{y})^T\bs{u},$$ where $\bs{x},\bs{y}$ are the quadrature nodes used in step (i).
+\end{itemize}
+
 	
 
 
