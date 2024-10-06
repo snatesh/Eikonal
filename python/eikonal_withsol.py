@@ -3,10 +3,12 @@ from numpy import *
 from eikonal import *
 import matplotlib.pyplot as plt
 
+nthreads = 6
+
 def fzero(X,Y):
   return np.zeros_like(X)
 
-ops = eikonal(fzero, 0.5, 0.5, 0.5, 14, 16, 4)
+ops = eikonal(fzero, 0.5, 0.5, 0.5, 14, 16, nthreads)
 cu_opt = np.loadtxt("cu_opt_new1.txt")
 
 

@@ -69,14 +69,14 @@ extern "C"
                                   nl, nb, nh, 
                                   vl, vb, vh, 
                                   ul, ub, uh );  
-    nlopt_opt opt = nlopt_create(NLOPT_LN_COBYLA, N); 
+    nlopt_opt opt = nlopt_create(NLOPT_LD_SLSQP, N); 
     //nlopt_opt local_opt = nlopt_create(NLOPT_LN_SBPLX, N);
     nlopt_set_lower_bounds(opt, lob);
     nlopt_set_upper_bounds(opt, upb);
     nlopt_set_min_objective(opt, F, data);
-    nlopt_add_equality_mconstraint(opt, nl, cl, data, toleql);
-    nlopt_add_equality_mconstraint(opt, nb, cb, data, toleqb);
-    nlopt_add_equality_mconstraint(opt, nh, ch, data, toleqh);
+    nlopt_add_inequality_mconstraint(opt, nl, cl, data, toleql);
+    nlopt_add_inequality_mconstraint(opt, nb, cb, data, toleqb);
+    nlopt_add_inequality_mconstraint(opt, nh, ch, data, toleqh);
     nlopt_set_xtol_rel(opt, tol);
     nlopt_set_ftol_rel(opt, tol);
     //nlopt_set_xtol_rel(local_opt, tol);

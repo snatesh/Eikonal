@@ -20,9 +20,11 @@ extern "C"
                             double a,
                             double b,
                             double c,
-                            unsigned int nthreads )
+                            unsigned int nthreads,
+                            bool weighted = false)
   {
     jPoly<double>* poly = new jPoly<double>(Nx, n, a, b, c, nthreads);
+    if (weighted) { poly->makeWeighted(); }
     return poly;                                                
   } 
 

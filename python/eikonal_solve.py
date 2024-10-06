@@ -70,7 +70,7 @@ Y = yy[yy[:]<1-xx[:]]
 ngrd = np.size(X,0)
 jP = jPoly(ngrd, ops.n, ops.a, ops.b, ops.c, nthreads)
 V = computeV(jP, ops.N, X, Y)
-tmins = V.dot(cu_opt); #tmins = tmins / np.max(tmins)
+tmins = V.dot(cu_opt); tmins = tmins / np.max(tmins)
 dmins = distToTri(X, Y); dmins = dmins / np.max(dmins)
 
 #fig = plt.figure(1)

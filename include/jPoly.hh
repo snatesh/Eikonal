@@ -120,6 +120,8 @@ class jPoly
     T *H = 0, *V = 0;
     const unsigned int dim;
     unsigned int nthreads;
+    bool weighted = false;
+    void makeWeighted() { this->weighted = true; }
 
 
     jPoly ( unsigned int _Nx, unsigned int _n,
@@ -254,23 +256,49 @@ class jPoly
           }
         }  
         jpoly<T>(this->ydx, Nx, n + 1, c - 0.5, b - 0.5, this->Pk);
-        
-        unsigned int ind = 1;
-        for (unsigned int nn = 0; nn <= n; ++nn)
-        {
-          #pragma omp parallel for schedule(dynamic) num_threads(nthreads)
-          for (unsigned int kk = 0; kk <= nn; ++kk)
+       
+        if (not this->weighted)
+        { 
+          unsigned int ind = 1;
+          for (unsigned int nn = 0; nn <= n; ++nn)
           {
-            T* v = &V[Nx*(ind+kk-1)];
-            T* pnmk = &Pnmk[Nx*(n+1)*kk];
-            #pragma omp simd
-            for (unsigned int i = 0; i < Nx; ++i)
+            #pragma omp parallel for schedule(dynamic) num_threads(nthreads)
+            for (unsigned int kk = 0; kk <= nn; ++kk)
             {
-              v[i] = 1.0 / H[kk + (n+1)*nn] * pnmk[i + Nx*(nn-kk)] * 
-                     std::pow(mxp1[i],kk) * Pk[i + Nx*kk];
+              T* v = &V[Nx*(ind+kk-1)];
+              T* pnmk = &Pnmk[Nx*(n+1)*kk];
+              #pragma omp simd
+              for (unsigned int i = 0; i < Nx; ++i)
+              {
+                v[i] = 1.0 / H[kk + (n+1)*nn] * pnmk[i + Nx*(nn-kk)] * 
+                       std::pow(mxp1[i],kk) * Pk[i + Nx*kk];
+              }
             }
+            ind = ind + nn + 1;
           }
-          ind = ind + nn + 1;
+        }
+        else if (this->weighted)
+        {
+          unsigned int ind = 1;
+          for (unsigned int nn = 0; nn <= n; ++nn)
+          {
+            #pragma omp parallel for schedule(dynamic) num_threads(nthreads)
+            for (unsigned int kk = 0; kk <= nn; ++kk)
+            {
+              T* v = &V[Nx*(ind+kk-1)];
+              T* pnmk = &Pnmk[Nx*(n+1)*kk];
+              #pragma omp simd
+              for (unsigned int i = 0; i < Nx; ++i)
+              {
+                v[i] = 1.0 / H[kk + (n+1)*nn] * pnmk[i + Nx*(nn-kk)] * 
+                       std::pow(mxp1[i],kk) * Pk[i + Nx*kk] *
+                       std::pow(X[i], a-0.5) * 
+                       std::pow(Y[i], b-0.5) *
+                       std::pow(1-X[i]-Y[i], c-0.5);
+              }
+            }
+            ind = ind + nn + 1;
+          }
         }
       }
       else if (this->dim == 1)

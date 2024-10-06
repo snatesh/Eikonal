@@ -19,6 +19,7 @@ struct optData
   double *cucopy; 
   double *clstorph, *cbstorph, *chstorph; 
   double *clstormh, *cbstormh, *chstormh; 
+  double *Hess;
  
   optData ( unsigned int _N,
             double* _Dx, double* _Dy,
@@ -53,6 +54,24 @@ struct optData
     clstormh = (double*) calloc(nl, sizeof(double));
     cbstormh = (double*) calloc(nb, sizeof(double));
     chstormh = (double*) calloc(nh, sizeof(double));
+    /* Hessian matrix is constant, and can be 
+       used to compute gradients at cu as H\dot cu */
+    Hess = (double*) calloc(N*N, sizeof(double));
+    cblas_dgemm ( CblasColMajor, 
+                  CblasTrans, 
+                  CblasNoTrans, 
+                  N, N, N, 
+                  1.0, Dx, N,
+                  Dx, N,
+                  1.0, Hess, N );
+    cblas_dgemm ( CblasColMajor, 
+                  CblasTrans, 
+                  CblasNoTrans, 
+                  N, N, N, 
+                  1.0, Dy, N,
+                  Dy, N,
+                  1.0, Hess, N );
+       
   }
 
   ~optData ()
@@ -63,6 +82,7 @@ struct optData
     free(clstorph); free(clstormh);
     free(cbstorph); free(cbstormh);  
     free(chstorph); free(chstormh);
+    free(Hess);
   }
 
 };
@@ -93,7 +113,7 @@ double Fhlp  ( const double* cu, void* _data )
   double dysq   = cblas_ddot(N, vecy, 1, vecy, 1);
   double rhssq  = cblas_ddot(N, rhs, 1, rhs, 1);
   double Fval   = dxsq + dysq - rhssq;
-  
+ 
   if ( !(count % 100) ) 
   { 
     std::cout << "Eval #" << count 
@@ -115,26 +135,13 @@ double F  ( unsigned int n, const double* cu,
   if (grad)
   {
     optData* data = (optData*) _data;
-    double h = 1e-7;
-    double fph, fmh, cuog;
-    double* cucopy = data->cucopy;
-    for (unsigned int i = 0; i < n; ++i) { cucopy[i] = cu[i]; }
-    // compute finite difference approx to grad
-    for (unsigned int i = 0; i < n; ++i)
-    {
-      // save current cu
-      cuog = cucopy[i];
-      // evaluate h in front
-      cucopy[i] += h;
-      fph = Fhlp(cucopy, _data);
-      // evaluate h behind
-      cucopy[i] -= 2*h;
-      fmh = Fhlp(cucopy, _data);
-      // reset cu
-      cucopy[i] = cuog;
-      // compute dFk/dx_j
-      grad[i] = (fph - fmh) / (2.0 * h); 
-    }
+    double* Hess  = data->Hess;
+    cblas_dgemv ( CblasColMajor,
+                  CblasNoTrans,
+                  n, n, 1.0, Hess, n,
+                  cu, 1,
+                  0, grad, 1 ); 
+                  
     
   }
 

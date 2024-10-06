@@ -42,7 +42,7 @@ def sFactors(n, k, j, a, b, c, d):
   """
 
   if n < k or k < j or j < 0: 
-    exit("sFactors: Range Error (n <= k <= j)")
+    exit("sFactors: Range Error (n >= k >= j >= 0)")
   return libsfactors.sFactors_T3(n, k, j, a, b, c, d) 
 
 

@@ -7,7 +7,7 @@ from ngjQuad import *
 from pMat import *
 from legendre import *
 from jPoly import *
-
+import matplotlib.pyplot as plt
 libeikonal = ctypes.CDLL('libeikonal.so')
 
 class eikonal(object):
@@ -56,6 +56,8 @@ class eikonal(object):
     # promotion for RHS
     self.K = np.asfortranarray(
               self.Ka1b1c_a1b1c1.dot(self.Ka1bc_a1b1c.dot(self.Kabc_a1bc)))
+    plt.spy(np.transpose(self.K).dot(self.K))
+    plt.show()
     # promotion so derivs are in same basis
     self.K_a1bc1_a1b1c1 = np.asfortranarray(
                             kMat(_a+1, _b, _c+1, self.Ha1bc1, self.Ha1b1c1, _n-1, 1))
@@ -74,6 +76,8 @@ class eikonal(object):
                       self.K.dot( 
                         self.rhsCoeffs() ) )
 
+    self.G = (np.transpose(self.Dx).dot(self.Dx) + 
+              np.transpose(self.Dy).dot(self.Dy))
 
     ## boundary evaluators
     self.nl = self.N
