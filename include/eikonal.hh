@@ -10,8 +10,7 @@ struct optData
 {
 
   unsigned int N;
-  double *vecx, *vecy, *vecxx, *vecyy;
-  double *vecf, *vecrhs;
+  double *vecx, *vecy;
   double *storl, *storb, *storh;
   double *Dx, *Dy, *rhs;
   double *vl, *vb, *vh;
@@ -40,17 +39,6 @@ struct optData
     // Coeff derivs in x,y
     vecx = (double*) calloc(N, sizeof(double));
     vecy = (double*) calloc(N, sizeof(double));
-    // outer product of coef derivs
-    vecxx = (double*) calloc(N*N, sizeof(double));
-    vecyy = (double*) calloc(N*N, sizeof(double));
-    // objective function 
-    // (combination of outer products, vectorized)
-    vecf = (double*) calloc(N*N, sizeof(double));
-    // outer product of coeffs of (1/f)
-    // first is entry is 1 the case of f \equiv 1
-    vecrhs = (double*) calloc(N*N, sizeof(double)); 
-    cblas_dger  ( CblasColMajor, N, N, 
-                  1.0, rhs, 1, rhs, 1, vecrhs, N );
     // storage for contraint result
     storl = (double*) calloc(nl, sizeof(double));
     storb = (double*) calloc(nb, sizeof(double));
@@ -60,8 +48,6 @@ struct optData
   ~optData ()
   {
     free(vecx); free(vecy);
-    free(vecxx); free(vecyy);
-    free(vecf); free(vecrhs);
     free(storb); free(storh);
     free(storl);
   }
@@ -75,45 +61,27 @@ double F  ( unsigned int n, const double* cu,
   ++count;
   optData* data     = (optData*) _data;
   unsigned int N    = data->N;
-  unsigned int NN   = N*N;
   double* vecx      = data->vecx; 
   double* vecy      = data->vecy;
-  double* vecxx     = data->vecxx; 
-  double* vecyy     = data->vecyy; 
   double* Dx        = data->Dx;
   double* Dy        = data->Dy;
-  double* vecf      = data->vecf;
-  double* vecrhs    = data->vecrhs;
   double* rhs       = data->rhs;
  
   memset(vecx, 0, N*sizeof(double));
   memset(vecy, 0, N*sizeof(double));
-  memset(vecf, 0, NN*sizeof(double)); 
-  memset(vecxx, 0, NN*sizeof(double));
-  memset(vecyy, 0, NN*sizeof(double));
+
 
   cblas_dgemv ( CblasColMajor, CblasNoTrans,  
                 N, N, 1.0, Dx, N, cu, 1, 0.0, vecx, 1 ); 
   cblas_dgemv ( CblasColMajor, CblasNoTrans,  
                 N, N, 1.0, Dy, N, cu, 1, 0.0, vecy, 1 ); 
-  //cblas_dger  ( CblasColMajor, N, N, 
-  //              1.0, vecx, 1, vecx, 1, vecxx, N );
-  //cblas_dger  ( CblasColMajor, N, N, 
-  //              1.0, vecy, 1, vecy, 1, vecyy, N );
-  //#pragma omp simd
-  //for (unsigned int i = 0; i < NN; ++i)
-  //{
-  //  vecf[i] = vecxx[i] + vecyy[i] - vecrhs[i];
-  //} 
 
-  // frobenius norm of A \equiv 2 norm vec(A)  
   double nrmx = cblas_dnrm2(N, vecx, 1);
   double nrmy = cblas_dnrm2(N, vecy, 1);
   double nrmrhs = cblas_dnrm2(N, rhs, 1);
-  //double nrm  = cblas_dnrm2 (NN, vecf, 1);
   double nrm2 = nrmx * nrmx + nrmy * nrmy - nrmrhs * nrmrhs;
   
-  if ( !(count % 100000) ) 
+  if ( !(count % 100) ) 
   { 
     std::cout << "Eval #" << count 
               << " : F = " << nrm2 

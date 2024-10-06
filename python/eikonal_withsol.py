@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 def fzero(X,Y):
   return np.zeros_like(X)
 
-ops = eikonal(fzero, 0.5, 0.5, 0.5, 5, 8, 6)
+ops = eikonal(fzero, 0.5, 0.5, 0.5, 14, 16, 4)
 cu_opt = np.loadtxt("cu_opt_new1.txt")
 
 
@@ -57,7 +57,7 @@ def distToTri(X,Y):
 #Nfine = 253; 
 #Xfine = Zfine[0:Nfine]; 
 #Yfine = Zfine[Nfine:2*Nfine] 
-
+ops.W = ops.W / 2.0
 print(np.sum(ops.W))
 print(np.linalg.norm(ops.W.dot(ops.V.dot(cu_opt) - distToTri(ops.X,ops.Y)))/np.linalg.norm(ops.W.dot(distToTri(ops.X,ops.Y))))
 xx, yy = np.meshgrid(np.linspace(0,1,20), np.linspace(0,1,20))

@@ -34,8 +34,13 @@ class eikonal(object):
     self.nthreads = _nthreads
     self.N = int(0.5 * (_n) * (_n + 1))
     # solution variables
-    self.cu = np.asfortranarray(np.zeros((self.N,)))
-    self.cu[0:4] = 1.0; # initialize to constant poly
+    self.cu = np.zeros((self.N,))
+    # initialize to something parabaloid-y with y=0 plane
+    self.cu[0] = 0.0;
+    self.cu[1] = 0.0;
+    self.cu[2] = 1.0;
+    self.cu[3] = -1.0;
+    self.cu[4] = -1.0;
     self.rhs = _rhs   
  
     ## derivative operators 

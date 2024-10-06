@@ -18,10 +18,10 @@ def finv(X, Y):
 #ub = opsH.vb.dot(cu_optH)
 #uh = opsH.vh.dot(cu_optH)
 #opsP = eikonal(fzero, 0.5, 0.5, 0.5, 14, 16, 6)
-ops = eikonal(finv, 0.5, 0.5, 0.5, 14, 16, 6)
-ul = np.zeros((ops.N,))#opsP.vl.dot(cu_optH)
-ub = np.zeros((ops.N,))#opsP.vb.dot(cu_optH)
-uh = np.zeros((ops.N,))#opsP.vh.dot(cu_optH)
+ops = eikonal(finv, 0.5, 0.5, 0.5, 14, 16, 4)
+ul = np.zeros((ops.nl,))#opsP.vl.dot(cu_optH)
+ub = np.zeros((ops.nb,))#opsP.vb.dot(cu_optH)
+uh = np.zeros((ops.nh,))#opsP.vh.dot(cu_optH)
 
 cu_opt = ops.solveP(ul, ub, uh)
 
@@ -49,8 +49,10 @@ def u(x1, x2):
 
 np.savetxt("cu_opt_new1.txt", cu_opt)
 
-Zfine = np.loadtxt("triquadleg_n22_m34_N276.txt")
-Nfine = 276; 
+#Zfine = np.loadtxt("triquadleg_n22_m34_N276.txt")
+Zfine = np.loadtxt("triquadleg_n15_m18_N136.txt")
+#Nfine = 276; 
+Nfine = 136; 
 Xfine = Zfine[0:Nfine]; 
 Yfine = Zfine[Nfine:2*Nfine] 
 jP = jPoly(Nfine, ops.n, ops.a, ops.b, ops.c, 4)
@@ -58,13 +60,27 @@ Vfine = computeV(jP, ops.N, Xfine, Yfine)
 tmins = Vfine.dot(cu_opt); tmins = tmins / np.max(tmins)
 dmins = u(Xfine, Yfine); dmins = dmins / np.max(dmins)
 
+xx, yy = np.meshgrid(np.linspace(0,1,20), np.linspace(0,1,20))
 
+X = xx[yy[:]<1-xx[:]]
+Y = yy[yy[:]<1-xx[:]]
+nfine = np.size(X,0)
+jP = jPoly(nfine, ops.n, ops.a, ops.b, ops.c, 4)
+Vfine = computeV(jP, ops.N, X, Y)
+tmins = Vfine.dot(cu_opt); tmins = tmins / np.max(tmins)
+
+#fig = plt.figure(1)
+#ax = fig.add_subplot(111, projection='3d')
+##ax.plot_trisurf(Xfine, Yfine, tmins)
+#ax.plot_trisurf(Xfine, Yfine, tmins, alpha = 0.7)
+#ax.plot_trisurf(Xfine, Yfine, dmins, alpha = 0.7)
+##ax.scatter(Xfine, Yfine, dmins)
+#plt.show()
 fig = plt.figure(1)
 ax = fig.add_subplot(111, projection='3d')
-#ax.plot_trisurf(Xfine, Yfine, tmins)
-ax.plot_trisurf(Xfine, Yfine, tmins, alpha = 0.7)
-ax.plot_trisurf(Xfine, Yfine, dmins, alpha = 0.7)
-#ax.scatter(Xfine, Yfine, dmins)
+ax.plot_trisurf(X, Y, tmins)
+ax.plot_trisurf(X, Y, dmins)
 plt.show()
+
 
 
