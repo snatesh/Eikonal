@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.6)
 project(Eikonal CXX)
-option(debug "Build with debugger" OFF)
+option(debug "Build with debugger" ON)
 option(build_testing "compile and run tests" ON)
 
 

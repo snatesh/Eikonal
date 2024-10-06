@@ -34,13 +34,13 @@ class eikonal(object):
     self.nthreads = _nthreads
     self.N = int(0.5 * (_n) * (_n + 1))
     # solution variables
-    self.cu = np.zeros((self.N,))
+    self.cu = self.cuCoeffs()#np.zeros((self.N,))
     # initialize to something parabaloid-y with y=0 plane
-    self.cu[0] = 0.0;
-    self.cu[1] = 0.0;
-    self.cu[2] = 1.0;
-    self.cu[3] = -1.0;
-    self.cu[4] = -1.0;
+    #self.cu[0] = 1.0;
+    #self.cu[1] = 0.0;
+    #self.cu[2] = 1.0;
+    #self.cu[3] = -1.0;
+    #self.cu[4] = -1.0;
     self.rhs = _rhs   
  
     ## derivative operators 
@@ -203,10 +203,39 @@ class eikonal(object):
     X = Qrule[0:N]
     Y = Qrule[N:2*N]
     W = Qrule[2*N:3*N]
-    cF, _ = computeCoeffs(self.rhs, self.n-1, 0.5, 0.5, 0.5, X, Y, W, 1)
+    cF, _ = computeCoeffs(self.rhs, self.n-1, self.a, self.b, self.c, X, Y, W, 1)
     return cF
 
 
+  def distToHyp(self,X,Y):
+    Np = np.size(X,0)
+    dh = np.zeros_like(X)
+    for j in range(Np):
+      x = np.array([X[j],Y[j]])
+      z = np.array([(X[j]-Y[j] + 1) /2, 
+                    (Y[j]-X[j] + 1) / 2])
+      dh[j] = np.linalg.norm(x - z)
+    return dh
+    
+  
+  def distToTri(self,X,Y):
+    Z = self.distToHyp(X,Y)
+    mins = np.zeros_like(X)
+    N = np.size(X,0)
+    for j in range(N):
+      mins[j] = np.min([X[j],Y[j],Z[j]])
+    return mins
+  
+  def cuCoeffs(self):
+   
+    Qrule = np.loadtxt("triquadLeg_10_17.txt"); 
+    N = int(len(Qrule) / 3)
+    X = Qrule[0:N]
+    Y = Qrule[N:2*N]
+    W = Qrule[2*N:3*N]
+    print(self.distToTri(X,Y))
+    cu, _ = computeCoeffs(self.distToTri, self.n-1, self.a, self.b, self.c, X, Y, W, 1)
+    return cu
 
 
 def hasfile(fn):

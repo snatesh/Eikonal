@@ -2,6 +2,8 @@ from numpy import *
 from eikonal import *
 import matplotlib.pyplot as plt
 
+nthreads = 6;
+
 def fzero(X,Y):
   return np.zeros_like(X)
 
@@ -18,7 +20,7 @@ def finv(X, Y):
 #ub = opsH.vb.dot(cu_optH)
 #uh = opsH.vh.dot(cu_optH)
 #opsP = eikonal(fzero, 0.5, 0.5, 0.5, 14, 16, 6)
-ops = eikonal(finv, 0.5, 0.5, 0.5, 14, 16, 4)
+ops = eikonal(finv, 0.5, 0.5, 0.5, 14, 16, nthreads)
 ul = np.zeros((ops.nl,))#opsP.vl.dot(cu_optH)
 ub = np.zeros((ops.nb,))#opsP.vb.dot(cu_optH)
 uh = np.zeros((ops.nh,))#opsP.vh.dot(cu_optH)
@@ -26,48 +28,50 @@ uh = np.zeros((ops.nh,))#opsP.vh.dot(cu_optH)
 cu_opt = ops.solveP(ul, ub, uh)
 
 #cu_opt = cu_optH + cu_optP
-
+  
 def distToHyp(X,Y):
-  xmy = X-Y
-  hptX = 1/((Y/X)+1)
-  hptY = 1 - 1/((Y/X)+1)
-  theta = np.arccos(xmy / np.sqrt(2*(X**2 + Y**2)))
-  dh = np.sin(theta) * np.sqrt((X-hptX)**2 + (Y-hptY)**2)
+  Np = np.size(X,0)
+  dh = np.zeros_like(X)
+  for j in range(Np):
+    x = np.array([X[j],Y[j]])
+    z = np.array([(X[j]-Y[j] + 1) /2, 
+                  (Y[j]-X[j] + 1) / 2])
+    dh[j] = np.linalg.norm(x - z)
   return dh
   
 
+def distToTri(X,Y):
+  Z = distToHyp(X,Y)
+  mins = np.zeros_like(X)
+  N = np.size(X,0)
+  for j in range(N):
+    mins[j] = np.min([X[j],Y[j],Z[j]])
+  return mins
 
-def u(x1, x2):
-  dists = np.zeros_like(x1)
-  for j in range(np.size(x1,0)):
-    x = np.array([x1[j],x2[j]])
-    z = np.array([(x1[j]-x2[j]+1.0)/2.0, (x2[j]-x1[j]+1.0)/2.0])
-    d = np.linalg.norm(x-z)
-    dists[j] = np.min([x1[j],x2[j],d])
-  return dists
 
 
 np.savetxt("cu_opt_new1.txt", cu_opt)
 
 #Zfine = np.loadtxt("triquadleg_n22_m34_N276.txt")
-Zfine = np.loadtxt("triquadleg_n15_m18_N136.txt")
+#Zfine = np.loadtxt("triquadleg_n15_m18_N136.txt")
 #Nfine = 276; 
-Nfine = 136; 
-Xfine = Zfine[0:Nfine]; 
-Yfine = Zfine[Nfine:2*Nfine] 
-jP = jPoly(Nfine, ops.n, ops.a, ops.b, ops.c, 4)
-Vfine = computeV(jP, ops.N, Xfine, Yfine)
-tmins = Vfine.dot(cu_opt); tmins = tmins / np.max(tmins)
-dmins = u(Xfine, Yfine); dmins = dmins / np.max(dmins)
+#Nfine = 136; 
+#Xfine = Zfine[0:Nfine]; 
+#Yfine = Zfine[Nfine:2*Nfine] 
+#jP = jPoly(Nfine, ops.n, ops.a, ops.b, ops.c, 6)
+#Vfine = computeV(jP, ops.N, Xfine, Yfine)
+#tmins = Vfine.dot(cu_opt); tmins = tmins / np.max(tmins)
+#dmins = u(Xfine, Yfine); dmins = dmins / np.max(dmins)
 
 xx, yy = np.meshgrid(np.linspace(0,1,20), np.linspace(0,1,20))
 
 X = xx[yy[:]<1-xx[:]]
 Y = yy[yy[:]<1-xx[:]]
-nfine = np.size(X,0)
-jP = jPoly(nfine, ops.n, ops.a, ops.b, ops.c, 4)
-Vfine = computeV(jP, ops.N, X, Y)
-tmins = Vfine.dot(cu_opt); tmins = tmins / np.max(tmins)
+ngrd = np.size(X,0)
+jP = jPoly(ngrd, ops.n, ops.a, ops.b, ops.c, nthreads)
+V = computeV(jP, ops.N, X, Y)
+tmins = V.dot(cu_opt); #tmins = tmins / np.max(tmins)
+dmins = distToTri(X, Y); dmins = dmins / np.max(dmins)
 
 #fig = plt.figure(1)
 #ax = fig.add_subplot(111, projection='3d')
@@ -78,9 +82,6 @@ tmins = Vfine.dot(cu_opt); tmins = tmins / np.max(tmins)
 #plt.show()
 fig = plt.figure(1)
 ax = fig.add_subplot(111, projection='3d')
-ax.plot_trisurf(X, Y, tmins)
-ax.plot_trisurf(X, Y, dmins)
+ax.plot_trisurf(X, Y, tmins, alpha = 0.7)
+ax.plot_trisurf(X, Y, dmins, alpha = 0.7)
 plt.show()
-
-
-

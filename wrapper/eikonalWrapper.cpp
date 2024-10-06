@@ -58,13 +58,13 @@ extern "C"
     toleqh  = (double*) malloc(nh * sizeof(double)); 
     for (unsigned int i = 0; i < N; ++i)
     {
-      upb[i]     = HUGE_VAL  ; 
-      lob[i]     = -HUGE_VAL ; 
+      upb[i]     = HUGE_VAL ; 
+      lob[i]     = -HUGE_VAL; 
     }
     for (unsigned int i = 0; i < nl; ++i) { toleql[i] = 1e-14; }
     for (unsigned int i = 0; i < nb; ++i) { toleqb[i] = 1e-14; }
     for (unsigned int i = 0; i < nh; ++i) { toleqh[i] = 1e-14; }
-    double tol = 1e-8;
+    double tol = 1e-14;
     optData* data = new optData ( N, Dx, Dy, rhs, cu_opt, 
                                   nl, nb, nh, 
                                   vl, vb, vh, 
@@ -78,14 +78,17 @@ extern "C"
     nlopt_add_equality_mconstraint(opt, nb, cb, data, toleqb);
     nlopt_add_equality_mconstraint(opt, nh, ch, data, toleqh);
     nlopt_set_xtol_rel(opt, tol);
-    nlopt_set_stopval(opt, tol);
+    nlopt_set_ftol_rel(opt, tol);
     //nlopt_set_xtol_rel(local_opt, tol);
     //nlopt_set_stopval(local_opt, tol);
     //nlopt_set_local_optimizer(opt, local_opt);
     double minF;
-    if (nlopt_optimize(opt, data->cu, &minF) < 0) 
+    nlopt_result result = nlopt_optimize(opt, data->cu, &minF);
+    if (result < 0) 
     {
-      std::cerr << "NLOPT failed! Exiting .." << std::endl;
+      std::cerr << "NLOPT failed! \n"; 
+      std::cerr << nlopt_result_to_string(result);
+      std::cerr << "\n Exiting ..\n";
       exit(1);
     }
     count = 0;
