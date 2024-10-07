@@ -27,8 +27,8 @@ def computeV(poly, N, x, y):
                         ctypes.c_double)) )
   return np.asfortranarray(V)
 
-def jPoly(Nx, n, a, b, c, nthreads):
-  poly = libjpoly.jPoly_T2(Nx, n, a, b, c, nthreads)
+def jPoly(Nx, n, a, b, c, nthreads, weighted=False):
+  poly = libjpoly.jPoly_T2(Nx, n, a, b, c, nthreads, weighted)
   return poly
 
 
@@ -37,7 +37,8 @@ libjpoly.jPoly_T2.argtypes = [ctypes.c_uint,\
                               ctypes.c_double,\
                               ctypes.c_double,\
                               ctypes.c_double,\
-                              ctypes.c_uint]
+                              ctypes.c_uint,
+                              ctypes.c_bool]
 libjpoly.jPoly_T2.restype = ctypes.c_void_p
 
 libjpoly.computeV.argtypes = [ctypes.c_void_p,\

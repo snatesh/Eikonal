@@ -18,7 +18,7 @@ class eikonal(object):
   """ 
   def __init__( self, _rhs, _a = 0.5, _b = 0.5, _c = 0.5, 
                 _n = 4, _m = 6, _nthreads = 6, 
-                _r = 0.001, _nthetas = 50 ):
+                _r = 0.005, _nthetas = 20 ):
     
     if _n <= 0:  
       exit("eikonal : Range Error ( n > 1) ")
@@ -49,15 +49,23 @@ class eikonal(object):
     self.Ha1b1c = sFactors(_n+1, _a+1, _b+1, _c)
     self.Ha1b1c1 = sFactors(_n+1, _a+1, _b+1, _c+1)
     self.Ha1bc1 = sFactors(_n+1, _a+1, _b, _c+1)
+    self.Hab1c = sFactors(_n+1, _a, _b+1, _c);
     self.Hab1c1 = sFactors(_n+1, _a, _b+1, _c+1)
+    #self.Habc = sFactors(_n+2, _a, _b, _c)  
+    #self.Ha1bc = sFactors(_n+2, _a+1, _b, _c)
+    #self.Ha1b1c = sFactors(_n+2, _a+1, _b+1, _c)
+    #self.Ha1b1c1 = sFactors(_n+2, _a+1, _b+1, _c+1)
+    #self.Ha1bc1 = sFactors(_n+2, _a+1, _b, _c+1)
+    #self.Hab1c = sFactors(_n+2, _a, _b+1, _c);
+    #self.Hab1c1 = sFactors(_n+2, _a, _b+1, _c+1)
+
     self.Kabc_a1bc = kMat(_a, _b, _c, self.Habc, self.Ha1bc, _n-1, 0)
     self.Ka1bc_a1b1c = kMat(_a+1, _b, _c, self.Ha1bc, self.Ha1b1c, _n-1, 1)
     self.Ka1b1c_a1b1c1 = kMat(_a+1, _b+1, _c, self.Ha1b1c, self.Ha1b1c1, _n-1, 2)
     # promotion for RHS
     self.K = np.asfortranarray(
               self.Ka1b1c_a1b1c1.dot(self.Ka1bc_a1b1c.dot(self.Kabc_a1bc)))
-    plt.spy(np.transpose(self.K).dot(self.K))
-    plt.show()
+
     # promotion so derivs are in same basis
     self.K_a1bc1_a1b1c1 = np.asfortranarray(
                             kMat(_a+1, _b, _c+1, self.Ha1bc1, self.Ha1b1c1, _n-1, 1))
@@ -72,13 +80,16 @@ class eikonal(object):
               self.K_ab1c1_a1b1c1.dot(
                 dMat  ( self.a, self.b, self.c,
                         self.Habc, self.Hab1c1, _n-1, 1 ) ) )
-    self.rhscoeffs = np.asfortranarray(
-                      self.K.dot( 
-                        self.rhsCoeffs() ) )
-
-    self.G = (np.transpose(self.Dx).dot(self.Dx) + 
-              np.transpose(self.Dy).dot(self.Dy))
-
+    
+    #self.Lx = lMat(self.a, self.b+1, self.c, self.Hab1c, self.Habc, _n, 1)
+    #self.Ly = lMat(self.a+1, self.b, self.c, self.Ha1bc, self.Habc, _n, 0)
+    #self.Wx = dMat(self.a+1, self.b+1, self.c+1, self.Ha1b1c1, self.Hab1c, _n, 0, True)
+    #self.Wy = dMat(self.a+1, self.b+1, self.c+1, self.Ha1b1c1, self.Ha1bc, _n, 1, True)
+    #self.Dx = np.asfortranarray(self.Lx.dot(self.Wx))
+    #self.Dy = np.asfortranarray(self.Ly.dot(self.Wy))
+    self.rhscoeffs = np.asfortranarray( self.rhsCoeffs() )
+    self.G = np.transpose(self.Dx).dot(self.Dx) + np.transpose(self.Dy).dot(self.Dy)
+    self.G = np.asfortranarray(self.G[0:self.N,0:self.N])
     ## boundary evaluators
     self.nl = self.N
     self.nb = self.N
@@ -116,7 +127,7 @@ class eikonal(object):
     self.V = self.computeV(self.X, self.Y)
     self.polypt = jPoly(1, _n, _a, _b, _c, 1)
     self.nthetas = _nthetas
-    self.polyCirc = jPoly(_nthetas, _n, _a, _b, _c, _nthreads)
+    self.polyCirc = jPoly(_nthetas, _n, _a, _b, _c, _nthreads, False)
     self.thetas = np.linspace(0, 2*np.pi, _nthetas) 
     self.r = _r
     self.Xcirc = np.asfortranarray(_r * np.cos(self.thetas))
@@ -131,6 +142,9 @@ class eikonal(object):
                              self.Dy.ctypes.data_as(
                                ctypes.POINTER(
                                ctypes.c_double)),
+                             self.G.ctypes.data_as(
+                               ctypes.POINTER(
+                               ctypes.c_double)),
                              self.rhscoeffs.ctypes.data_as(
                                ctypes.POINTER(
                                ctypes.c_double)), 
@@ -139,7 +153,7 @@ class eikonal(object):
                                ctypes.c_double)))
     return self.cu 
 
-  def solveP(self, ul, ub, uh):
+  def solveP(self):
     libeikonal.eikonalSolveP(self.N,
                              self.nl,
                              self.nb,
@@ -150,27 +164,21 @@ class eikonal(object):
                              self.Dy.ctypes.data_as(
                                ctypes.POINTER(
                                ctypes.c_double)),
+                             self.G.ctypes.data_as(
+                               ctypes.POINTER(
+                               ctypes.c_double)),
                              self.rhscoeffs.ctypes.data_as(
                                ctypes.POINTER(
                                ctypes.c_double)), 
                              self.vl.ctypes.data_as(
                                ctypes.POINTER(
                                ctypes.c_double)),
-                             ul.ctypes.data_as(
-                               ctypes.POINTER(
-                               ctypes.c_double)),
                              self.vb.ctypes.data_as(
                                ctypes.POINTER(
                                ctypes.c_double)), 
-                             ub.ctypes.data_as(
-                               ctypes.POINTER(
-                               ctypes.c_double)),
                              self.vh.ctypes.data_as(
                                ctypes.POINTER(
                                ctypes.c_double)), 
-                             uh.ctypes.data_as(
-                               ctypes.POINTER(
-                               ctypes.c_double)),
                              self.cu.ctypes.data_as(
                                ctypes.POINTER(
                                ctypes.c_double)))
@@ -237,7 +245,6 @@ class eikonal(object):
     X = Qrule[0:N]
     Y = Qrule[N:2*N]
     W = Qrule[2*N:3*N]
-    print(self.distToTri(X,Y))
     cu, _ = computeCoeffs(self.distToTri, self.n-1, self.a, self.b, self.c, X, Y, W, 1)
     return cu
 
@@ -255,6 +262,7 @@ libeikonal.eikonalSolveH.argtypes = [ctypes.c_uint,\
                                      ctypes.POINTER(ctypes.c_double),\
                                      ctypes.POINTER(ctypes.c_double),\
                                      ctypes.POINTER(ctypes.c_double),\
+                                     ctypes.POINTER(ctypes.c_double),\
                                      ctypes.POINTER(ctypes.c_double)]
 libeikonal.eikonalSolveH.restype = None                                    
 
@@ -262,8 +270,6 @@ libeikonal.eikonalSolveP.argtypes = [ctypes.c_uint,\
                                      ctypes.c_uint,\
                                      ctypes.c_uint,\
                                      ctypes.c_uint,\
-                                     ctypes.POINTER(ctypes.c_double),\
-                                     ctypes.POINTER(ctypes.c_double),\
                                      ctypes.POINTER(ctypes.c_double),\
                                      ctypes.POINTER(ctypes.c_double),\
                                      ctypes.POINTER(ctypes.c_double),\

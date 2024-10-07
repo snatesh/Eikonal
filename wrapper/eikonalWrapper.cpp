@@ -7,6 +7,7 @@ extern "C"
   void eikonalSolveH  ( unsigned int N,
                         double* Dx, 
                         double* Dy,
+                        double* Hess,
                         double* rhs,
                         double* cu_opt )
   {
@@ -19,7 +20,7 @@ extern "C"
       lb[i]     = -HUGE_VAL ; 
     }
     double tol = 1e-6;
-    optData* data = new optData ( N, Dx, Dy, rhs, cu_opt );  
+    optData* data = new optData ( N, Dx, Dy, Hess, rhs, cu_opt );  
     nlopt_opt opt = nlopt_create(NLOPT_LN_SBPLX, N); 
     nlopt_set_lower_bounds(opt, lb);
     nlopt_set_upper_bounds(opt, ub);
@@ -44,10 +45,11 @@ extern "C"
                         unsigned int nh,
                         double* Dx, 
                         double* Dy,
+                        double* Hess,
                         double* rhs,
-                        double* vl, double* ul, 
-                        double* vb, double* ub,
-                        double* vh, double* uh,
+                        double* vl, 
+                        double* vb, 
+                        double* vh, 
                         double* cu_opt )
   {
     double *lob, *upb, *toleql, *toleqb, *toleqh; 
@@ -56,40 +58,48 @@ extern "C"
     toleql  = (double*) malloc(nl * sizeof(double)); 
     toleqb  = (double*) malloc(nb * sizeof(double)); 
     toleqh  = (double*) malloc(nh * sizeof(double)); 
+    double tol = 1e-14;
     for (unsigned int i = 0; i < N; ++i)
     {
-      upb[i]     = HUGE_VAL ; 
-      lob[i]     = -HUGE_VAL; 
+      upb[i]     = 1000 ; 
+      lob[i]     = -1000; 
     }
-    for (unsigned int i = 0; i < nl; ++i) { toleql[i] = 1e-14; }
-    for (unsigned int i = 0; i < nb; ++i) { toleqb[i] = 1e-14; }
-    for (unsigned int i = 0; i < nh; ++i) { toleqh[i] = 1e-14; }
-    double tol = 1e-14;
-    optData* data = new optData ( N, Dx, Dy, rhs, cu_opt, 
+    for (unsigned int i = 0; i < nl; ++i) { toleql[i] = tol; }
+    for (unsigned int i = 0; i < nb; ++i) { toleqb[i] = tol; }
+    for (unsigned int i = 0; i < nh; ++i) { toleqh[i] = tol; }
+
+    optData* data = new optData ( N, Dx, Dy, Hess, rhs, cu_opt, 
                                   nl, nb, nh, 
-                                  vl, vb, vh, 
-                                  ul, ub, uh );  
-    nlopt_opt opt = nlopt_create(NLOPT_LD_SLSQP, N); 
-    //nlopt_opt local_opt = nlopt_create(NLOPT_LN_SBPLX, N);
+                                  vl, vb, vh ); 
+    nlopt_opt opt = nlopt_create(NLOPT_LN_COBYLA, N); 
+    //nlopt_opt local_opt = nlopt_create(NLOPT_LD_CCSAQ, N);
     nlopt_set_lower_bounds(opt, lob);
     nlopt_set_upper_bounds(opt, upb);
     nlopt_set_min_objective(opt, F, data);
-    nlopt_add_inequality_mconstraint(opt, nl, cl, data, toleql);
-    nlopt_add_inequality_mconstraint(opt, nb, cb, data, toleqb);
-    nlopt_add_inequality_mconstraint(opt, nh, ch, data, toleqh);
+    nlopt_add_equality_mconstraint(opt, nl+nb+nh, cl, data, toleql);
+    //nlopt_add_equality_mconstraint(opt, nb, cb, data, toleqb);
+    //nlopt_add_equality_mconstraint(opt, nh, ch, data, toleqh);
     nlopt_set_xtol_rel(opt, tol);
     nlopt_set_ftol_rel(opt, tol);
     //nlopt_set_xtol_rel(local_opt, tol);
-    //nlopt_set_stopval(local_opt, tol);
+    //nlopt_set_ftol_rel(local_opt, tol);
     //nlopt_set_local_optimizer(opt, local_opt);
     double minF;
     nlopt_result result = nlopt_optimize(opt, data->cu, &minF);
-    if (result < 0) 
+    if (result < 0 && result != -4) 
     {
       std::cerr << "NLOPT failed! \n"; 
       std::cerr << nlopt_result_to_string(result);
       std::cerr << "\n Exiting ..\n";
       exit(1);
+    }
+    else
+    {
+      if (result == -4) 
+      { 
+        std::cout << nlopt_result_to_string(result) << std::endl;
+      }
+      std::cout << "NLOPT converged with residual " << minF << std::endl;
     }
     count = 0;
     delete data; 

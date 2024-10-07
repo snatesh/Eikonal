@@ -21,11 +21,7 @@ def finv(X, Y):
 #uh = opsH.vh.dot(cu_optH)
 #opsP = eikonal(fzero, 0.5, 0.5, 0.5, 14, 16, 6)
 ops = eikonal(finv, 0.5, 0.5, 0.5, 14, 16, nthreads)
-ul = np.zeros((ops.nl,))#opsP.vl.dot(cu_optH)
-ub = np.zeros((ops.nb,))#opsP.vb.dot(cu_optH)
-uh = np.zeros((ops.nh,))#opsP.vh.dot(cu_optH)
-
-cu_opt = ops.solveP(ul, ub, uh)
+cu_opt = ops.solveP()
 
 #cu_opt = cu_optH + cu_optP
   
@@ -63,12 +59,12 @@ np.savetxt("cu_opt_new1.txt", cu_opt)
 #tmins = Vfine.dot(cu_opt); tmins = tmins / np.max(tmins)
 #dmins = u(Xfine, Yfine); dmins = dmins / np.max(dmins)
 
-xx, yy = np.meshgrid(np.linspace(0,1,20), np.linspace(0,1,20))
+xx, yy = np.meshgrid(np.linspace(0,1,40), np.linspace(0,1,40))
 
 X = xx[yy[:]<1-xx[:]]
 Y = yy[yy[:]<1-xx[:]]
 ngrd = np.size(X,0)
-jP = jPoly(ngrd, ops.n, ops.a, ops.b, ops.c, nthreads)
+jP = jPoly(ngrd, ops.n, ops.a+1, ops.b+1, ops.c+1, nthreads, False)
 V = computeV(jP, ops.N, X, Y)
 tmins = V.dot(cu_opt); tmins = tmins / np.max(tmins)
 dmins = distToTri(X, Y); dmins = dmins / np.max(dmins)
@@ -83,5 +79,5 @@ dmins = distToTri(X, Y); dmins = dmins / np.max(dmins)
 fig = plt.figure(1)
 ax = fig.add_subplot(111, projection='3d')
 ax.plot_trisurf(X, Y, tmins, alpha = 0.7)
-ax.plot_trisurf(X, Y, dmins, alpha = 0.7)
+ax.plot_trisurf(X, Y, dmins, alpha = 0.4)
 plt.show()

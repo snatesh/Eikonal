@@ -28,7 +28,7 @@ def lMat(a, b, c, H, H1, n, mode):
   
   N = int(0.5 * (n + 1) * (n + 2))
   L = np.zeros((N,N), dtype=np.double, order='F')
-  libdmat.lMat  ( a, b, c,  
+  liblmat.lMat  ( a, b, c,  
                   H.ctypes.data_as(
                     ctypes.POINTER(
                     ctypes.c_double)),

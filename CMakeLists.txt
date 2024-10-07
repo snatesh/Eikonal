@@ -80,7 +80,7 @@ else()
   set_source_files_properties(${dmatSRC} PROPERTIES COMPILE_FLAGS "-xHost -fpic ")
 endif()
 
-add_library(lmat SHARED ${dmatSRC})
+add_library(lmat SHARED ${lmatSRC})
 if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   set_source_files_properties(${lmatSRC} PROPERTIES COMPILE_FLAGS "-fPIC")
 else()

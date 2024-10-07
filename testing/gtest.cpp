@@ -8,6 +8,7 @@
 #include<jPoly.hh>
 #include<kMat.hh>
 #include<dMat.hh>
+#include<lMat.hh>
 #include<jMat.hh>
 #include<jevd.hh>
 #include<ngjquad.hh>
@@ -426,6 +427,128 @@ TEST(dxTriTest, TolCheck)
   free(H_a1bc1);
   free(D_a1bc1);
   free(D_a1bc1_ref);
+}
+
+TEST(dxTriWeightedTest, TolCheck)
+{
+  double tol  = 1e-14;
+  unsigned int n = 14;
+  unsigned int n_k = n - 1; 
+  unsigned int N = static_cast<unsigned int>(0.5 * (n_k + 1) * (n_k + 2)); 
+  double a = 0.5; double b = 0.5; double c = 0.5;
+  double* H_a1b1c1 = (double*) calloc((n+1)*(n+1), sizeof(double));
+  double* H_ab1c = (double*) calloc((n+1)*(n+1), sizeof(double));
+
+  double* Wx = (double*) calloc(N*N, sizeof(double)); 
+  double* Wx_ref = (double*) calloc(N*N, sizeof(double)); 
+ 
+  std::ifstream Wx_ref_file("../../testing/testdata/Wx.txt");
+  for (unsigned int i = 0; i < N*N; ++i) { Wx_ref_file >> Wx_ref[i]; } 
+  sFactors(n+1, a+1.0, b+1.0, c+1.0, H_a1b1c1);
+  sFactors(n+1, a, b+1.0, c, H_ab1c);
+  dMat(a+1.0, b+1.0, c+1.0, H_a1b1c1, H_ab1c, n_k, 0, Wx, true);
+  
+  double diff = infnorm(Wx, Wx_ref, N*N);
+  EXPECT_LT(diff, tol);
+  std::cout << "\nrelative infinity norm of diff = " << diff << "\n\n";
+  
+  free(H_a1b1c1);
+  free(H_ab1c);
+  free(Wx);
+  free(Wx_ref);
+}
+
+
+TEST(dyTriWeightedTest, TolCheck)
+{
+  double tol  = 1e-14;
+  unsigned int n = 14;
+  unsigned int n_k = n - 1; 
+  unsigned int N = static_cast<unsigned int>(0.5 * (n_k + 1) * (n_k + 2)); 
+  double a = 0.5; double b = 0.5; double c = 0.5;
+  double* H_a1b1c1 = (double*) calloc((n+1)*(n+1), sizeof(double));
+  double* H_a1bc = (double*) calloc((n+1)*(n+1), sizeof(double));
+  double* Wy = (double*) calloc(N*N, sizeof(double)); 
+  double* Wy_ref = (double*) calloc(N*N, sizeof(double)); 
+ 
+  std::ifstream Wy_ref_file("../../testing/testdata/Wy.txt");
+  for (unsigned int i = 0; i < N*N; ++i) { Wy_ref_file >> Wy_ref[i]; } 
+  sFactors(n+1, a+1.0, b+1.0, c+1.0, H_a1b1c1);
+  sFactors(n+1, a+1.0, b, c, H_a1bc);
+  dMat(a+1.0, b+1.0, c+1.0, H_a1b1c1, H_a1bc, n_k, 1, Wy, true);
+  
+  double diff = infnorm(Wy, Wy_ref, N*N);
+  EXPECT_LT(diff, tol);
+  std::cout << "\nrelative infinity norm of diff = " << diff << "\n\n";
+  
+  //printMat(Wy, N, N);
+
+  free(H_a1b1c1);
+  free(H_a1bc);
+  free(Wy);
+  free(Wy_ref);
+}
+
+TEST(demoteXTriTest, TolCheck)
+{
+  double tol  = 1e-14;
+  unsigned int n = 14;
+  unsigned int n_k = n - 1; 
+  unsigned int N = static_cast<unsigned int>(0.5 * (n_k + 1) * (n_k + 2)); 
+  double a = 0.5; double b = 0.5; double c = 0.5;
+  double* H_abc = (double*) calloc((n+1)*(n+1), sizeof(double));
+  double* H_ab1c = (double*) calloc((n+1)*(n+1), sizeof(double));
+
+  double* Lx = (double*) calloc(N*N, sizeof(double)); 
+  double* Lx_ref = (double*) calloc(N*N, sizeof(double)); 
+ 
+  std::ifstream Lx_ref_file("../../testing/testdata/Lx.txt");
+  for (unsigned int i = 0; i < N*N; ++i) { Lx_ref_file >> Lx_ref[i]; } 
+  sFactors(n+1, a, b, c, H_abc);
+  sFactors(n+1, a, b+1.0, c, H_ab1c);
+  lMat(a, b+1.0, c, H_ab1c, H_abc, n_k, 1, Lx);
+  
+  double diff = infnorm(Lx, Lx_ref, N*N);
+  EXPECT_LT(diff, tol);
+  std::cout << "\nrelative infinity norm of diff = " << diff << "\n\n";
+  
+
+  free(H_abc);
+  free(H_ab1c);
+  free(Lx);
+  free(Lx_ref);
+
+}
+
+TEST(demoteYTriTest, TolCheck)
+{
+  double tol  = 1e-14;
+  unsigned int n = 14;
+  unsigned int n_k = n - 1; 
+  unsigned int N = static_cast<unsigned int>(0.5 * (n_k + 1) * (n_k + 2)); 
+  double a = 0.5; double b = 0.5; double c = 0.5;
+  double* H_abc = (double*) calloc((n+1)*(n+1), sizeof(double));
+  double* H_a1bc = (double*) calloc((n+1)*(n+1), sizeof(double));
+
+  double* Ly = (double*) calloc(N*N, sizeof(double)); 
+  double* Ly_ref = (double*) calloc(N*N, sizeof(double)); 
+ 
+  std::ifstream Ly_ref_file("../../testing/testdata/Ly.txt");
+  for (unsigned int i = 0; i < N*N; ++i) { Ly_ref_file >> Ly_ref[i]; } 
+  sFactors(n+1, a, b, c, H_abc);
+  sFactors(n+1, a+1.0, b, c, H_a1bc);
+  lMat(a+1.0, b, c, H_a1bc, H_abc, n_k, 0, Ly);
+  
+  double diff = infnorm(Ly, Ly_ref, N*N);
+  EXPECT_LT(diff, tol);
+  std::cout << "\nrelative infinity norm of diff = " << diff << "\n\n";
+  
+
+  free(H_abc);
+  free(H_a1bc);
+  free(Ly);
+  free(Ly_ref);
+
 }
 
 TEST(dyTriTest, TolCheck)

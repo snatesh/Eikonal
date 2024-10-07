@@ -1,6 +1,6 @@
 #ifndef _LMAT_H
 #define _LMAT_H
-
+#include<iostream>
 
 template<typename T>
 inline void lMat(T a, T b, T c, const T* H, const T* H1, unsigned int n, unsigned int mode, T* L)

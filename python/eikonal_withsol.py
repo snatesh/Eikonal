@@ -18,8 +18,8 @@ def tracePathLocal(ops, cu, x, y):
   Y = ops.Ycirc + y
   V = computeV(ops.polyCirc, ops.N, X, Y) 
   t = V.dot(cu)
-  minInd = np.argmin(np.abs(t))
-  return np.array([X[minInd], Y[minInd], np.abs(t[minInd])])
+  minInd = np.argmin((t))
+  return np.array([X[minInd], Y[minInd], (t[minInd])])
 
 def tracePathGlobal(ops, cu, x, y):
   path = []
@@ -59,9 +59,11 @@ def distToTri(X,Y):
 #Nfine = 253; 
 #Xfine = Zfine[0:Nfine]; 
 #Yfine = Zfine[Nfine:2*Nfine] 
+jP = jPoly(ops.N, ops.n, ops.a+1, ops.b+1, ops.c+1, nthreads, True)
+V = computeV(jP, ops.N, ops.X, ops.Y)
 ops.W = ops.W / 2.0
 print(np.sum(ops.W))
-print(np.linalg.norm(ops.W.dot(ops.V.dot(cu_opt) - distToTri(ops.X,ops.Y)))/np.linalg.norm(ops.W.dot(distToTri(ops.X,ops.Y))))
+print(np.linalg.norm(ops.W.dot(V.dot(cu_opt) - distToTri(ops.X,ops.Y)))/np.linalg.norm(ops.W.dot(distToTri(ops.X,ops.Y))))
 xx, yy = np.meshgrid(np.linspace(0,1,20), np.linspace(0,1,20))
 
 X = xx[yy[:]<1-xx[:]]

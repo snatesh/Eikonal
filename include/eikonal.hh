@@ -15,7 +15,7 @@ struct optData
   double *Dx, *Dy, *rhs;
   double *vl, *vb, *vh;
   unsigned int nl, nb, nh;
-  double *cu, *ul, *ub, *uh, *grad;
+  double *cu;
   double *cucopy; 
   double *clstorph, *cbstorph, *chstorph; 
   double *clstormh, *cbstormh, *chstormh; 
@@ -23,20 +23,18 @@ struct optData
  
   optData ( unsigned int _N,
             double* _Dx, double* _Dy,
+            double* _Hess,
             double* _rhs, double* _cu,
             unsigned int _nl = 0,
             unsigned int _nb = 0,
             unsigned int _nh = 0,
             double* _vl = nullptr, 
             double* _vb = nullptr, 
-            double* _vh = nullptr, 
-            double* _ul = nullptr, 
-            double* _ub = nullptr,
-            double* _uh = nullptr ) 
-    : N(_N), Dx(_Dx), Dy(_Dy), rhs(_rhs), 
+            double* _vh = nullptr )
+    : N(_N), Dx(_Dx), Dy(_Dy), Hess(_Hess), rhs(_rhs), 
       vl(_vl), vb(_vb), vh(_vh),
       nl(_nl), nb(_nb), nh(_nh),
-      cu(_cu), ul(_ul), ub(_ub), uh(_uh)
+      cu(_cu) 
   {
     // Coeff derivs in x,y
     vecx = (double*) calloc(N, sizeof(double));
@@ -54,24 +52,6 @@ struct optData
     clstormh = (double*) calloc(nl, sizeof(double));
     cbstormh = (double*) calloc(nb, sizeof(double));
     chstormh = (double*) calloc(nh, sizeof(double));
-    /* Hessian matrix is constant, and can be 
-       used to compute gradients at cu as H\dot cu */
-    Hess = (double*) calloc(N*N, sizeof(double));
-    cblas_dgemm ( CblasColMajor, 
-                  CblasTrans, 
-                  CblasNoTrans, 
-                  N, N, N, 
-                  1.0, Dx, N,
-                  Dx, N,
-                  1.0, Hess, N );
-    cblas_dgemm ( CblasColMajor, 
-                  CblasTrans, 
-                  CblasNoTrans, 
-                  N, N, N, 
-                  1.0, Dy, N,
-                  Dy, N,
-                  1.0, Hess, N );
-       
   }
 
   ~optData ()
@@ -82,11 +62,20 @@ struct optData
     free(clstorph); free(clstormh);
     free(cbstorph); free(cbstormh);  
     free(chstorph); free(chstormh);
-    free(Hess);
   }
 
 };
 
+
+void pre(unsigned int n, const double* cu, const double* v, double* vpre, void* _data)
+{
+  optData* data     = (optData*) _data;
+  unsigned int N    = data->N;
+  double* Hess      = data->Hess;
+  cblas_dgemv ( CblasColMajor, CblasNoTrans,
+                N, N, 1.0, Hess, N, v, 1, 0.0, vpre, 1);
+
+}
 
 static unsigned long count = 0;
 double Fhlp  ( const double* cu, void* _data )
@@ -99,20 +88,26 @@ double Fhlp  ( const double* cu, void* _data )
   double* Dx        = data->Dx;
   double* Dy        = data->Dy;
   double* rhs       = data->rhs;
+  double* Hess      = data->Hess;
  
-  memset(vecx, 0, N*sizeof(double));
-  memset(vecy, 0, N*sizeof(double));
+  //memset(vecx, 0, N*sizeof(double));
+  //memset(vecy, 0, N*sizeof(double));
 
 
-  cblas_dgemv ( CblasColMajor, CblasNoTrans,  
-                N, N, 1.0, Dx, N, cu, 1, 0.0, vecx, 1 ); 
-  cblas_dgemv ( CblasColMajor, CblasNoTrans,  
-                N, N, 1.0, Dy, N, cu, 1, 0.0, vecy, 1 ); 
+  //cblas_dgemv ( CblasColMajor, CblasNoTrans,  
+  //              N, N, 1.0, Dx, N, cu, 1, 0.0, vecx, 1 ); 
+  //cblas_dgemv ( CblasColMajor, CblasNoTrans,  
+  //              N, N, 1.0, Dy, N, cu, 1, 0.0, vecy, 1 ); 
 
-  double dxsq   = cblas_ddot(N, vecx, 1, vecx, 1);
-  double dysq   = cblas_ddot(N, vecy, 1, vecy, 1);
+  cblas_dgemv ( CblasColMajor, CblasNoTrans,
+                N, N, 1.0, Hess, N, cu, 1, 0.0, vecx, 1);
+
+  //double dxsq   = cblas_ddot(N, vecx, 1, vecx, 1);
+  //double dysq   = cblas_ddot(N, vecy, 1, vecy, 1);
+  double eik    = cblas_ddot(N, vecx, 1, vecx, 1);
   double rhssq  = cblas_ddot(N, rhs, 1, rhs, 1);
-  double Fval   = dxsq + dysq - rhssq;
+  //double Fval   = dxsq + dysq - rhssq;
+  double Fval   = 0.5*(eik - rhssq);
  
   if ( !(count % 100) ) 
   { 
@@ -160,45 +155,41 @@ void cnstrntHlp ( unsigned int m,
   if (edge == 0)
   {
     double* vl    = data->vl;
-    double* ul    = data->ul;
     double* storl = data->storl;
-
-    memset(storl, 0, m*sizeof(double));
+    //memset(storl, 0, m*sizeof(double));
     cblas_dgemv ( CblasColMajor, CblasNoTrans,  
-                  m, n, 1.0, vl, n, cu, 1, 1.0, storl, 1 );
+                  m, n, 1.0, vl, m, cu, 1, 1.0, result, 1 );
     
-    // u2 = q-ul, q=0 => c = u2_l +ul
-    for (unsigned int i = 0; i < m; ++i)
-    {
-      result[i] = storl[i] + ul[i] ;
-    } 
+    //// u = q, q=0 => c = vl.cu
+    //for (unsigned int i = 0; i < m; ++i)
+    //{
+    //  result[i] = storl[i];
+    //} 
   }
   else if (edge == 1)
   {
     double* vb    = data->vb;
-    double* ub    = data->ub;
     double* storb = data->storb;
 
-    memset(storb, 0, m*sizeof(double));
+    //memset(storb, 0, m*sizeof(double));
     cblas_dgemv ( CblasColMajor, CblasNoTrans,  
-                  m, n, 1.0, vb , n, cu, 1, 0.0, storb, 1 );
-    for (unsigned int i = 0; i < m; ++i)
-    {
-      result[i] = storb[i] + ub[i];
-    } 
+                  m, n, 1.0, vb, m, cu, 1, 0.0, result, 1 );
+    //for (unsigned int i = 0; i < m; ++i)
+    //{
+    //  result[i] = storb[i];
+    //} 
   }
   else if (edge == 2)
   {
     double* vh    = data->vh;
-    double* uh    = data->uh;
     double* storh = data->storh;
-    memset(storh, 0, m*sizeof(double));
+    //memset(storh, 0, m*sizeof(double));
     cblas_dgemv ( CblasColMajor, CblasNoTrans,  
-                  m, n, 1.0, vh , n, cu, 1, 0.0, storh, 1 );
-    for (unsigned int i = 0; i < m; ++i)
-    {
-      result[i] = storh[i] + uh[i];
-    } 
+                  m, n, 1.0, vh, m, cu, 1, 0.0, result, 1 );
+    //for (unsigned int i = 0; i < m; ++i)
+    //{
+    //  result[i] = storh[i];
+    //} 
   }
 }
 
@@ -257,11 +248,56 @@ void cnstrntGhlp (  unsigned int m,
 void cl ( unsigned int m, double* result, unsigned int n, 
           const double* cu, double* grad, void* f_data)
 {
+  optData* data   = (optData*) f_data;
+  double* vl      = data->vl;
+  double* vb      = data->vb;
+  double* vh      = data->vh;
+  double* storl   = data->storl;
+  double* storb   = data->storb;
+  double* storh   = data->storh;
+  unsigned int nl = data->nl;
+  unsigned int nb = data->nb;
+  unsigned int nh = data->nh;
+  
   if (grad)
   {
-    cnstrntGhlp(m, result, n, cu, grad, f_data, 0);
+
+    for (unsigned int j = 0; j < n; ++j)
+    {
+      for (unsigned int i = 0; i < nl; ++i)
+      {
+        grad[j + n*i] = vl[i + nl*j];
+      }
+      for (unsigned int i = nl; i < nl+nb; ++i)
+      {
+        grad[j + n*i] = vb[(i-nl) + nb*j];
+      }
+      for (unsigned int i = nl+nb; i < m; ++i)
+      {
+        grad[j + n*i] = vh[(i-nl-nb) + nh*j];
+      }
+    }
   }
-  cnstrntHlp(m, result, n, cu, f_data, 0);
+
+  cblas_dgemv ( CblasColMajor, CblasNoTrans,  
+                nl, n, 1.0, vl, nl, cu, 1, 0.0, storl, 1 );
+  cblas_dgemv ( CblasColMajor, CblasNoTrans,  
+                nb, n, 1.0, vb, nb, cu, 1, 0.0, storb, 1 );
+  cblas_dgemv ( CblasColMajor, CblasNoTrans,  
+                nh, n, 1.0, vh, nh, cu, 1, 0.0, storh, 1 );
+  
+  for (unsigned int i = 0; i < nl; ++i)
+  {
+    result[i] = storl[i];
+  }
+  for (unsigned int i = 0; i < nb; ++i)
+  {
+    result[i+nl] = storb[i];
+  }
+  for (unsigned int i = 0; i < nh; ++i)
+  {
+    result[i+nl+nb] = storh[i];
+  }
 }
 
 void cb ( unsigned int m, double* result, unsigned int n, 
@@ -269,7 +305,15 @@ void cb ( unsigned int m, double* result, unsigned int n,
 {
   if (grad)
   {
-    cnstrntGhlp(m, result, n, cu, grad, f_data, 1);
+    optData* data = (optData*) f_data;
+    double* vb    = data->vb;
+    for (unsigned int j = 0; j < n; ++j)
+    {
+      for (unsigned int i = 0; i < m; ++i)
+      {
+        grad[j + n*i] = vb[i + m*j];
+      }
+    }
   } 
   cnstrntHlp(m, result, n, cu, f_data, 1);
 }
@@ -279,7 +323,15 @@ void ch ( unsigned int m, double* result, unsigned int n,
 {
   if (grad)
   {
-    cnstrntGhlp(m, result, n, cu, grad, f_data, 2);
+    optData* data = (optData*) f_data;
+    double* vh    = data->vh;
+    for (unsigned int j = 0; j < n; ++j)
+    {
+      for (unsigned int i = 0; i < m; ++i)
+      {
+        grad[j + n*i] = vh[i + m*j];
+      }
+    }
   } 
   cnstrntHlp(m, result, n, cu, f_data, 2);
 }

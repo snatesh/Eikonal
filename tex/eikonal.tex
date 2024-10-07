@@ -190,10 +190,10 @@ where we've used the mutual orthonormality relations, which persist even within 
 
 Thus, we want to solve the following quadratic program with equality constraints:
 
-\begin{align*}
+\begin{align}\label{eq:eikonalqp}
 	\min_{\bs{u}\in \bb{R}^N}F(\bs{u}) = \frac{1}{2}\big(\bs{u}^T G \bs{u} - \tilde{\bs{c}}_{\frac{1}{f}}^T\tilde{\bs{c}}_{\frac{1}{f}}\big)\\
-	\text{subject to }\quad  \bs{u} \cdot \bs{P}(\bs{x}) = 0,\quad \bs{x} \in \partial \Omega,
-\end{align*}
+	\text{subject to }\quad  \bs{u} \cdot \bs{P}(\bs{x}) = 0,\quad \bs{x} \in \partial \Omega, \nonumber
+\end{align}
 where $G = \mathcal{\tilde D}_x^T\mathcal{\tilde D}_x + \mathcal{\tilde D}_y^T \mathcal{\tilde D}_y \in \bb{R}^{N\times N}$ is symmetric and positive semi-definite \footnote{Note, $\forall \bs{x}\in \bb{R}^{n^+}_\star, \bs{x}^T G \bs{x} = \bs{x}^T\mathcal{\tilde D}_x ^T \mathcal{\tilde D}_x\bs{x} + \bs{x}^T\mathcal{\tilde D}_y ^T \mathcal{\tilde D}_y\bs{x} = ||\mathcal{\tilde{D}}_x\bs{x}||^2 + ||\mathcal{\tilde D}_y\bs{x}||^2 \geq 0$. We have equality only for any $\bs{x} = \alpha \bs{e}_1$, as derivatives of the constant polynomial are 0.}. The gradient and Hessian of $F$ are given by
 \begin{align}
 	\nabla_{\bs{u}}F(\bs{u}) &= G\bs{u},\\
@@ -205,7 +205,7 @@ The weighted basis
 \begin{equation}\label{eq:wbasis}
 	\tilde{\bs{P}}^{(a,b,c)}(x,y) = x^{a-\frac{1}{2}}y^{b-\frac{1}{2}}(1-x-y)^{c-\frac{1}{2}}\bs{P}^{(a,b,c)}
 \end{equation}
-will prove useful for incorporating boundary conditions to the discrete operator, while preserving its sparsity. This is accomplished using the following weighted ladder operators corresponding to differentiation of the weighted basis:
+will prove useful for incorporating boundary conditions to the discrete operator, while preserving its sparsity. Note, we are simply multiplying the original basis by the weight function $W^{(a,b,c)}(\bs{x})$ which forms the measure under which they are orthogonal. We need the following weighted ladder operators for differentiation in the weighted basis:
 \begin{align}
 	-(2k+b+c+1)h_{k,n}^{(a,b,c)}\partial_x\tilde{P}_{k,n}^{(a,b,c)} &=  (k+c)(n-k+1)h_{k,n+1}^{(a-1,b,c-1)}\tilde{P}_{k,n+1}^{(a-1,b,c-1)} \nonumber \\&+ (k+1)(n-k+a)h_{k+1,n+1}^{(a-1,b,c-1)}\tilde{P}_{k+1,n+1}^{(a-1,b,c-1)}\\
 	h_{k,n}^{(a,b,c)}\partial_y\tilde{P}_{k,n}^{(a,b,c)} &= -(k+1)h_{k+1,n+1}^{(a,b-1,c-1)}\tilde{P}_{k+1,n+1}^{(a,b-1,c-1)}.
@@ -231,26 +231,32 @@ So, there are sparse banded matrices $\mathcal{L}_{(a,b,c)}^{(a-1,b,c)}$ and $\m
 \end{align}
 We will construct the modal Eikonal operator which operates on coefficients under the basis $\tilde{\bs{P}}^{(3/2,3/2,3/2)}$ and produces coefficients under $\bs{P}^{(3/2,3/2,3/2)}$. Note, \emph{the conversion from the weighted to regular Jacobi basis depends on our choice of parameters $a=b=c=3/2$}. With $\bs{f}$ the coefficients of $f(x,y)$ in the $(a,b,c)$ basis, 
 \begin{align*}
-	\partial_x f(x,y) &= \tilde{\bs{P}}^{(a-1,b,c-1)}(x,y)^T \mathcal{W}_{x,(a,b,c)}^{(a-1,b,c-1)}\bs{f} \\
+	\partial_x[W^{(a,b,c)}(x,y)f(x,y)] &=  \tilde{\bs{P}}^{(a-1,b,c-1)}(x,y)^T \mathcal{W}_{x,(a,b,c)}^{(a-1,b,c-1)}\bs{f} \\
 	& = x^{a-\frac{3}{2}}y^{b-\frac{3}{2}}(1-x-y)^{c-\frac{3}{2}}\big(y\bs{P}^{(a-1,b,c-1)}(x,y)\big)^T(\mathcal{W}_{x,(a,b,c)}^{(a-1,b,c-1)}\bs{f})\\
 	&= x^{a-\frac{3}{2}}y^{b-\frac{3}{2}}(1-x-y)^{c-\frac{3}{2}}\bs{P}^{(a-1,b-1,c-1)}(x,y)^T(\mathcal{L}_{(a-1,b,c-1)}^{(a-1,b-1,c-1)}\mathcal{W}_{x,(a,b,c)}^{(a-1,b,c-1)}\bs{f}),\\
-	\partial_y f(x,y) &= \tilde{\bs{P}}^{(a,b-1,c-1)}(x,y)^T \mathcal{W}_{y,(a,b,c)}^{(a,b-1,c-1)}\bs{f} \\
+	\partial_y[W^{(a,b,c)}(x,y) f(x,y)] &= \tilde{\bs{P}}^{(a,b-1,c-1)}(x,y)^T \mathcal{W}_{y,(a,b,c)}^{(a,b-1,c-1)}\bs{f} \\
 	&= x^{a-\frac{3}{2}}y^{b-\frac{3}{2}}(1-x-y)^{c-\frac{3}{2}}\big(x\bs{P}^{(a,b-1,c-1)}(x,y)\big)^T(\mathcal{W}_{y,(a,b,c)}^{(a,b-1,c-1)}\bs{f})\\
 	&=x^{a-\frac{3}{2}}y^{b-\frac{3}{2}}(1-x-y)^{c-\frac{3}{2}}\bs{P}^{(a-1,b-1,c-1)}(x,y)^T(\mathcal{L}_{(a,b-1,c-1)}^{(a-1,b-1,c-1)}\mathcal{W}_{y,(a,b,c)}^{(a,b-1,c-1)}\bs{f})
 \end{align*}
 When $a=b=c=3/2$, we have 
 \begin{align*}
-	\partial_x f(x,y) &=  \bs{P}^{(a-1,b-1,c-1)}(x,y)^T(\mathcal{L}_{(a-1,b,c-1)}^{(a-1,b-1,c-1)}\mathcal{W}_{x,(a,b,c)}^{(a-1,b,c-1)}\bs{f}),\\
-	\partial_yf(x,y) &= \bs{P}^{(a-1,b-1,c-1)}(x,y)^T(\mathcal{L}_{(a,b-1,c-1)}^{(a-1,b-1,c-1)}\mathcal{W}_{y,(a,b,c)}^{(a,b-1,c-1)}\bs{f}),
+	\partial_x[W^{(a,b,c)}(x,y) f(x,y)] &=  \bs{P}^{(a-1,b-1,c-1)}(x,y)^T(\mathcal{L}_{(a-1,b,c-1)}^{(a-1,b-1,c-1)}\mathcal{W}_{x,(a,b,c)}^{(a-1,b,c-1)}\bs{f}),\\
+	\partial_y[W^{(a,b,c)}(x,y) f(x,y)] &= \bs{P}^{(a-1,b-1,c-1)}(x,y)^T(\mathcal{L}_{(a,b-1,c-1)}^{(a-1,b-1,c-1)}\mathcal{W}_{y,(a,b,c)}^{(a,b-1,c-1)}\bs{f}),
 \end{align*}
 \subsection{Numerical solution to the Eikonal equation}
-
-
-The process for solving \eqref{eq:eikonal} with zero Dirichlet conditions is as follows:
+The process for solving \eqref{eq:eikonal} with zero Dirichlet conditions $q\equiv 0$ is as follows:
 \begin{itemize}
-	\item Expand the right-hand side $f(x,y)$ in the basis $\bs{P}^{(\frac{3}{2},\frac{3}{2},\frac{3}{2})}$ by first computing the coefficients in $\bs{P}^{(\frac{1}{2},\frac{1}{2},\frac{1}{2})}$ and promoting them by composing the three single-parameter promotion matrices. 
-	\item Assemble $\Delta_W$ and solve for the coefficients $\bs{u}$ of $u(x,y)$ in the weighted basis $\tilde{\bs{P}}^{(\frac{3}{2},\frac{3}{2},\frac{3}{2})}$ through $$\bs{u} = \Delta_W^{-1}\bs{f},$$ where $\bs{f}$ are the coefficients of the right-hand side under $\bs{P}^{(\frac{3}{2},\frac{3}{2},\frac{3}{2})}$ obtained in step (i).
-	\item Evaluate the approximation $\hat{u}(x,y)$ using the weighted Vandermonde matrix as $$\hat{u}(\bs{x},\bs{y}) = \tilde{\bs{P}}^{(\frac{3}{2},\frac{3}{2},\frac{3}{2})}(\bs{x},\bs{y})^T\bs{u},$$ where $\bs{x},\bs{y}$ are the quadrature nodes used in step (i).
+	\item Choose a high order quadrature rule $(\bs{x},\bs{y},\bs{w})$ on $\Tau^2$ and compute the Vandermonde matrix $\bs{P}^{(\frac{1}{2},\frac{1}{2},\frac{1}{2})}(\bs{x},\bs{y})$ up to a desired order (each column is a polynomial evaluated on abscissa), and there are $\mathcal{O}(n^2)$ columns for order $n$.
+	\item Expand the right-hand side $f(x,y)$ in the basis $\bs{P}^{(\frac{1}{2},\frac{1}{2},\frac{1}{2})}$ by computing
+	\begin{equation}
+		\bs{c}_{\frac{1}{f}} = \bs{P}^{(\frac{1}{2},\frac{1}{2},\frac{1}{2})}(\bs{x},\bs{y})^T(\bs{f}(\bs{x},\bs{y}) \odot \bs{w}\big)
+	\end{equation}
+	\item Assemble the operator matrix $G$ as
+	\begin{equation}
+		G = \mathcal{L}_{(a-1,b,c-1)}^{(a-1,b-1,c-1)}\mathcal{W}_{x,(a,b,c)}^{(a-1,b,c-1)}+ \mathcal{L}_{(a,b-1,c-1)}^{(a-1,b-1,c-1)}\mathcal{W}_{y,(a,b,c)}^{(a,b-1,c-1)}.
+	\end{equation}
+	and solve for the coefficients $\bs{u}$ of $u(x,y)$ in the basis $(3/2,3/2,3/2)$ via \eqref{eq:eikonalqp}.
+	\item Evaluate the approximation $\hat{u}(x,y)$ using the weighted polynomials as $$\hat{u}(\bs{x},\bs{y}) = \tilde{\bs{P}}^{(\frac{3}{2},\frac{3}{2},\frac{3}{2})}(x,y)^T\bs{u},$$ for any $(x,y)\in\Tau^2$
 \end{itemize}
 
 	
