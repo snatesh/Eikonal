@@ -70,11 +70,11 @@ int main(int argc, char* argv[])
   lob   = (double*) malloc(Np * sizeof(double));
   upb   = (double*) malloc(Np * sizeof(double));
   toleq = (double*) malloc(solver->Ne * sizeof(double)); 
-  double tol = 1e-15;
+  double tol = 1e-13;
   for (unsigned int i = 0; i < Np; ++i)
   {
-    upb[i]     = HUGE_VAL ; 
-    lob[i]     = -HUGE_VAL; 
+    upb[i]     = HUGE_VAL/2.0 ; 
+    lob[i]     = -HUGE_VAL/3.0; 
   }
   for (unsigned int i = 0; i < solver->Ne; ++i) { toleq[i] = tol; }
   

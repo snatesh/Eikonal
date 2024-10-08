@@ -180,10 +180,11 @@ struct eikonal
                   Np, Np, Np, 1.0, Dy, Np, 
                   Dy, Np, 1.0, G, Np);
 
-    for (unsigned int i = 0; i < nl; ++i)     { Yedge[i] = edgel->x[i]; }
-    for (unsigned int i = nl; i < nl+nb; ++i) { Xedge[i] = edgeb->x[i]; } 
-    for (unsigned int i = nl+nb; i < Ne; ++i) { Xedge[i] = edgel->x[i]; 
-                                                Yedge[i] = 1 - Xedge[i];}
+    double *xl = edgel->x, *xb = edgeb->x, *xh = edgeh->x;
+    for (unsigned int i = 0; i < nl; ++i)     { Yedge[i] = xl[i];           }
+    for (unsigned int i = nl; i < nl+nb; ++i) { Xedge[i] = xb[i-nl];        } 
+    for (unsigned int i = nl+nb; i < Ne; ++i) { Xedge[i] = xh[i-nl-nb]    ; 
+                                                Yedge[i] = 1 - xh[i-nl-nb]; }
     this->polyedge->computeV(Xedge, Yedge); 
   
   }
