@@ -71,7 +71,7 @@ multivariate orthogonal polynomials, spectral methods, partial differential equa
 
 \noindent Haven't really looked into the viscosity perspective, but..I think I converged on the same idea for solving the PDE. Consider the standard simplex $$\Tau^d = \{\bs{x}=(x_1,\cdots x_d)\in \bb{R}^d \s | \s x_i\geq 0,\s  1-|\bs{x}|_1 \geq 0\}$$
 
-The \emph{minimal} time $u(x)$ to reach the boundary $\partial \Tau^d$ from a point $x\in \Tau^d$ is computable through solving the Eikonal equation on $\Tau^d$:
+The \emph{minimal} time $u(\bs{x})$ to reach the boundary $\partial \Tau^d$ from a point $x\in \Tau^d$ is computable through solving the Eikonal equation on $\Tau^d$:
 \begin{equation}\label{eq:eikonal}
 	\begin{cases}
 &\sum_{i = 1}^d (\partial_{x_i} u)^2 = \big(\frac{1}{f}\big)^2,\quad x \in \Tau^d,\\
@@ -101,7 +101,7 @@ and they satisfy a mutual orthonormality condition under the weighted inner prod
 \begin{equation}\label{eq:koornorth}
 	\langle P_{j,m}^{(a,b,c)},P_{k,n}^{(a,b,c)}\rangle_{w^{(a,b,c)}} = \delta_{jk}\delta_{mn}. 
 \end{equation}
-That is to say, a given basis polynomial is not only orthonormal to those with different total degree, but also to those others within the same-degree homogeneous subspace with that degree. Notice, $P_k^n,\s0\leq k\leq n$ forms a basis for the space of homogeneous polynomials of degree $n$. By considering ordered collections of these subspaces (where ordering is in terms of the degree $n$ of the space), instead of individual polynomials, we can more elegantly reformulate the Eikonal problem into a weak-type form. Let $$\bb{P}_n(x_1,x_2) = (P_0^n(x_1,x_2),\cdots P_n^n(x_1,x_2))^T,$$ and let $$\bs{P} = (\bb{P}_0^T,\bb{P}_1^T,\cdots,\bb{P}_{n-1}^T)^T.$$ The above notation amounts to a vectorization of the basis for the general space of polynomials in two variables $\Pi_{n-1}^2$ defined of $\Tau^2$.
+A given basis polynomial is not only orthonormal to those with different total degree, but also to those others within the same-degree homogeneous subspace. In other words, $P_k^n,\s0\leq k\leq n$ forms a basis for the space of homogeneous polynomials of degree $n$. By considering ordered collections of these subspaces (where ordering is in terms of the degree $n$ of the space), instead of individual polynomials, we can more elegantly reformulate the Eikonal problem into a weak-type form. Let $$\bb{P}_n(x_1,x_2) = (P_0^n(x_1,x_2),\cdots P_n^n(x_1,x_2))^T,$$ and let $$\bs{P} = (\bb{P}_0^T,\bb{P}_1^T,\cdots,\bb{P}_{n-1}^T)^T.$$ The above notation amounts to a vectorization of the basis for the general space of polynomials in two variables $\Pi_{n-1}^2$ defined of $\Tau^2$.
 
 Now, consider the $(n-1)$ order Jacobi polynomial expansion of the solution $u$ under the parameter family $(a,b,c)$. For $\bs{x} \in \Tau^d$, and $N = \text{dim}\Pi_{n-1}^2$ coefficients $\bs{u} \in \bb{R}^N$, we can write it as 
 \begin{equation}
@@ -129,7 +129,7 @@ where $$\mathcal{\tilde{D}}_{x_1} = \mathcal{K}_{(a+1,b,c+1)}^{(a+1,b+1,c+1)}\ma
 
 \begin{figure}[H]
 	\centering
-	%\includegraphics[width=0.75\linewidth]{./distT2}
+	\includegraphics[width=0.75\linewidth]{./distT2}
 	\caption{A simple calculation shows that the minimum distance from $\bs{x}\in\Tau^2$ to the boundary $\partial\Tau^2$ is given by the minimum of $\Big\{x_1,x_2,\Big|\Big|\bs{x}-\begin{bmatrix}
 	(x_1-x_2 + 1)/2 \\ (x_2-x_1+1)/2
 	\end{bmatrix}\Big|\Big|_2\Big\}$}\label{fig:distT2}
@@ -199,7 +199,9 @@ where $G = \mathcal{\tilde D}_x^T\mathcal{\tilde D}_x + \mathcal{\tilde D}_y^T \
 	\nabla_{\bs{u}}F(\bs{u}) &= G\bs{u},\\
 	\nabla^2_{\bs{u}}F(\bs{u}) &= G,
 \end{align}
-and we still need to consider the constraint equation. However, by making use of a weighted basis $\bs{\tilde{P}}(\bs{x})$, and expressing our solution coefficients and differential operators in terms of this weighted basis, we can eliminate the constraint equation and solve a completely unconstrained quadratic optimization problem. 
+and we still need to consider the constraint equation. However, by making use of a weighted basis $\bs{\tilde{P}}(\bs{x})$, and expressing our solution coefficients and differential operators in terms of this weighted basis, we can eliminate the constraint equation and solve a completely unconstrained quadratic optimization problem \color{red} This doesn't seem to work as well for the non-linear problem, but we will describe that approach and verify correctness in the next section anyway. \color{black} 
+
+
 \subsubsection{The weighted Jacobi basis}
 The weighted basis 
 \begin{equation}\label{eq:wbasis}

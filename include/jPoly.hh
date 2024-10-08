@@ -321,7 +321,6 @@ class jPoly
         }
         if (std::is_same_v<T, double>)
         {
-          std::cout << "HERE" << std::endl; 
           cblas_dgemv ( CblasColMajor, CblasTrans,
                         Nx, Np, 1.0, (double*) this->V, Nx, (double*) F, 1, 0.0, (double*) cF, 1);
           if (_V) { cblas_dcopy(Nx*Np, (double*) this->V, 1, (double*) _V, 1); }

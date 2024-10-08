@@ -55,6 +55,7 @@ set(eikonalSRC include/eikonal.hh wrapper/eikonalWrapper.cpp)
 set(tetquadSRC src/tetquad.cpp)
 set(gjquadoptSRC src/ngjquad.cpp)
 set(EikonalSRC src/eikonal.cpp)
+set(EikonalWeightedSRC src/eikonal_weighted.cpp)
 
 #set(eikonalSRC src/eikonal.cpp)
 
@@ -168,6 +169,10 @@ add_executable(Eikonal ${EikonalSRC})
 set_target_properties(Eikonal PROPERTIES COMPILE_FLAGS "-DWITHOUT_NUMPY")
 target_link_libraries(Eikonal eikonal ${Python_LIBRARIES})  
 
+add_executable(EikonalW ${EikonalWeightedSRC})
+set_target_properties(EikonalW PROPERTIES COMPILE_FLAGS "-DWITHOUT_NUMPY")
+target_link_libraries(EikonalW eikonal ${Python_LIBRARIES})  
+
 install(TARGETS sfactors ARCHIVE DESTINATION lib LIBRARY DESTINATION lib)
 install(TARGETS kmat ARCHIVE DESTINATION lib LIBRARY DESTINATION lib)
 install(TARGETS dmat ARCHIVE DESTINATION lib LIBRARY DESTINATION lib)
@@ -183,4 +188,5 @@ install(TARGETS eikonal ARCHIVE DESTINATION lib LIBRARY DESTINATION lib)
 install(TARGETS gjquadopt ARCHIVE DESTINATION bin LIBRARY DESTINATION bin)
 install(TARGETS tetquad ARCHIVE DESTINATION bin LIBRARY DESTINATION bin)
 install(TARGETS Eikonal ARCHIVE DESTINATION bin LIBRARY DESTINATION bin)
+install(TARGETS EikonalW ARCHIVE DESTINATION bin LIBRARY DESTINATION bin)
 
