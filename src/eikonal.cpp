@@ -61,7 +61,7 @@ int main(int argc, char* argv[])
 
   unsigned int n = 20; 
  
-  eikonal* solver = new eikonal ( n, N, N, N, N, frhs, fu, 
+  eikonal* solver = new eikonal ( n, N, 20, 20, 20, frhs, fu, 
                                   X, Y, W, nthreads );
 
 
