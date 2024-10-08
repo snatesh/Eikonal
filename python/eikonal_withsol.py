@@ -1,14 +1,13 @@
-import nlopt
 from numpy import *
 from eikonal import *
 import matplotlib.pyplot as plt
 
 nthreads = 6
-
+weighted = False
 def fzero(X,Y):
   return np.zeros_like(X)
 
-ops = eikonal(fzero, 0.5, 0.5, 0.5, 14, 16, nthreads)
+ops = eikonal(fzero, 0.5, 0.5, 0.5, weighted, 17, 20, nthreads)
 cu_opt = np.loadtxt("cu_opt_new1.txt")
 
 
@@ -59,20 +58,18 @@ def distToTri(X,Y):
 #Nfine = 253; 
 #Xfine = Zfine[0:Nfine]; 
 #Yfine = Zfine[Nfine:2*Nfine] 
-jP = jPoly(ops.N, ops.n, ops.a+1, ops.b+1, ops.c+1, nthreads, True)
-V = computeV(jP, ops.N, ops.X, ops.Y)
-ops.W = ops.W / 2.0
-print(np.sum(ops.W))
-print(np.linalg.norm(ops.W.dot(V.dot(cu_opt) - distToTri(ops.X,ops.Y)))/np.linalg.norm(ops.W.dot(distToTri(ops.X,ops.Y))))
 xx, yy = np.meshgrid(np.linspace(0,1,20), np.linspace(0,1,20))
 
 X = xx[yy[:]<1-xx[:]]
 Y = yy[yy[:]<1-xx[:]]
-#nfine = np.size(X,0)
-#jP = jPoly(nfine, ops.n, ops.a, ops.b, ops.c, 6)
-#Vfine = computeV(jP, ops.N, X, Y)
-#tmins = Vfine.dot(cu_opt); tmins = tmins / np.max(tmins)
-#dmins = distToTri(X, Y); dmins = dmins / np.max(dmins)
+ngrd = np.size(X,0)
+V = ops.V
+ops.W = ops.W / 2.0
+print(np.sum(ops.W))
+
+print(np.linalg.norm(ops.W.dot(V.dot(np.transpose(V)))))
+
+print(np.linalg.norm(ops.W.dot(V.dot(cu_opt) - distToTri(ops.X,ops.Y)))/np.linalg.norm(ops.W.dot(distToTri(ops.X,ops.Y))))
 
 for j in range(np.size(X)):
   path = tracePathGlobal(ops, cu_opt, X[j], Y[j])

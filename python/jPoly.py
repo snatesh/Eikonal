@@ -4,18 +4,45 @@ import numpy as np
 libjpoly = ctypes.CDLL('libjpoly.so')
 
 
-def computeCoeffs(f, n, a, b, c, X, Y ,W, nthreads):
-  Npts = np.size(X,0)
-  N = int(0.5 * (n+1) * (n+2))
-  poly = jPoly(Npts, n, a, b, c, nthreads)
-  V = computeV(poly, N, X, Y)
-  return np.transpose(V).dot(f(X,Y) * W), V
+#def computeCoeffs(f, n, a, b, c, X, Y, W, nthreads):
+#  Npts = np.size(X,0)
+#  N = int(0.5 * (n+1) * (n+2))
+#  poly = jPoly(Npts, n, a, b, c, nthreads)
+#  V = computeV(poly, N, X, Y)
+#  return np.transpose(V).dot(f(X,Y) * W), V
+
+def computeCoeffs(poly, f, X, Y, W):
+  F = f(X,Y)
+  Np = libjpoly.getNp(poly)
+  Nx = len(X)
+  cF = np.zeros((Np,))
+  V = np.zeros((Nx, Np), order='F')
+  libjpoly.computeCoeffs  ( poly,
+                            F.ctypes.data_as(
+                              ctypes.POINTER(
+                              ctypes.c_double)),
+                            X.ctypes.data_as(
+                              ctypes.POINTER(
+                              ctypes.c_double)),
+                            Y.ctypes.data_as(
+                              ctypes.POINTER(
+                              ctypes.c_double)),
+                            W.ctypes.data_as(
+                              ctypes.POINTER(
+                              ctypes.c_double)),
+                            cF.ctypes.data_as(
+                              ctypes.POINTER(
+                              ctypes.c_double)),
+                            V.ctypes.data_as(
+                              ctypes.POINTER(
+                              ctypes.c_double)) )
+  return cF, np.asfortranarray(V)
   
 
 def computeV(poly, N, x, y):
   Npts = np.size(x,0)
   V = np.zeros((Npts, N), order='F')
-  libjpoly.computeV(  poly, 
+  libjpoly.computeV ( poly, 
                       x.ctypes.data_as(
                         ctypes.POINTER(
                         ctypes.c_double)),
@@ -41,8 +68,20 @@ libjpoly.jPoly_T2.argtypes = [ctypes.c_uint,\
                               ctypes.c_bool]
 libjpoly.jPoly_T2.restype = ctypes.c_void_p
 
+libjpoly.computeCoeffs.argtypes = [ctypes.c_void_p,\
+                                   ctypes.POINTER(ctypes.c_double),\
+                                   ctypes.POINTER(ctypes.c_double),\
+                                   ctypes.POINTER(ctypes.c_double),\
+                                   ctypes.POINTER(ctypes.c_double),\
+                                   ctypes.POINTER(ctypes.c_double)]
+libjpoly.computeCoeffs.restype = None
+
 libjpoly.computeV.argtypes = [ctypes.c_void_p,\
                               ctypes.POINTER(ctypes.c_double),\
                               ctypes.POINTER(ctypes.c_double),\
                               ctypes.POINTER(ctypes.c_double)]
 libjpoly.computeV.restype = None
+
+
+libjpoly.getNp.argtypes = [ctypes.c_void_p]
+libjpoly.getNp.restype = ctypes.c_uint

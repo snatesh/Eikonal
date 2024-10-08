@@ -660,9 +660,12 @@ struct ngjQuad
       nlopt_set_xtol_rel(opt, tol);
       nlopt_set_stopval(opt, tol);
 
-      if (nlopt_optimize(opt, optdata->Z0, &minF) < 0) 
+      nlopt_result result = nlopt_optimize(opt, optdata->Z0, &minF);
+      if (result < 0) 
       {
-        std::cerr << "NLOPT failed! Exiting .." << std::endl;
+        std::cerr << "NLOPT failed! \n"; 
+        std::cerr << nlopt_result_to_string(result);
+        std::cerr << "\n Exiting ..\n";
         exit(1);
       }
       nlopt_destroy(opt);

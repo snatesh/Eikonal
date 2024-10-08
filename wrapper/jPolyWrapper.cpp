@@ -28,6 +28,22 @@ extern "C"
     return poly;                                                
   } 
 
+  void computeCoeffs  ( jPoly<double>* poly, 
+                        double* F, 
+                        double* X, 
+                        double* Y,
+                        double* W,
+                        double* cF, 
+                        double* V )
+  {
+    poly->computeCoeffs(F, X, Y, W, cF, V);
+  }
+
+  unsigned int getNp(jPoly<double>* poly)
+  {
+    return poly->Np;
+  }
+
   void  computeV(jPoly<double>* poly, double* x, double* y, double* V)
   {
     poly->computeV(x, y);
@@ -43,6 +59,6 @@ extern "C"
   {
     jPoly<double>* poly = new jPoly<double>(Nx, n, a, b, nthreads);
     return poly;                                                
-  } 
+  }
 }
 

@@ -54,6 +54,7 @@ set(legquadSRC include/legQuad.hh wrapper/legQuadWrapper.cpp)
 set(eikonalSRC include/eikonal.hh wrapper/eikonalWrapper.cpp)
 set(tetquadSRC src/tetquad.cpp)
 set(gjquadoptSRC src/ngjquad.cpp)
+set(EikonalSRC src/eikonal.cpp)
 
 #set(eikonalSRC src/eikonal.cpp)
 
@@ -102,7 +103,7 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 else()
   set_source_files_properties(${jpolySRC} PROPERTIES COMPILE_FLAGS "-xHost -qopenmp -fpic ")
 endif()
-target_link_libraries(jpoly sfactors) 
+target_link_libraries(jpoly sfactors openblas)
 
 add_library(jweight SHARED ${jweightSRC})
 if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
@@ -150,7 +151,7 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 else()
   set_source_files_properties(${eikonalSRC} PROPERTIES COMPILE_FLAGS "-xHost -qopenmp -fpic ")
 endif()
-target_link_libraries(eikonal nlopt openblas) 
+target_link_libraries(eikonal nlopt legquad) 
 
 set_target_properties(sfactors kmat dmat jmat jweight eikonal
                       jpoly ngjquad legquad jevd tensorquad 
@@ -161,7 +162,11 @@ set_target_properties(gjquadopt PROPERTIES COMPILE_FLAGS "-DWITHOUT_NUMPY")
 target_link_libraries(gjquadopt legquad ${Python_LIBRARIES})
 
 add_executable(tetquad ${tetquadSRC})
-target_link_libraries(tetquad jevd legquad)    
+target_link_libraries(tetquad jevd legquad)   
+
+add_executable(Eikonal ${EikonalSRC})
+set_target_properties(Eikonal PROPERTIES COMPILE_FLAGS "-DWITHOUT_NUMPY")
+target_link_libraries(Eikonal eikonal ${Python_LIBRARIES})  
 
 install(TARGETS sfactors ARCHIVE DESTINATION lib LIBRARY DESTINATION lib)
 install(TARGETS kmat ARCHIVE DESTINATION lib LIBRARY DESTINATION lib)
@@ -177,5 +182,5 @@ install(TARGETS tensorquad ARCHIVE DESTINATION lib LIBRARY DESTINATION lib)
 install(TARGETS eikonal ARCHIVE DESTINATION lib LIBRARY DESTINATION lib)
 install(TARGETS gjquadopt ARCHIVE DESTINATION bin LIBRARY DESTINATION bin)
 install(TARGETS tetquad ARCHIVE DESTINATION bin LIBRARY DESTINATION bin)
-#add_executable(eikonal ${eikonalSRC})
-#target_link_libraries(eikonal jpoly kmat dmat ngjquad)  
+install(TARGETS Eikonal ARCHIVE DESTINATION bin LIBRARY DESTINATION bin)
+

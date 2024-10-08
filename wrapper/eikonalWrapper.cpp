@@ -4,6 +4,32 @@
 extern "C"
 {
 
+  eikonal* createSolver ( unsigned int _n,
+                          unsigned int _N,
+                          unsigned int _nl,
+                          unsigned int _nb,
+                          unsigned int _nh,
+                          double* frhs,
+                          double* fu,
+                          double* _X,
+                          double* _Y, 
+                          double* _W,
+                          unsigned int _nthreads )
+  {
+    return new eikonal  ( _n, _n, _nl, _nb, _nh,
+                          frhs, fu, _X, _Y, _W,
+                          _nthreads );
+  }
+  
+  void getCoeffs(eikonal* solver, double* cu)
+  {
+    for (unsigned int i = 0; i < solver->Np; ++i)
+    {
+      cu[i] = solver->cu[i]; 
+    }
+  }
+
+
   void eikonalSolveH  ( unsigned int N,
                         double* Dx, 
                         double* Dy,
@@ -20,7 +46,7 @@ extern "C"
       lb[i]     = -HUGE_VAL ; 
     }
     double tol = 1e-6;
-    optData* data = new optData ( N, Dx, Dy, Hess, rhs, cu_opt );  
+    optDataEik* data = new optDataEik ( N, Dx, Dy, Hess, rhs, cu_opt );  
     nlopt_opt opt = nlopt_create(NLOPT_LN_SBPLX, N); 
     nlopt_set_lower_bounds(opt, lb);
     nlopt_set_upper_bounds(opt, ub);
@@ -40,45 +66,34 @@ extern "C"
   } 
 
   void eikonalSolveP  ( unsigned int N,
-                        unsigned int nl,
-                        unsigned int nb,
-                        unsigned int nh,
+                        unsigned int ne,
                         double* Dx, 
                         double* Dy,
                         double* Hess,
                         double* rhs,
-                        double* vl, 
-                        double* vb, 
-                        double* vh, 
+                        double* Ve, 
                         double* cu_opt )
   {
-    double *lob, *upb, *toleql, *toleqb, *toleqh; 
-    lob    = (double*) malloc(N * sizeof(double));
-    upb     = (double*) malloc(N * sizeof(double));
-    toleql  = (double*) malloc(nl * sizeof(double)); 
-    toleqb  = (double*) malloc(nb * sizeof(double)); 
-    toleqh  = (double*) malloc(nh * sizeof(double)); 
+    double *lob, *upb, *toleq; 
+    lob   = (double*) malloc(N * sizeof(double));
+    upb   = (double*) malloc(N * sizeof(double));
+    toleq = (double*) malloc(ne * sizeof(double)); 
     double tol = 1e-14;
     for (unsigned int i = 0; i < N; ++i)
     {
       upb[i]     = 1000 ; 
       lob[i]     = -1000; 
     }
-    for (unsigned int i = 0; i < nl; ++i) { toleql[i] = tol; }
-    for (unsigned int i = 0; i < nb; ++i) { toleqb[i] = tol; }
-    for (unsigned int i = 0; i < nh; ++i) { toleqh[i] = tol; }
+    for (unsigned int i = 0; i < ne; ++i) { toleq[i] = tol; }
 
-    optData* data = new optData ( N, Dx, Dy, Hess, rhs, cu_opt, 
-                                  nl, nb, nh, 
-                                  vl, vb, vh ); 
+    optDataEik* data = new optDataEik ( N, Dx, Dy, Hess, rhs, cu_opt, 
+                                  ne, Ve); 
     nlopt_opt opt = nlopt_create(NLOPT_LN_COBYLA, N); 
     //nlopt_opt local_opt = nlopt_create(NLOPT_LD_CCSAQ, N);
     nlopt_set_lower_bounds(opt, lob);
     nlopt_set_upper_bounds(opt, upb);
     nlopt_set_min_objective(opt, F, data);
-    nlopt_add_equality_mconstraint(opt, nl+nb+nh, cl, data, toleql);
-    //nlopt_add_equality_mconstraint(opt, nb, cb, data, toleqb);
-    //nlopt_add_equality_mconstraint(opt, nh, ch, data, toleqh);
+    nlopt_add_equality_mconstraint(opt, ne, cl, data, toleq);
     nlopt_set_xtol_rel(opt, tol);
     nlopt_set_ftol_rel(opt, tol);
     //nlopt_set_xtol_rel(local_opt, tol);

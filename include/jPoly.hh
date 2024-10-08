@@ -5,7 +5,8 @@
 #include<cmath>
 #include<omp.h>
 #include<sFactors.hh>
-
+#include<cblas.h>
+#include<type_traits>
 
 /* 
    Evaluate a Jacobi (a,b) polynomial at a point x in [-1,1].
@@ -308,8 +309,37 @@ class jPoly
       }
     }
 
-    
+    void computeCoeffs(T* F, T* X, T* Y, T* W, T* cF, T* _V = nullptr)
+    {
+      if (this->dim == 2)
+      {
+        this->computeV(X,Y);
+        #pragma omp simd
+        for (unsigned int i = 0; i < Nx; ++i)
+        {
+          F[i] *= W[i];
+        }
+        if (std::is_same_v<T, double>)
+        {
+          std::cout << "HERE" << std::endl; 
+          cblas_dgemv ( CblasColMajor, CblasTrans,
+                        Nx, Np, 1.0, (double*) this->V, Nx, (double*) F, 1, 0.0, (double*) cF, 1);
+          if (_V) { cblas_dcopy(Nx*Np, (double*) this->V, 1, (double*) _V, 1); }
+        }
+        else if (std::is_same_v<T, float>)
+        {
+          cblas_sgemv ( CblasColMajor, CblasTrans,
+                        Nx, Np, 1.0, (float*) this->V, Nx, (float*) F, 1, 0.0, (float*) cF, 1);
+          if (_V) { cblas_scopy(Nx*Np, (float*) this->V, 1, (float*) _V, 1); }
+        }
 
+      }
+      else
+      {
+        std::cerr << "ERROR: Coefficient expansion is supported only for dim=2\n"; 
+        exit(1);
+      }
+    }
 
     ~jPoly  ()
     {

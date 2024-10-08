@@ -37,6 +37,14 @@ struct legQuad
       w[i] = (T) gjquad->optdata->Z0[i + nlg] * 2.0;
     }
     delete gjquad;
+  }
+  void shift()
+  {
+    for (unsigned int i = 0; i < nlg; ++i)
+    {
+      x[i] = (x[i] + 1.0) / 2.0;
+      w[i] = (w[i] / 2.0);
+    }
   } 
   ~legQuad() 
   { 
