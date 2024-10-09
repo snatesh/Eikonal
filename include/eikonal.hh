@@ -2,6 +2,7 @@
 #define _EIKONAL_H
 
 #include<cblas.h>
+#include<lapacke.h>
 #include<nlopt.h>
 #include<cstdlib>
 #include<cmath>
@@ -86,7 +87,11 @@ struct eikonal
   double *Wx  = 0, *Wy  = 0;
   double *Lx  = 0, *Ly  = 0;
   
-  double* G   = 0;
+  double* G   = 0; *G0  = 0;
+
+  double *S     = 0, *U       = 0;
+  double *VT    = 0, *superb  = 0; 
+  double *nullP = 0;
 
   bool weighted = false;
 
@@ -154,14 +159,21 @@ struct eikonal
       this->Kab1c1_a1b1c1 = (double*) calloc(Np*Np, sizeof(double));    
       this->Dx0           = (double*) calloc(Np*Np, sizeof(double));
       this->Dy0           = (double*) calloc(Np*Np, sizeof(double));
+      this->G0           = (double*) calloc(Np*Np, sizeof(double));
       //this->polyabc->computeCoeffs(fu, X, Y, W, cu);
       for (unsigned int i = 0; i < 6; ++i) { cu[i] = 1.0; }
     }
+
+    unsigned int dimS = (Np > Ne ? Ne : Np);
+
     this->polyabc->computeCoeffs(frhs, X, Y, W, crhs0);
     this->Dx            = (double*) calloc(Np*Np, sizeof(double));
     this->Dy            = (double*) calloc(Np*Np, sizeof(double));
     this->G             = (double*) calloc(Np*Np, sizeof(double));
-
+    this->S             = (double*) calloc(dimS, sizeof(double));
+    this->U             = (double*) calloc(Ne*Ne, sizeof(double)); 
+    this->VT            = (double*) calloc(Np*Np, sizeof(double));
+    this->superb        = (double*) calloc(dimS, sizeof(double));
 
     sFactors(n+2, a, b, c, Habc);  
     sFactors(n+2, a+1, b, c, Ha1bc);  
@@ -203,6 +215,34 @@ struct eikonal
       for (unsigned int i = nl+nb; i < Ne; ++i) { Xedge[i] = xh[i-nl-nb]    ; 
                                                   Yedge[i] = 1 - xh[i-nl-nb]; }
       this->polyedge->computeV(Xedge, Yedge); 
+      LAPACKE_dgesvd( LAPACK_COL_MAJOR, 'A','A', 
+                      Ne, Np, polyedge->V, Ne, S, 
+                      U, Ne, VT, Np, superb );
+
+      double rthresh = 1e-13; 
+      unsigned int rankrow; 
+      for (unsigned int i = 0; i <  dimS; ++i)
+      {
+        if (S[i] < rthresh) { rankrow = i; break;}
+      }
+   
+      this->nullP = (double*) calloc(Np*(Np-rankrow), sizeof(double)); 
+      for (unsigned int i = rankrow; i < Np; ++i)
+      {
+        for (unsigned int j = 0; j < Np; ++j)
+        {
+          nullP[j + Np*(i-rankrow)] = VT[i + Np*j];
+        }
+      }
+
+      cblas_dgemm ( CblasColMajor, CblasTrans, CblasNoTrans,
+                    Np, Np, Np, 1.0, Dx, Np, 
+                    Dx, Np, 0.0, G0, Np );
+      cblas_dgemm ( CblasColMajor, CblasTrans, CblasNoTrans,
+                    Np, Np, Np, 1.0, Dy, Np, 
+                    Dy, Np, 1.0, G0, Np );
+      // TODO : Check dimensions for nullP etc. code will not work rn.
+  
     }
     else if (this->weighted)
     {
@@ -212,18 +252,19 @@ struct eikonal
       dMat(a+1, b+1, c+1, Ha1b1c1, Ha1bc, n, 1, Wy, weighted);
       cblas_dgemm ( CblasColMajor, CblasNoTrans, CblasNoTrans,
                     Np, Np, Np, 1.0, Lx, Np, 
-                    Wx, Np, 0.0, Dx, Np);
+                    Wx, Np, 0.0, Dx, Np );
       cblas_dgemm ( CblasColMajor, CblasNoTrans, CblasNoTrans,
                     Np, Np, Np, 1.0, Ly, Np, 
-                    Wy, Np, 0.0, Dy, Np);
+                    Wy, Np, 0.0, Dy, Np );
 
+      cblas_dgemm ( CblasColMajor, CblasTrans, CblasNoTrans,
+                    Np, Np, Np, 1.0, Dx, Np, 
+                    Dx, Np, 0.0, G, Np );
+      cblas_dgemm ( CblasColMajor, CblasTrans, CblasNoTrans,
+                    Np, Np, Np, 1.0, Dy, Np, 
+                    Dy, Np, 1.0, G, Np );
     } 
-    cblas_dgemm ( CblasColMajor, CblasTrans, CblasNoTrans,
-                  Np, Np, Np, 1.0, Dx, Np, 
-                  Dx, Np, 0.0, G, Np);
-    cblas_dgemm ( CblasColMajor, CblasTrans, CblasNoTrans,
-                  Np, Np, Np, 1.0, Dy, Np, 
-                  Dy, Np, 1.0, G, Np);
+
  
   }
 
@@ -278,6 +319,12 @@ struct eikonal
     if (Wx)             { free(Wx);             Wx            = 0; }
     if (Wy)             { free(Wy);             Wy            = 0; }
     if (G)              { free(G);              G             = 0; }
+    if (G0)             { free(G0);             G0            = 0; }
+    if (superb)         { free(superb);         superb        = 0; }
+    if (U)              { free(U);              U             = 0; }
+    if (VT)             { free(VT);             VT            = 0; }
+    if (S)              { free(S);              S             = 0; }
+    if (nullP)          { free(nullP);          nullP         = 0; }
   } 
  
 };
