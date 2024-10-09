@@ -201,21 +201,21 @@ where $G = \mathcal{\tilde D}_x^T\mathcal{\tilde D}_x + \mathcal{\tilde D}_y^T \
 \end{align}
 and we still need to consider the constraint equation. 
 
-We take the approach of eliminating the constraints by solving a the minimization problem on auxiliary variables. That is, suppose $\bs{P}(\bs{x}) \in \bb{R}^{M\times N}$, $M > N$, has rank $N$. We can compute the \emph{full} \textit{SVD}  of $\bs{P}(\bs{x}) =  U \Sigma V^T$. Then, the last $m-n$ rows of $V^T$ form a basis for the $\mathcal{N}(\bs{P}(\bs{x}))$. That is, $V^T = \begin{bmatrix} V_n^T \\ V_{m-n}^T \end{bmatrix}$, and 
+We take the approach of eliminating the constraints by solving a the minimization problem on auxiliary variables. That is, suppose $\bs{P}(\bs{x}) \in \bb{R}^{M\times N}$, $M > N$, has rank $p$. We can compute the \emph{full} \textit{SVD}  of $\bs{P}(\bs{x}) =  U \Sigma V^T$. Then, the last $n-p$ rows of $V^T$ form a basis for the $\mathcal{N}(\bs{P}(\bs{x}))$. That is, $V^T = \begin{bmatrix} V_p^T \\ V_{n-p}^T \end{bmatrix}$, and 
  any solution $\bs{u}$ satisfying the equality constraints can be expressed as 
 \begin{equation}\label{eq:eikonalauxvar}
-\bs{u} =  V_{m-n} \bs{u}_{\text{eq}},
+\bs{u} =  V_{n-p} \bs{u}_{\text{eq}},
 \end{equation}
 Hence, we can solve 
 \begin{align}\label{eq:eikonalqpelim}
-	\min_{\bs{u}_{\text{eq}}\in \bb{R}^N}F(\bs{u}_\text{eq}) = \bs{u}_{\text{eq}}^TV_{m-n}^T G V_{m-n}\bs{u}_{\text{eq}} - \tilde{\bs{c}}_{\frac{1}{f}}^T\tilde{\bs{c}}_{\frac{1}{f}}
+	\min_{\bs{u}_{\text{eq}}\in \bb{R}^N}F(\bs{u}_\text{eq}) = \bs{u}_{\text{eq}}^TV_{n-p}^T G V_{n-p}\bs{u}_{\text{eq}} - \tilde{\bs{c}}_{\frac{1}{f}}^T\tilde{\bs{c}}_{\frac{1}{f}}
 \end{align}
 and finally find $\bs{u}$ by computing as in \eqref{eq:eikonalauxvar}. Note, the gradient and Hessian of the auxiliary problem are given by
 \begin{align}
-	\nabla_{\bs{u_{\text{eq}}}}F(\bs{u_{\text{eq}}}) &= 2V_{m-n}^TGV_{m-n}\bs{u_{\text{eq}}},\\
-	\nabla^2_{\bs{u}}F(\bs{u}) &= 2V_{m-n}^TGV_{m-n},
+	\nabla_{\bs{u_{\text{eq}}}}F(\bs{u_{\text{eq}}}) &= 2V_{n-p}^TGV_{n-p}\bs{u_{\text{eq}}},\\
+	\nabla^2_{\bs{u}}F(\bs{u}) &= 2V_{n-p}^TGV_{n-p}.
 \end{align}
-
+Note, we can find $p$ by the number of singular values above some small threshold that we choose (near $\varepsilon_\text{mach}$) so that it represents numerical rank.
 \begin{remark}
 There is a ton of material in chapter 12 and 16 of the Nocedal/Wright optimization book. I believe I can prove properties on minimizers to \eqref{eq:eikonalqp} (though unnecessary) and maybe use a direct method therein. There still remains the problem of initialization..perhaps we just initialize from the null space, or solve a linearized problem?
 \end{remark}
