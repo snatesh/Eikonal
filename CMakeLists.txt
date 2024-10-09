@@ -167,7 +167,7 @@ target_link_libraries(tetquad jevd legquad)
 
 add_executable(Eikonal ${EikonalSRC})
 set_target_properties(Eikonal PROPERTIES COMPILE_FLAGS "-DWITHOUT_NUMPY")
-target_link_libraries(Eikonal eikonal ${Python_LIBRARIES})  
+target_link_libraries(Eikonal eikonal)  
 
 add_executable(EikonalW ${EikonalWeightedSRC})
 set_target_properties(EikonalW PROPERTIES COMPILE_FLAGS "-DWITHOUT_NUMPY")

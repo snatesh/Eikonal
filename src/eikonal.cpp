@@ -3,15 +3,20 @@
 #include<iostream>
 #include<fstream>
 #include<iomanip>
-#include<matplotlibcpp.h>
 #include<vector>
 #include<map>
 #include<random>
-namespace plt = matplotlibcpp;
 
+using std::sin;
+using std::cos;
+using std::pow;
 double Frhs(double x, double y)
 {
-  return 1.0;
+
+return y*y*pow((7*pow(x,6) + 6*pow(x,5)*(-1 + y) + 2*x*pow(y,7) + (-1 + y)*pow(y,7)),2) + 
+  x*x*pow((pow(x,6) + 8*x*pow(y,7) + pow(x,5)*(-1 + 2*y) + pow(y,7)*(-8 + 9*y)),2);
+  //return 1.0;
+
 }
 
 double dtoh(double x, double y)
@@ -26,15 +31,33 @@ double dtoh(double x, double y)
 
 double Fu(double x, double y)
 {
-  double z = dtoh(x, y);
-  double min = (x < y ? x : y);
-  double min1 = (min < z ? min : z);
-  return min1;
+  return x*(1-x-y)*y;//*(pow(x,5) + pow(y,7));
+  //double z = dtoh(x, y);
+  //double min = (x < y ? x : y);
+  //double min1 = (min < z ? min : z);
+  //return min1;
 }
 
 
 
-
+double L2err(eikonal* solver, double* fu)
+{
+  double* U = (double*) calloc(solver->N, sizeof(double));
+  double* diff = (double*) calloc(solver->N, sizeof(double));
+  solver->btransform(U);
+  for (unsigned int i = 0; i < solver->N; ++i)
+  {
+    diff[i] = std::abs(U[i]-fu[i]);
+  }
+  
+  double Ifu = cblas_ddot(solver->N, solver->W, 1, fu, 1);
+  std::cout << Ifu << std::endl;
+  std::cout << cblas_ddot(solver->N, solver->W, 1, U, 1);
+  double abserr = cblas_ddot(solver->N, solver->W, 1, diff, 1);
+  free(U); 
+  free(diff);
+  return abserr / std::abs(Ifu);
+}
 
 int main(int argc, char* argv[])
 {
@@ -58,41 +81,62 @@ int main(int argc, char* argv[])
     frhs[i] = Frhs(X[i], Y[i]);
     fu[i] = Fu(X[i], Y[i]);
   }
-
-  unsigned int n = 20; 
- 
-  eikonal* solver = new eikonal ( n, N, 20, 20, 20, frhs, fu, 
+  
+  unsigned int n = 15; 
+  eikonal* solver = new eikonal ( n, N, 2*n, 2*n, 2*n, frhs, fu, 
                                   X, Y, W, nthreads );
 
-
-  
   unsigned int Np = solver->Np;
   double *lob, *upb, *toleq; 
   lob   = (double*) malloc(Np * sizeof(double));
   upb   = (double*) malloc(Np * sizeof(double));
   toleq = (double*) malloc(solver->Ne * sizeof(double)); 
-  double tol = 1e-13;
+  double tol = 1e-15;
   for (unsigned int i = 0; i < Np; ++i)
   {
-    upb[i]     = HUGE_VAL/2.0 ; 
-    lob[i]     = -HUGE_VAL/3.0; 
+    upb[i]     = HUGE_VAL; 
+    lob[i]     = -HUGE_VAL; 
   }
   for (unsigned int i = 0; i < solver->Ne; ++i) { toleq[i] = tol; }
   
   optDataEik* data = new optDataEik ( solver->Np, solver->Dx, solver->Dy, 
                                       solver->G, solver->crhs, solver->cu, 
                                       solver->Ne, solver->polyedge->V); 
-  nlopt_opt opt = nlopt_create(NLOPT_LD_SLSQP, Np); 
-  //nlopt_opt local_opt = nlopt_create(NLOPT_LD_CCSAQ, N);
+  /***************************************************************/ 
+  //nlopt_opt opt_i = nlopt_create(NLOPT_LN_SBPLX, Np);
+  //nlopt_set_lower_bounds(opt_i, lob);
+  //nlopt_set_upper_bounds(opt_i, upb);
+  //nlopt_set_min_objective(opt_i, F, data);
+  //nlopt_set_xtol_rel(opt_i, 1e-10);
+  //nlopt_set_ftol_rel(opt_i, 1e-10);
+  //nlopt_set_stopval(opt_i, tol);
+  //double minF_i;
+  //nlopt_result result_i = nlopt_optimize(opt_i, data->cu, &minF_i);
+  //if (result_i < 0 && result_i != -4) 
+  //{
+  //  std::cerr << "NLOPT failed! \n"; 
+  //  std::cerr << nlopt_result_to_string(result_i);
+  //  std::cerr << "\n Exiting ..\n";
+  //  exit(1);
+  //}
+  //else
+  //{
+  //  if (result_i == -4) 
+  //  { 
+  //    std::cout << nlopt_result_to_string(result_i) << std::endl;
+  //  }
+  //  std::cout << "NLOPT converged with residual " << minF_i << std::endl;
+  //}
+  //counteik = 0;
+  /***************************************************************/
+  nlopt_opt opt = nlopt_create(NLOPT_LN_COBYLA, Np); 
   nlopt_set_lower_bounds(opt, lob);
   nlopt_set_upper_bounds(opt, upb);
   nlopt_set_min_objective(opt, F, data);
-  nlopt_add_equality_mconstraint(opt, solver->Ne, cl, data, toleq);
-  nlopt_set_xtol_rel(opt, 1e-7);
-  nlopt_set_ftol_rel(opt, 1e-7);
-  //nlopt_set_xtol_rel(local_opt, tol);
-  //nlopt_set_ftol_rel(local_opt, tol);
-  //nlopt_set_local_optimizer(opt, local_opt);
+  nlopt_add_inequality_mconstraint(opt, solver->Ne, cl, data, toleq);
+  nlopt_set_xtol_rel(opt, 1e-10);
+  nlopt_set_ftol_rel(opt, 1e-10);
+  nlopt_set_stopval(opt, tol);
   double minF;
   nlopt_result result = nlopt_optimize(opt, data->cu, &minF);
   if (result < 0 && result != -4) 
@@ -111,9 +155,7 @@ int main(int argc, char* argv[])
     std::cout << "NLOPT converged with residual " << minF << std::endl;
   }
   counteik = 0;
-  printMat(solver->cu, solver->Np, 1);
   
-
   double* U = (double*) calloc(N, sizeof(double));
   solver->btransform(U);
   std::ofstream ofile("Usol.txt");
@@ -126,10 +168,12 @@ int main(int argc, char* argv[])
   
   delete data; 
   delete solver;
+  //nlopt_destroy(opt_i);
   nlopt_destroy(opt);
   free(lob);
   free(upb);
-  free(Z);
-  free(U);
   free(toleq);
+  free(Z);
+  free(frhs);
+  free(fu);
 }

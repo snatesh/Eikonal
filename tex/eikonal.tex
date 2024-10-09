@@ -191,16 +191,32 @@ where we've used the mutual orthonormality relations, which persist even within 
 Thus, we want to solve the following quadratic program with equality constraints:
 
 \begin{align}\label{eq:eikonalqp}
-	\min_{\bs{u}\in \bb{R}^N}F(\bs{u}) = \frac{1}{2}\big(\bs{u}^T G \bs{u} - \tilde{\bs{c}}_{\frac{1}{f}}^T\tilde{\bs{c}}_{\frac{1}{f}}\big)\\
+	\min_{\bs{u}\in \bb{R}^N}F(\bs{u}) = \bs{u}^T G \bs{u} - \tilde{\bs{c}}_{\frac{1}{f}}^T\tilde{\bs{c}}_{\frac{1}{f}}\\
 	\text{subject to }\quad  \bs{u} \cdot \bs{P}(\bs{x}) = 0,\quad \bs{x} \in \partial \Omega, \nonumber
 \end{align}
 where $G = \mathcal{\tilde D}_x^T\mathcal{\tilde D}_x + \mathcal{\tilde D}_y^T \mathcal{\tilde D}_y \in \bb{R}^{N\times N}$ is symmetric and positive semi-definite \footnote{Note, $\forall \bs{x}\in \bb{R}^{n^+}_\star, \bs{x}^T G \bs{x} = \bs{x}^T\mathcal{\tilde D}_x ^T \mathcal{\tilde D}_x\bs{x} + \bs{x}^T\mathcal{\tilde D}_y ^T \mathcal{\tilde D}_y\bs{x} = ||\mathcal{\tilde{D}}_x\bs{x}||^2 + ||\mathcal{\tilde D}_y\bs{x}||^2 \geq 0$. We have equality only for any $\bs{x} = \alpha \bs{e}_1$, as derivatives of the constant polynomial are 0.}. The gradient and Hessian of $F$ are given by
 \begin{align}
-	\nabla_{\bs{u}}F(\bs{u}) &= G\bs{u},\\
-	\nabla^2_{\bs{u}}F(\bs{u}) &= G,
+	\nabla_{\bs{u}}F(\bs{u}) &= 2G\bs{u},\\
+	\nabla^2_{\bs{u}}F(\bs{u}) &= 2G,
 \end{align}
-and we still need to consider the constraint equation. However, by making use of a weighted basis $\bs{\tilde{P}}(\bs{x})$, and expressing our solution coefficients and differential operators in terms of this weighted basis, we can eliminate the constraint equation and solve a completely unconstrained quadratic optimization problem \color{red} This doesn't seem to work as well for the non-linear problem, but we will describe that approach and verify correctness in the next section anyway. \color{black} 
+and we still need to consider the constraint equation. 
 
+We take the approach of eliminating the constraints by solving a the minimization problem on auxiliary variables. That is, suppose $\bs{P}(\bs{x}) \in \bb{R}^{M\times N}$, $M > N$, has rank $N$. We can compute the \textit{QR} decomposition of $\bs{P}(\bs{x}) =  QR = \begin{bmatrix} Q_1 & Q_2 \end{bmatrix}R$, where $Q_1 \in \bb{R}^{M\times N}$, and the orthonormal columns of $Q_2 \in \bb{R}^{M\times {(M-N)}}$ form a basis for $\text{Null}[\bs{P}(\bs{x})]$. Then, any solution $\bs{u}$ to the equality constraints can be expressed as 
+\begin{equation}\label{eq:eikonalauxvar}
+\bs{u} =  Q_2 \bs{u}_{\text{eq}},
+\end{equation}
+Hence, we can solve 
+\begin{align}\label{eq:eikonalqpelim}
+	\min_{\bs{u}_{\text{eq}}\in \bb{R}^N}F(\bs{u}_\text{eq}) = \bs{u}_{\text{eq}}^TQ_2^T G Q_2\bs{u}_{\text{eq}} - \tilde{\bs{c}}_{\frac{1}{f}}^T\tilde{\bs{c}}_{\frac{1}{f}}
+\end{align}
+and finally find $\bs{u}$ by computing as in \eqref{eq:eikonalauxvar}. Note, the gradient and Hessian of the auxiliary problem are given by
+\begin{align}
+	\nabla_{\bs{u_{\text{eq}}}}F(\bs{u_{\text{eq}}}) &= 2Q_2^TGQ_2\bs{u_{\text{eq}}},\\
+	\nabla^2_{\bs{u}}F(\bs{u}) &= 2Q_2^TGQ_2,
+\end{align}
+
+\begin{remark}By making use of a weighted basis $\bs{\tilde{P}}(\bs{x})$, and expressing our solution coefficients and differential operators in terms of this weighted basis, we can alternatively eliminate the constraint equation and solve a completely unconstrained quadratic optimization problem \color{red}  I think I need to do some more symbolic computation to figure out the form of the RHS and/or additional conditions $u$ must first satisfy so that we solve the same problem. I implemented that weighted basis, but I don't think I will get things to work properly, or rather, I will not continue trying.\color{black} We provide more details in the next section.
+\end{remark}
 
 \subsubsection{The weighted Jacobi basis}
 The weighted basis 
@@ -245,6 +261,14 @@ When $a=b=c=3/2$, we have
 	\partial_x[W^{(a,b,c)}(x,y) f(x,y)] &=  \bs{P}^{(a-1,b-1,c-1)}(x,y)^T(\mathcal{L}_{(a-1,b,c-1)}^{(a-1,b-1,c-1)}\mathcal{W}_{x,(a,b,c)}^{(a-1,b,c-1)}\bs{f}),\\
 	\partial_y[W^{(a,b,c)}(x,y) f(x,y)] &= \bs{P}^{(a-1,b-1,c-1)}(x,y)^T(\mathcal{L}_{(a,b-1,c-1)}^{(a-1,b-1,c-1)}\mathcal{W}_{y,(a,b,c)}^{(a,b-1,c-1)}\bs{f}),
 \end{align*}
+
+We need to see what auxiliary problems we must solve, as the nonlinearity of \eqref{eq:eikonal} leads to cross-terms that must cancel if we hope that a solution to the weighted problem also solves the unweighted problem. In the bulk, we have
+
+\begin{align*}
+	[\partial_x (W u)]^2 + [\partial_y (Wu)]^2 &= W^2[u_x^2 + u_y^2] + u^2(W_x + W_y) + 2uW(W_x u_x + W_y u_y), \\
+\end{align*}
+and we need the second two terms in the equation to cancel.
+\color{blue}There's something here we can do by integrating, and finding the additional conditions $u$ must satisfy. I think it would become a solution for the initial guess of $u$. Essentially, we know $W^2[u_x^2+u_y^2] = W^2/f^2$, since we assume that $u$ solve \eqref{eq:eikonal}. Then, we can enforce that $$\int_{\Tau^2} u^2(W_x + W_y) + 2uW(W_xu_x + W_y u_y) = 0.$$ There may be some simplification that occurs if we plug in the Jacobi expansion of $u$ .. idk \color{black}
 \subsection{Numerical solution to the Eikonal equation}
 The process for solving \eqref{eq:eikonal} with zero Dirichlet conditions $q\equiv 0$ is as follows:
 \begin{itemize}

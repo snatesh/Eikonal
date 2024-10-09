@@ -154,7 +154,8 @@ struct eikonal
       this->Kab1c1_a1b1c1 = (double*) calloc(Np*Np, sizeof(double));    
       this->Dx0           = (double*) calloc(Np*Np, sizeof(double));
       this->Dy0           = (double*) calloc(Np*Np, sizeof(double));
-      this->polyabc->computeCoeffs(fu, X, Y, W, cu);
+      //this->polyabc->computeCoeffs(fu, X, Y, W, cu);
+      for (unsigned int i = 0; i < Np; ++i) { cu[i] = 1.0; }
     }
     this->polyabc->computeCoeffs(frhs, X, Y, W, crhs0);
     this->Dx            = (double*) calloc(Np*Np, sizeof(double));
@@ -363,8 +364,7 @@ void cl ( unsigned int m, double* result, unsigned int n,
     {
       for (unsigned int i = 0; i < m; ++i)
       {
-        double old = Ve[i+m*j];
-        //grad[j + n*i] = Ve[i + m*j];
+        grad[j + n*i] = Ve[i + m*j];
       }
     }
   }
