@@ -102,40 +102,14 @@ int main(int argc, char* argv[])
   optDataEik* data = new optDataEik ( solver->Np, solver->Dx, solver->Dy, 
                                       solver->G, solver->crhs, solver->cu, 
                                       solver->Ne, solver->polyedge->V); 
-  /***************************************************************/ 
-  //nlopt_opt opt_i = nlopt_create(NLOPT_LN_SBPLX, Np);
-  //nlopt_set_lower_bounds(opt_i, lob);
-  //nlopt_set_upper_bounds(opt_i, upb);
-  //nlopt_set_min_objective(opt_i, F, data);
-  //nlopt_set_xtol_rel(opt_i, 1e-10);
-  //nlopt_set_ftol_rel(opt_i, 1e-10);
-  //nlopt_set_stopval(opt_i, tol);
-  //double minF_i;
-  //nlopt_result result_i = nlopt_optimize(opt_i, data->cu, &minF_i);
-  //if (result_i < 0 && result_i != -4) 
-  //{
-  //  std::cerr << "NLOPT failed! \n"; 
-  //  std::cerr << nlopt_result_to_string(result_i);
-  //  std::cerr << "\n Exiting ..\n";
-  //  exit(1);
-  //}
-  //else
-  //{
-  //  if (result_i == -4) 
-  //  { 
-  //    std::cout << nlopt_result_to_string(result_i) << std::endl;
-  //  }
-  //  std::cout << "NLOPT converged with residual " << minF_i << std::endl;
-  //}
-  //counteik = 0;
-  /***************************************************************/
+
   nlopt_opt opt = nlopt_create(NLOPT_LN_COBYLA, Np); 
   nlopt_set_lower_bounds(opt, lob);
   nlopt_set_upper_bounds(opt, upb);
   nlopt_set_min_objective(opt, F, data);
   nlopt_add_inequality_mconstraint(opt, solver->Ne, cl, data, toleq);
-  nlopt_set_xtol_rel(opt, 1e-10);
-  nlopt_set_ftol_rel(opt, 1e-10);
+  nlopt_set_xtol_rel(opt, 1e-8);
+  nlopt_set_ftol_rel(opt, 1e-8);
   nlopt_set_stopval(opt, tol);
   double minF;
   nlopt_result result = nlopt_optimize(opt, data->cu, &minF);

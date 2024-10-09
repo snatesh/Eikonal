@@ -155,7 +155,7 @@ struct eikonal
       this->Dx0           = (double*) calloc(Np*Np, sizeof(double));
       this->Dy0           = (double*) calloc(Np*Np, sizeof(double));
       //this->polyabc->computeCoeffs(fu, X, Y, W, cu);
-      for (unsigned int i = 0; i < Np; ++i) { cu[i] = 1.0; }
+      for (unsigned int i = 0; i < 6; ++i) { cu[i] = 1.0; }
     }
     this->polyabc->computeCoeffs(frhs, X, Y, W, crhs0);
     this->Dx            = (double*) calloc(Np*Np, sizeof(double));

@@ -3,12 +3,10 @@
 #include<iostream>
 #include<fstream>
 #include<iomanip>
-#include<matplotlibcpp.h>
 #include<vector>
 #include<map>
 #include<random>
 
-namespace plt = matplotlibcpp;
 
 double Frhs(double x, double y)
 {

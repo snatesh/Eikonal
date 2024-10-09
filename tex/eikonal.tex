@@ -201,19 +201,24 @@ where $G = \mathcal{\tilde D}_x^T\mathcal{\tilde D}_x + \mathcal{\tilde D}_y^T \
 \end{align}
 and we still need to consider the constraint equation. 
 
-We take the approach of eliminating the constraints by solving a the minimization problem on auxiliary variables. That is, suppose $\bs{P}(\bs{x}) \in \bb{R}^{M\times N}$, $M > N$, has rank $N$. We can compute the \textit{QR} decomposition of $\bs{P}(\bs{x}) =  QR = \begin{bmatrix} Q_1 & Q_2 \end{bmatrix}R$, where $Q_1 \in \bb{R}^{M\times N}$, and the orthonormal columns of $Q_2 \in \bb{R}^{M\times {(M-N)}}$ form a basis for $\text{Null}[\bs{P}(\bs{x})]$. Then, any solution $\bs{u}$ to the equality constraints can be expressed as 
+We take the approach of eliminating the constraints by solving a the minimization problem on auxiliary variables. That is, suppose $\bs{P}(\bs{x}) \in \bb{R}^{M\times N}$, $M > N$, has rank $N$. We can compute the \emph{full} \textit{SVD}  of $\bs{P}(\bs{x}) =  U \Sigma V^T$. Then, the last $m-n$ rows of $V^T$ form a basis for the $\mathcal{N}(\bs{P}(\bs{x}))$. That is, $V^T = \begin{bmatrix} V_n^T \\ V_{m-n}^T \end{bmatrix}$, and 
+ any solution $\bs{u}$ satisfying the equality constraints can be expressed as 
 \begin{equation}\label{eq:eikonalauxvar}
-\bs{u} =  Q_2 \bs{u}_{\text{eq}},
+\bs{u} =  V_{m-n} \bs{u}_{\text{eq}},
 \end{equation}
 Hence, we can solve 
 \begin{align}\label{eq:eikonalqpelim}
-	\min_{\bs{u}_{\text{eq}}\in \bb{R}^N}F(\bs{u}_\text{eq}) = \bs{u}_{\text{eq}}^TQ_2^T G Q_2\bs{u}_{\text{eq}} - \tilde{\bs{c}}_{\frac{1}{f}}^T\tilde{\bs{c}}_{\frac{1}{f}}
+	\min_{\bs{u}_{\text{eq}}\in \bb{R}^N}F(\bs{u}_\text{eq}) = \bs{u}_{\text{eq}}^TV_{m-n}^T G V_{m-n}\bs{u}_{\text{eq}} - \tilde{\bs{c}}_{\frac{1}{f}}^T\tilde{\bs{c}}_{\frac{1}{f}}
 \end{align}
 and finally find $\bs{u}$ by computing as in \eqref{eq:eikonalauxvar}. Note, the gradient and Hessian of the auxiliary problem are given by
 \begin{align}
-	\nabla_{\bs{u_{\text{eq}}}}F(\bs{u_{\text{eq}}}) &= 2Q_2^TGQ_2\bs{u_{\text{eq}}},\\
-	\nabla^2_{\bs{u}}F(\bs{u}) &= 2Q_2^TGQ_2,
+	\nabla_{\bs{u_{\text{eq}}}}F(\bs{u_{\text{eq}}}) &= 2V_{m-n}^TGV_{m-n}\bs{u_{\text{eq}}},\\
+	\nabla^2_{\bs{u}}F(\bs{u}) &= 2V_{m-n}^TGV_{m-n},
 \end{align}
+
+\begin{remark}
+There is a ton of material in chapter 12 and 16 of the Nocedal/Wright optimization book. I believe I can prove properties on minimizers to \eqref{eq:eikonalqp} (though unnecessary) and maybe use a direct method therein. There still remains the problem of initialization..perhaps we just initialize from the null space, or solve a linearized problem?
+\end{remark}
 
 \begin{remark}By making use of a weighted basis $\bs{\tilde{P}}(\bs{x})$, and expressing our solution coefficients and differential operators in terms of this weighted basis, we can alternatively eliminate the constraint equation and solve a completely unconstrained quadratic optimization problem \color{red}  I think I need to do some more symbolic computation to figure out the form of the RHS and/or additional conditions $u$ must first satisfy so that we solve the same problem. I implemented that weighted basis, but I don't think I will get things to work properly, or rather, I will not continue trying.\color{black} We provide more details in the next section.
 \end{remark}

@@ -171,7 +171,7 @@ target_link_libraries(Eikonal eikonal)
 
 add_executable(EikonalW ${EikonalWeightedSRC})
 set_target_properties(EikonalW PROPERTIES COMPILE_FLAGS "-DWITHOUT_NUMPY")
-target_link_libraries(EikonalW eikonal ${Python_LIBRARIES})  
+target_link_libraries(EikonalW eikonal)  
 
 install(TARGETS sfactors ARCHIVE DESTINATION lib LIBRARY DESTINATION lib)
 install(TARGETS kmat ARCHIVE DESTINATION lib LIBRARY DESTINATION lib)
