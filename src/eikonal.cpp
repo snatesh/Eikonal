@@ -13,9 +13,9 @@ using std::pow;
 double Frhs(double x, double y)
 {
 
-return y*y*pow((7*pow(x,6) + 6*pow(x,5)*(-1 + y) + 2*x*pow(y,7) + (-1 + y)*pow(y,7)),2) + 
-  x*x*pow((pow(x,6) + 8*x*pow(y,7) + pow(x,5)*(-1 + 2*y) + pow(y,7)*(-8 + 9*y)),2);
-  //return 1.0;
+//return y*y*pow((7*pow(x,6) + 6*pow(x,5)*(-1 + y) + 2*x*pow(y,7) + (-1 + y)*pow(y,7)),2) + 
+//  x*x*pow((pow(x,6) + 8*x*pow(y,7) + pow(x,5)*(-1 + 2*y) + pow(y,7)*(-8 + 9*y)),2); 
+  return 1.0;
 
 }
 
@@ -83,33 +83,33 @@ int main(int argc, char* argv[])
   }
   
   unsigned int n = 15; 
-  eikonal* solver = new eikonal ( n, N, 2*n, 2*n, 2*n, frhs, fu, 
+  eikonal* solver = new eikonal ( n, N, 10, 10, 10, frhs, fu, 
                                   X, Y, W, nthreads );
 
-  unsigned int Np = solver->Np;
+  unsigned int Nopt = solver->Nopt;
   double *lob, *upb, *toleq; 
-  lob   = (double*) malloc(Np * sizeof(double));
-  upb   = (double*) malloc(Np * sizeof(double));
+  lob   = (double*) malloc(Nopt * sizeof(double));
+  upb   = (double*) malloc(Nopt * sizeof(double));
   toleq = (double*) malloc(solver->Ne * sizeof(double)); 
-  double tol = 1e-15;
-  for (unsigned int i = 0; i < Np; ++i)
+  double tol = 1e-13;
+  for (unsigned int i = 0; i < Nopt; ++i)
   {
     upb[i]     = HUGE_VAL; 
     lob[i]     = -HUGE_VAL; 
   }
   for (unsigned int i = 0; i < solver->Ne; ++i) { toleq[i] = tol; }
   
-  optDataEik* data = new optDataEik ( solver->Np, solver->Dx, solver->Dy, 
-                                      solver->G, solver->crhs, solver->cu, 
+  optDataEik* data = new optDataEik ( solver->Nopt, solver->Dx, solver->Dy, 
+                                      solver->G, solver->crhs, solver->cu_eq, 
                                       solver->Ne, solver->polyedge->V); 
 
-  nlopt_opt opt = nlopt_create(NLOPT_LN_COBYLA, Np); 
+  nlopt_opt opt = nlopt_create(NLOPT_LN_SBPLX, solver->Nopt); 
   nlopt_set_lower_bounds(opt, lob);
   nlopt_set_upper_bounds(opt, upb);
   nlopt_set_min_objective(opt, F, data);
-  nlopt_add_inequality_mconstraint(opt, solver->Ne, cl, data, toleq);
-  nlopt_set_xtol_rel(opt, 1e-8);
-  nlopt_set_ftol_rel(opt, 1e-8);
+  //nlopt_add_inequality_mconstraint(opt, solver->Ne, cl, data, toleq);
+  nlopt_set_xtol_rel(opt, tol);
+  nlopt_set_ftol_rel(opt, tol);
   nlopt_set_stopval(opt, tol);
   double minF;
   nlopt_result result = nlopt_optimize(opt, data->cu, &minF);

@@ -297,7 +297,7 @@ The process for solving \eqref{eq:eikonal} with zero Dirichlet conditions $q\equ
 %The remaining integral term should result in the identity matrix of size $\text{dim}\Pi_{n-1}^2$ by the orthonormality relations. If the promotion matrices for the derivatives weren't handled correctly, this might be the source of my problems..and I may need to multiply the constant outer product term by some weights. All of this is to say that when looking at errors for convergence analysis, I need to make sure to look at my own stated definition for $\approx$, i.e. in the weighted $L_2$ sense..
 
 \section{A variational approach}
-Let's try framing the problem from the perspective of infinite dimensional optimization. Thus far, my efforts have fallen under the discretize-then-optimize approach for solving non-linear PDEs. So, let's flip that and consider the optimize-then-discretize approach. 
+Let's try framing the problem from the perspective of infinite dimensional optimization. Thus far, my efforts have fallen under the discretize-then-optimize approach for solving non-linear PDEs. So, let's flip that and consider the optimize-then-discretize approach. The first order conditions for optimality of the functional may serve as a way to initialize the problem for the discretized non-linear optimization call.
 
 We want to solve
 \begin{equation}
@@ -306,14 +306,32 @@ We want to solve
 	\text{s.t. } u = q \text{ on } \partial\Tau^2
 	\end{split},
 \end{equation}
-where $\mathcal{L}$ is defined by 
+where $\mathcal{L} : L_2(\Tau^2, w^{(a,bc)})\to \bb{R}^+$ is defined by 
 \begin{equation}
-	\mathcal{L}(u) := \int_{\mathcal{T}^2}\big( |\nabla_{\bs{x}} u|^2 - 1 \big) d\bs{x}
+	\mathcal{L}(u) := \int_{\mathcal{T}^2}\Big[ |\nabla_{\bs{x}} u|^2 - \big(\frac{1}{f}\big)^2 \Big] d\bs{x},
 \end{equation}
+and $u,f$ are as in \eqref{eq:eikonal}, restricted to $L_2(\Tau^2, \mathcal{W}^{(a,bc)})$. 
 
-The steps here are to derive the first variation of $\mathcal{L}$ as $$\delta\mathcal{L}(u,\hat{u}) = \partial \varepsilon\mathcal{L}(u+\varepsilon \hat{u})|_{\varepsilon=0} = 0,$$ where $\hat{u} \in \mathcal{H}_0^1(\Tau^2)$. This gives the necessary condition a minimizer of $\mathcal{L}$ must satisfy. Then, compute the second variation by considering another $\tilde{u} \in \mathcal{H}_0^1$, and deriving the newton step through $$\delta^2 \mathcal{L}(u,\hat{u},\tilde{u}) = \partial_\varepsilon\delta \mathcal{L}(u+\varepsilon \tilde{u},\hat{u})$$ and find the step direction by solving 
+
+The steps here are to first derive the first variation of $\mathcal{L}$ as $$\delta\mathcal{L}(u,\hat{u}) = \partial \varepsilon\mathcal{L}(u+\varepsilon \hat{u})|_{\varepsilon=0} = 0,$$ where $\hat{u} \in \mathcal{H}_0^1(\Tau^2)$. This gives the necessary condition a minimizer of $\mathcal{L}$ must satisfy. Accordingly, we have
+\begin{align*}
+	0 = \partial_\varepsilon \mathcal{L}(u + \varepsilon \hat{u})|_{\varepsilon=0} &= \partial_\epsilon\big[\int_{\Tau^2} \Big((u_x^2 + u_y^2) + 2\varepsilon(\hat{u}_x u_x + \hat{u}_yu_y) + \varepsilon^2 (\hat{u}_x^2 + \hat{u}_y^2) -\big(\frac{1}{f}\big)^2\Big)d\bs{x}\big]\Big|_{\varepsilon=0}\\
+	\Rightarrow 0 &= \int_{\mathcal{T}^2} 2(\hat{u}_x u_x + \hat{u}_yu_y) d(\bs{x}) = \int_{\mathcal{T}^2} (\nabla_{\bs{x}}u \cdot \nabla_{\bs{x}}\hat{u}) d(\bs{x}) \\
+	&= \int_{\partial\Tau^2} \hat{u}\nabla_{\bs{x}}u \cdot \bs{n} dS(\bs{x}) + \int_{\Tau^2} (\hat{u} \nabla_{\bs{x}}^2 u )d(\bs{x}) \quad \text{ (using integration by parts).}\\
+	&= \delta \mathcal{L}(u, \hat{u})
+\end{align*}
+Now, the choice of $\hat{u}$ is arbitrary, and it evaluates to 0 on the boundary $\partial \Tau^2$. Hence, we eliminate the boundary term and find that $u$ must be identically harmonic in $\mathcal{T}^2$, as in
+\begin{equation}\label{eq:eiklin}
+	\begin{split}
+	\nabla_{\bs{x}}^2 u &= 0 ,\quad \bs{x} \in \mathcal{T}^2\\
+	u &= q,\quad \bs{x} \in \partial \Tau^2.
+	\end{split}
+\end{equation}
+When $q \equiv 0$, the problem of finding numerical solutions to \eqref{eq:eiklin} amounts to finding the nullspace of the discrete Laplacian on $\Tau^2$.
+
+\color{blue}Then, compute the second variation by considering another $\tilde{u} \in \mathcal{H}_0^1$, and deriving the newton step through $$\delta^2 \mathcal{L}(u,\hat{u},\tilde{u}) = \partial_\varepsilon\delta \mathcal{L}(u+\varepsilon \tilde{u},\hat{u})$$ and find the step direction by solving 
 $$\delta^2 \mathcal{L}(u^k)(\hat{u},\tilde{u}) = -\delta\mathcal{L}(u^k)(\hat{u}),\quad \forall \hat{u} \in \mathcal{H}_0^1$$
-By choosing $u^0 = q$ on $\partial \Tau^2$, and setting $u^{k+1} = u^k + \tilde{u}$, we have an infinite-dimensional newton stepper for solving the Eikonal problem. I'm not sure I like where this goes in terms of complexity (mental and computational), so will stick to the DTO approach for now. There is also probably a correct energy functional which gives the Eikonal problem, which is likely not the one I started with.
+By choosing $u^0 = q$ on $\partial \Tau^2$, and setting $u^{k+1} = u^k + \tilde{u}$, we have an infinite-dimensional newton stepper for solving the Eikonal problem. I'm not sure I like where this goes in terms of complexity (mental and computational), so will stick to the DTO approach for now. There is also probably a correct energy functional which gives the Eikonal problem, which is likely not the one I started with.\color{black}
 %\bibliographystyle{siamplain}
 %\bibliography{references}
 \end{document}

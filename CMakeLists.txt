@@ -56,7 +56,7 @@ set(tetquadSRC src/tetquad.cpp)
 set(gjquadoptSRC src/ngjquad.cpp)
 set(EikonalSRC src/eikonal.cpp)
 set(EikonalWeightedSRC src/eikonal_weighted.cpp)
-
+set(nullspaceSRC  src/nullspace.cpp)
 #set(eikonalSRC src/eikonal.cpp)
 
 # set build output paths
@@ -169,6 +169,9 @@ add_executable(Eikonal ${EikonalSRC})
 set_target_properties(Eikonal PROPERTIES COMPILE_FLAGS "-DWITHOUT_NUMPY")
 target_link_libraries(Eikonal eikonal)  
 
+add_executable(nullspace ${nullspaceSRC})
+target_link_libraries(nullspace openblas lapacke)  
+
 add_executable(EikonalW ${EikonalWeightedSRC})
 set_target_properties(EikonalW PROPERTIES COMPILE_FLAGS "-DWITHOUT_NUMPY")
 target_link_libraries(EikonalW eikonal)  
@@ -188,5 +191,6 @@ install(TARGETS eikonal ARCHIVE DESTINATION lib LIBRARY DESTINATION lib)
 install(TARGETS gjquadopt ARCHIVE DESTINATION bin LIBRARY DESTINATION bin)
 install(TARGETS tetquad ARCHIVE DESTINATION bin LIBRARY DESTINATION bin)
 install(TARGETS Eikonal ARCHIVE DESTINATION bin LIBRARY DESTINATION bin)
+install(TARGETS nullspace ARCHIVE DESTINATION bin LIBRARY DESTINATION bin)
 install(TARGETS EikonalW ARCHIVE DESTINATION bin LIBRARY DESTINATION bin)
 
