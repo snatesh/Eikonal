@@ -105,12 +105,13 @@ struct eikonal
   double* G   = 0, *G0  = 0;
   double* G1  = 0;
 
-  double *S     = 0, *UT       = 0;
-  double *V    = 0, *superb  = 0; 
-  double* nullP = 0, *AT = 0;
+  double *S     = 0, *UT      = 0;
+  double *V     = 0, *superb  = 0; 
+  double* nullP = 0, *AT      = 0;
 
   bool weighted = false;
-  
+  bool unconstrained = false;
+   
   unsigned int Nopt;
 
 
@@ -125,12 +126,14 @@ struct eikonal
             double* _Y, 
             double* _W,
             unsigned int _nthreads,
-            bool _weighted = false )
+            bool _weighted = false,
+            bool _unconstrained = false)
     : n(_n), N(_N), Ne(_nl+_nb+_nh),
       nl(_nl), nb(_nb), nh(_nh),
       X(_X), Y(_Y), W(_W), 
       nthreads(_nthreads),
-      weighted(_weighted)
+      weighted(_weighted),
+      unconstrained(_unconstrained)
   {
 
     this->a             = 0.5; 
@@ -145,17 +148,16 @@ struct eikonal
       exit(1);
     }
     this->cu            = (double*) calloc(Np, sizeof(double));
-
     if (this->weighted)
     {
-
       this->polya1b1c1  = new jPoly<double>(N, n, a+1, b+1, c+1, nthreads);
-      this->polya1b1c1->makeWeighted();
+      this->polya1b1c1->makeWeighted(); this->unconstrained = true;
       this->Lx          = (double*) calloc(Np*Np, sizeof(double));
       this->Ly          = (double*) calloc(Np*Np, sizeof(double));
       this->Wx          = (double*) calloc(Np*Np, sizeof(double));
       this->Wy          = (double*) calloc(Np*Np, sizeof(double));
       this->polya1b1c1->computeCoeffs(fu, X, Y, W, cu);
+
     }
     if (not this->weighted)
     {
@@ -187,16 +189,15 @@ struct eikonal
       this->Kab1c1_a1b1c1 = (double*) calloc(Np*Np, sizeof(double));    
       this->Dx0           = (double*) calloc(Np*Np, sizeof(double));
       this->Dy0           = (double*) calloc(Np*Np, sizeof(double));
-
-
     }
-
     unsigned int dimS = Ne;
-
     this->polyabc->computeCoeffs(frhs, X, Y, W, crhs0);
     this->Dx            = (double*) calloc(Np*Np, sizeof(double));
     this->Dy            = (double*) calloc(Np*Np, sizeof(double));
-
+    if (not this->unconstrained)
+    {
+      this->polyabc->computeCoeffs(fu, X, Y, W, cu);
+    }
 
 
     sFactors(n+2, a, b, c, Habc);  
@@ -216,9 +217,6 @@ struct eikonal
       kMat(a, b+1, c+1, Hab1c1, Ha1b1c1, n, 0, Kab1c1_a1b1c1);
       dMat(a, b, c, Habc, Ha1bc1, n, 0, Dx0);
       dMat(a, b, c, Habc, Hab1c1, n, 1, Dy0); 
-      
-
- 
       cblas_dgemv ( CblasColMajor, CblasNoTrans,
                     Np, Np, 1.0, Kabc_a1bc, Np, crhs0, 1, 0.0, crhs1, 1);
       cblas_dgemv ( CblasColMajor, CblasNoTrans,
@@ -232,54 +230,53 @@ struct eikonal
       cblas_dgemm ( CblasColMajor, CblasNoTrans, CblasNoTrans,
                     Np, Np, Np, 1.0, Kab1c1_a1b1c1, Np, 
                     Dy0, Np, 0.0, Dy, Np);
-
-
       double *xl = edgel->x, *xb = edgeb->x, *xh = edgeh->x;
       for (unsigned int i = 0; i < nl; ++i)     { Yedge[i] = xl[i];           }
       for (unsigned int i = nl; i < nl+nb; ++i) { Xedge[i] = xb[i-nl];        } 
-      for (unsigned int i = nl+nb; i < Ne; ++i) { Xedge[i] = xh[i-nl-nb]    ; 
-                                                  Yedge[i] = 1 - xh[i-nl-nb]; }
+      for (unsigned int i = nl+nb; i < Ne; ++i) { Xedge[i] = xh[i-nl-nb]    ; }
       this->polyedge->computeV(Xedge, Yedge); 
-      this->AT      = (double*) calloc(Np*Ne, sizeof(double));
-      this->S       = (double*) calloc(dimS, sizeof(double));
-      this->UT      = (double*) calloc(Ne*Ne, sizeof(double)); 
-      this->V       = (double*) calloc(Np*Np, sizeof(double));
-      this->superb  = (double*) calloc(dimS, sizeof(double));
-
-      transpose(polyedge->V, Ne, Np, this->AT);
-      LAPACKE_dgesvd( LAPACK_COL_MAJOR, 'A','A', 
-                      Np, Ne, AT, Np, S, 
-                      V, Np, UT, Ne, superb );
- 
-      this->Nopt  = Np - Ne;
-      this->nullP = &V[Np*Ne]; 
-      
-
       this->G0            = (double*) calloc(Np*Np, sizeof(double));
-      this->G1            = (double*) calloc(Np*Nopt, sizeof(double));
-      this->G             = (double*) calloc(Nopt*Nopt, sizeof(double));
-    
       cblas_dgemm ( CblasColMajor, CblasTrans, CblasNoTrans,
                     Np, Np, Np, 1.0, Dx, Np, 
                     Dx, Np, 0.0, G0, Np );
       cblas_dgemm ( CblasColMajor, CblasTrans, CblasNoTrans,
                     Np, Np, Np, 1.0, Dy, Np, 
                     Dy, Np, 1.0, G0, Np );
-
-      // nullP is Np x Nopt, G0 is Np x Np, G0*nullP is Np x Nopt
-      cblas_dgemm ( CblasColMajor, CblasNoTrans, CblasNoTrans,
-                    Np, Nopt, Np, 1.0, G0, Np, nullP, Np, 0.0, G1, Np );
-      // nullPT is Nopt x Np, G1 is Np x Nopt, nullPT*G1 is Nopt x Nopt
-      cblas_dgemm ( CblasColMajor, CblasTrans, CblasNoTrans,
-                    Nopt, Nopt, Np, 1.0, nullP, Np, G1, Np, 0.0, G, Nopt );
-
-
-      this->cu_eq = (double*) calloc(Nopt, sizeof(double));
-      for (unsigned int i = 0; i < Nopt; ++i)
+      if (this->unconstrained)
       {
-        cu_eq[i] = std::pow(-1,i)*1.0;
+        this->AT            = (double*) calloc(Np*Ne, sizeof(double));
+        this->S             = (double*) calloc(dimS, sizeof(double));
+        this->UT            = (double*) calloc(Ne*Ne, sizeof(double)); 
+        this->V             = (double*) calloc(Np*Np, sizeof(double));
+        this->superb        = (double*) calloc(dimS, sizeof(double));
+        
+        transpose(polyedge->V, Ne, Np, this->AT);
+        LAPACKE_dgesvd( LAPACK_COL_MAJOR, 'A','A', 
+                        Np, Ne, AT, Np, S, 
+                        V, Np, UT, Ne, superb );
+        
+        this->Nopt          = Np - Ne;
+        this->nullP         = &V[Np*Ne];
+        this->G1            = (double*) calloc(Np*Nopt, sizeof(double));
+        this->G             = (double*) calloc(Nopt*Nopt, sizeof(double));
+        // nullP is Np x Nopt, G0 is Np x Np, G0*nullP is Np x Nopt
+        cblas_dgemm ( CblasColMajor, CblasNoTrans, CblasNoTrans,
+                      Np, Nopt, Np, 1.0, G0, Np, nullP, Np, 0.0, G1, Np );
+        // nullPT is Nopt x Np, G1 is Np x Nopt, nullPT*G1 is Nopt x Nopt
+        cblas_dgemm ( CblasColMajor, CblasTrans, CblasNoTrans,
+                      Nopt, Nopt, Np, 1.0, nullP, Np, G1, Np, 0.0, G, Nopt );
+
+        this->cu_eq = (double*) calloc(Nopt, sizeof(double));
+        for (unsigned int i = 0; i < Nopt; ++i)
+        {
+          cu_eq[i] = std::pow(-1,i)*1.0;
+        }
       }
-  
+      else
+      {
+        this->G             = G0;
+        this->Nopt          = Np;
+      }  
     }
     else if (this->weighted)
     {
@@ -310,8 +307,11 @@ struct eikonal
   {
     if (not this->weighted)
     {
-      cblas_dgemv( CblasColMajor, CblasNoTrans,
-                   Np, Nopt, 1.0, nullP, Np, cu_eq, 1, 0.0, cu, 1);
+      if (this->unconstrained)
+      {
+        cblas_dgemv ( CblasColMajor, CblasNoTrans,
+                      Np, Nopt, 1.0, nullP, Np, cu_eq, 1, 0.0, cu, 1);
+      }
       cblas_dgemv ( CblasColMajor, CblasNoTrans,
                     N, Np, 1.0, polyabc->V, N, cu, 1, 0.0, u, 1);
     }
@@ -358,7 +358,8 @@ struct eikonal
     if (Ly)             { free(Ly);             Ly            = 0; }
     if (Wx)             { free(Wx);             Wx            = 0; }
     if (Wy)             { free(Wy);             Wy            = 0; }
-    if (G)              { free(G);              G             = 0; }
+    if (G && 
+        unconstrained)  { free(G);              G             = 0; }
     if (G0)             { free(G0);             G0            = 0; }
     if (G1)             { free(G1);             G1            = 0; }
     if (superb)         { free(superb);         superb        = 0; }
