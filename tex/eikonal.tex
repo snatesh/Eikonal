@@ -64,7 +64,7 @@ multivariate orthogonal polynomials, spectral methods, partial differential equa
 68Q25, 68R10, 68U05
 \end{MSCcodes}
 
-\section{Solutions to the Eikonal Equation}{}
+\section{Global representations to local solutions to the Eikonal Equation}{}
 
 
 
@@ -252,6 +252,7 @@ So, there are sparse banded matrices $\mathcal{L}_{(a,b,c)}^{(a-1,b,c)}$ and $\m
 	xf(x,y) &= x\bs{P}^{(a,b,c)}(x,y)^T\bs{f} = \bs{P}^{(a-1,b,c)}(x,y)^T\mathcal{L}_{(a,b,c)}^{(a-1,b,c)}\bs{f},\\
 	yf(x,y) &= y\bs{P}^{(a,b,c)}(x,y)^T\bs{f} = \bs{P}^{(a,b-1,c)}(x,y)^T\mathcal{L}_{(a,b,c)}^{(a,b-1,c)}\bs{f}.
 \end{align}
+\subsubsection{Discrete differential operators}\label{sec:weightedop}
 We will construct the modal Eikonal operator which operates on coefficients under the basis $\tilde{\bs{P}}^{(3/2,3/2,3/2)}$ and produces coefficients under $\bs{P}^{(3/2,3/2,3/2)}$. Note, \emph{the conversion from the weighted to regular Jacobi basis depends on our choice of parameters $a=b=c=3/2$}. With $\bs{f}$ the coefficients of $f(x,y)$ in the $(a,b,c)$ basis, 
 \begin{align*}
 	\partial_x[W^{(a,b,c)}(x,y)f(x,y)] &=  \tilde{\bs{P}}^{(a-1,b,c-1)}(x,y)^T \mathcal{W}_{x,(a,b,c)}^{(a-1,b,c-1)}\bs{f} \\
@@ -361,7 +362,32 @@ By choosing $u^0 = q$ on $\partial \Tau^2$, and setting $u^{k+1} = u^k + \tilde{
 	\item Set $u^1 = u^0 + \tilde{u}$
 	\item $u^1$ after breaking loop solves \eqref{eq:eikonal} (allegedly)
 \end{itemize}
+ \begin{remark}
+ 	\color{red} There is a glaring issue here. We seem to have lost track of the right-hand side! It was trivially eliminated in taking variations of the functional. This must mean that the functional is not correct or useful for our purposes. I think a simple modification might be appropriate, and in line with existing theory for the minimal surface problem \footnote{In our case, we seek a minimal time surface, with boundary $\partial \Tau^2$. That is, we want to find the time surface with minimal area whose boundary is that of the standard reference triangle. Thinking in terms of the discrete shortest path problem, the memoize and backtrack optimality proof seems to apply here in the continuous case - a minimal surface for any partition of the region must coincide with a partition of the minimal surface for the whole region.}. We modify the functional to have the form
+ 	\color{blue}
+ 	\begin{equation}
+ 		\mathcal{L}(u):= \int_{\Tau^2} \Big[ \Big(\frac{1}{f}\Big)^2 + |\nabla_{\bs{x}} u|^2\Big]^{\frac{1}{2}} d(\bs{x})
+ 	\end{equation}
+ 	This will complicate the forms of our variations, but the chain rule terms from the $\sqrt{}$ ensures that derivatives in $\varepsilon$ evaluated at $\varepsilon=0$ will still involve the RHS.
+ \end{remark}
+ 
+\noindent \\
+In the weighted basis, second partials acting on function modes can be constructed with the promotion and unweighted ladder operator as done in Section \ref{sec:weightedop}. 
+\begin{align}
+	\partial_{xx}f(x,y) &= \bs{P}^{(a,b,c)}(x,y)^T\Big( \mathcal{K}_{(a,b-1,c)}^{(a,b,c)}\mathcal{D}_{x,(a-1,b-1,c-1)}^{(a,b-1,c)}\mathcal{L}_{(a-1,b,c-1)}^{(a-1,b-1,c-1)}\mathcal{W}_{x,(a,b,c)}^{(a-1,b,c-1)}\bs{f}\Big),\\
+	\partial_{yy}f(x,y) &= \bs{P}^{(a,b,c)}(x,y)^T\Big( \mathcal{K}_{(a-1,b,c)}^{(a,b,c)}\mathcal{D}_{y,(a-1,b-1,c-1)}^{(a-1,b,c)}\mathcal{L}_{(a,b-1,c-1)}^{(a-1,b-1,c-1)}\mathcal{W}_{y,(a,b,c)}^{(a,b-1,c-1)}\bs{f}\Big),\\
+	\partial_{xy}f(x,y) &= \bs{P}^{(a,b,c)}(x,y)^T\Big(\mathcal{K}_{(a,b-1,c)}^{(a,b,c)}\mathcal{D}_{x,(a-1,b-1,c-1)}^{(a,b-1,c)}\mathcal{L}_{(a,b-1,c-1)}^{(a-1,b-1,c-1)}\mathcal{W}_{y,(a,b,c)}^{(a,b-1,c-1)}\bs{f}\Big)
+\end{align}
 
+
+$\Delta_W$, the weighted Laplace operator, is then given by
+\begin{equation}\label{eq:laptriweight}
+	\begin{split}
+		\Delta_W	&= \mathcal{K}_{(a,b-1,c)}^{(a,b,c)}\mathcal{D}_{x,(a-1,b-1,c-1)}^{(a,b-1,c)}\mathcal{L}_{(a-1,b,c-1)}^{(a-1,b-1,c-1)}\mathcal{W}_{x,(a,b,c)}^{(a-1,b,c-1)} \\
+		&+\mathcal{K}_{(a-1,b,c)}^{(a,b,c)}\mathcal{D}_{y,(a-1,b-1,c-1)}^{(a-1,b,c)}\mathcal{L}_{(a,b-1,c-1)}^{(a-1,b-1,c-1)}\mathcal{W}_{y,(a,b,c)}^{(a,b-1,c-1)}.
+	\end{split}
+\end{equation}
+The cross partial terms are needed only when we include affine transformations from general triangles to the standard reference triangle, as they appear when chaining out derivatives of the parametrization.
 %\bibliographystyle{siamplain}
 %\bibliography{references}
 \end{document}
