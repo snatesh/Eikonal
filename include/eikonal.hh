@@ -141,9 +141,9 @@ struct eikonal
     this->c             = 0.5;
     this->polyabc       = new jPoly<double>(N, n, a, b, c, nthreads); 
     this->Np            = polyabc->Np;
-    if (Ne > Np)
+    if (this->unconstrained && Ne > Np)
     {
-      std::cerr << "ERROR: Number of edge constraints must be less than\
+      std::cerr << "ERROR: Number of edge points must be less than\
                     number of polynomials" << std::endl;
       exit(1);
     }
@@ -198,7 +198,6 @@ struct eikonal
     {
       this->polyabc->computeCoeffs(fu, X, Y, W, cu);
     }
-
 
     sFactors(n+2, a, b, c, Habc);  
     sFactors(n+2, a+1, b, c, Ha1bc);  
@@ -407,7 +406,7 @@ double Fhlp  ( const double* cu, void* _data )
               << std::endl; 
   }
   
-  return Fval;
+  return sqrt(Fval);
 
 }
 

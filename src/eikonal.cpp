@@ -15,8 +15,9 @@ double Frhs(double x, double y)
 
 //return y*y*pow((7*pow(x,6) + 6*pow(x,5)*(-1 + y) + 2*x*pow(y,7) + (-1 + y)*pow(y,7)),2) + 
 //  x*x*pow((pow(x,6) + 8*x*pow(y,7) + pow(x,5)*(-1 + 2*y) + pow(y,7)*(-8 + 9*y)),2); 
+   
+  //if (x == 1./3. && y == 1./3.) { return 10; }
   return 1.0;
-
 }
 
 double dtoh(double x, double y)
@@ -78,11 +79,15 @@ int main(int argc, char* argv[])
   for (unsigned int i = 0; i < N; ++i)
   {
     frhs[i] = Frhs(X[i], Y[i]);
+    //if (X[i] > 0.5 && X[i] < 0.7) 
+    //{
+    //  frhs[i] = 100; std::cout << X[i] << " " << Y[i] << std::endl; 
+    //}
     fu[i] = Fu(X[i], Y[i]);
   }
   
   unsigned int n = std::stoi(argv[1]); 
-  eikonal* solver = new eikonal ( n, N, 2*n, 2*n, 2*n, frhs, fu, 
+  eikonal* solver = new eikonal ( n, N, N, N, N, frhs, fu, 
                                   X, Y, W, nthreads, false, unconstrained);
 
   unsigned int Nopt = solver->Nopt;
@@ -102,11 +107,11 @@ int main(int argc, char* argv[])
   if (unconstrained)  { cu_sol = solver->cu_eq; }
   else                { cu_sol = solver->cu; }
   
-  optDataEik* data = new optDataEik ( solver->Nopt, solver->Dx, solver->Dy, 
+  optDataEik* data = new optDataEik ( Nopt, solver->Dx, solver->Dy, 
                                       solver->G, solver->crhs, cu_sol, 
                                       solver->Ne, solver->polyedge->V); 
 
-  nlopt_opt opt = nlopt_create(NLOPT_LN_COBYLA, solver->Nopt); 
+  nlopt_opt opt = nlopt_create(NLOPT_LN_COBYLA, Nopt); 
   nlopt_set_lower_bounds(opt, lob);
   nlopt_set_upper_bounds(opt, upb);
   nlopt_set_min_objective(opt, F, data);
