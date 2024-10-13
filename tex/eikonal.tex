@@ -11,6 +11,7 @@
 \newcommand{\Tref}{\mathcal{T}_{\text{ref}}}
 \newcommand{\Qref}{\mathcal{Q}_{\text{ref}}}
 \newcommand{\bb}[1]{\mathbb{#1}}
+\newcommand{\nablax}{\nabla_{\bs{x}}}
 
 % Information that is shared between the article and the supplement
 % (title and author information, macros, packages, etc.) goes into
@@ -309,31 +310,40 @@ We want to solve
 \end{equation}
 where $\mathcal{L} : L_2(\Tau^2, w^{(a,bc)})\to \bb{R}^+$ is defined by 
 \begin{equation}
-	\mathcal{L}(u) := \int_{\mathcal{T}^2}\Big[ |\nabla_{\bs{x}} u|^2 - \big(\frac{1}{f}\big)^2 \Big] d\bs{x},
+	\mathcal{L}(u) := \int_{\mathcal{T}^2}\Big[ |\nabla_{\bs{x}} u|^2 - \big(\frac{1}{f}\big)^2 \Big]^{\frac{1}{2}} d\bs{x},
 \end{equation}
 and $u,f$ are as in \eqref{eq:eikonal}, restricted to $L_2(\Tau^2, \mathcal{W}^{(a,bc)})$. 
 
 
-The steps here are to first derive the first variation of $\mathcal{L}$ as $$\delta\mathcal{L}(u,\hat{u}) = \partial \varepsilon\mathcal{L}(u+\varepsilon \hat{u})|_{\varepsilon=0} = 0,$$ where $\hat{u} \in \mathcal{H}_0^1(\Tau^2)$. This gives the necessary condition a minimizer of $\mathcal{L}$ must satisfy. Accordingly, we have
+The steps here are to first take the Gateaux derivative of $\mathcal{L}$ as $$\delta\mathcal{L}(u,\hat{u}) = \partial \varepsilon\mathcal{L}(u+\varepsilon \hat{u})|_{\varepsilon=0} = 0,$$ where $\hat{u} \in \mathcal{H}_0^1(\Tau^2)$.  This gives the necessary condition a minimizer of $\mathcal{L}$ must satisfy. Before proceeding, recall Green's identity for $u,v \in H^1(\Tau^2)$, i.e. a multidimensional integration by parts formula:
+\begin{equation}\label{eq:greenident}
+	\int_{\Tau^2} \nabla_{\bs{x}} u \cdot v d(\bs{x}) = \int_{\partial\Tau^2} (uv) \cdot \bs{n} dS(\bs{x}) - \int_{\Tau^2} u \nabla_{\bs{x}} \cdot v d(\bs{x}).
+\end{equation}
+Accordingly, we have
 \begin{align*}
-	0 = \partial_\varepsilon \mathcal{L}(u + \varepsilon \hat{u})|_{\varepsilon=0} &= \partial_\epsilon\big[\int_{\Tau^2} \Big((u_x^2 + u_y^2) + 2\varepsilon(\hat{u}_x u_x + \hat{u}_yu_y) + \varepsilon^2 (\hat{u}_x^2 + \hat{u}_y^2) -\big(\frac{1}{f}\big)^2\Big)d\bs{x}\big]\Big|_{\varepsilon=0}\\
-	\Rightarrow 0 &= \int_{\mathcal{T}^2} 2(\hat{u}_x u_x + \hat{u}_yu_y) d(\bs{x}) = \int_{\mathcal{T}^2} (\nabla_{\bs{x}}u \cdot \nabla_{\bs{x}}\hat{u}) d(\bs{x}) \\
-	&= \int_{\partial\Tau^2} \hat{u}\nabla_{\bs{x}}u \cdot \bs{n} dS(\bs{x}) - \int_{\Tau^2} (\hat{u} \nabla_{\bs{x}}^2 u )d(\bs{x}) \quad \text{ (using integration by parts).}\\
-	&= \delta \mathcal{L}(u, \hat{u})
+	0 = \partial_\varepsilon \mathcal{L}(u + \varepsilon \hat{u})|_{\varepsilon=0} &= \partial_\epsilon\big[\int_{\Tau^2} \Big((u_x^2 + u_y^2) + 2\varepsilon(\hat{u}_x u_x + \hat{u}_yu_y) + \varepsilon^2 (\hat{u}_x^2 + \hat{u}_y^2) -\big(\frac{1}{f}\big)^2\Big)^{\frac{1}{2}}d(\bs{x})\big]\Big|_{\varepsilon=0}\\
+	\Rightarrow 0 &= \Big[\frac{1}{2}\int_{\Tau^2} \frac{\Big( 2(\hat{u}_x u_x + \hat{u}_yu_y) + 2\varepsilon (\hat{u}_x^2 + \hat{u}_y^2) \Big)}{\Big((u_x^2 + u_y^2) + 2\varepsilon(\hat{u}_x u_x + \hat{u}_yu_y) + \varepsilon^2 (\hat{u}_x^2 + \hat{u}_y^2) -\big(\frac{1}{f}\big)^2\Big)^{\frac{1}{2}}} d(\bs{x})\Big]\Big|_{\varepsilon=0}.
 \end{align*}
-Now, the choice of $\hat{u}$ is arbitrary, and it evaluates to 0 on the boundary $\partial \Tau^2$. Hence, we eliminate the boundary term and find that $u$ must be identically harmonic in $\mathcal{T}^2$, as in
+The first variation is then given by
+\begin{equation}\label{eq:eikfirstvar}
+	\delta \mathcal{L}(u,\hat{u})=  \int_{\mathcal{T}^2} \frac{\nabla_{\bs{x}}u \cdot \nabla_{\bs{x}}\hat{u}}{\sqrt{ |\nabla_{\bs{x}}u|^2 - (\frac{1}{f})^2}} d(\bs{x}) .
+\end{equation}
+We can apply \eqref{eq:greenident} with $u \leftarrow \hat{u}$ and $v \leftarrow \frac{\nabla_{\bs{x}} u}{\sqrt{|\nabla_{\bs{x}} u}|^2-\frac{1}{f^2} }$ to derive the strong (PDE) form of the first order necessary condition a minimizer of $\mathcal{L}$ must satisfy. As such,
+\begin{align*}
+	\delta\mathcal{L}(u,\hat{u}) = \int_{\partial\Tau^2} \hat{u} \frac{\nabla_{\bs{x}} u}{\sqrt{ |\nabla_{\bs{x}} u|^2-\frac{1}{f^2}}} \cdot \bs{n} dS(\bs{x}) - \int_{\Tau^2} \hat{u} \nabla_{\bs{x}} \cdot \frac{\nabla_{\bs{x}} u}{\sqrt{|\nabla_{\bs{x}} u|^2-\frac{1}{f^2} }} d(\bs{x}) = 0.
+\end{align*}
+The choice of $\hat{u}$ is arbitrary, and it evaluates to 0 on the boundary $\partial \Tau^2$. Eliminating the boundary term, we find that a minimizer $u$ satisfies the following PDE in $\mathcal{T}^2$;
 \begin{equation}\label{eq:eiklin}
 	\begin{split}
-	-\nabla_{\bs{x}}^2 u &= 0 ,\quad \bs{x} \in \mathcal{T}^2\\
+-\nabla_{\bs{x}} \cdot \Bigg( \frac{\nabla_{\bs{x}} u}{\sqrt{ |\nabla_{\bs{x}} u|^2 -\frac{1}{f^2}}}\Bigg) &= 0 ,\quad \bs{x} \in \mathcal{T}^2,\\
 	u &= q,\quad \bs{x} \in \partial \Tau^2.
 	\end{split}
 \end{equation}
-Next, we compute the second variation $\delta^2 \mathcal{L}(u,\hat{u},\tilde{u})$, where $\tilde{u} \in H_0^1(\Tau^2)$:
+Next, we compute the Frechet derivative $\delta^2 \mathcal{L}(u,\hat{u},\tilde{u})$, where $\tilde{u} \in H_0^1(\Tau^2)$. Letting $u \leftarrow u + \varepsilon\tilde{u}$ in \eqref{eq:eikfirstvar}, we have
 \begin{align*}
 	\delta^2 \mathcal{L}(u,\hat{u},\tilde{u})&= \partial_\varepsilon \delta \mathcal{L}(u+\varepsilon \tilde{u}, \hat{u}) \Big|_{\varepsilon=0} \\
-	&= \Big(\partial_{\varepsilon}\int_{\mathcal{T}^2} (\nabla_{\bs{x}}(u+\varepsilon \tilde{u}) \cdot \nabla_{\bs{x}}\hat{u}) d(\bs{x})\Big)\Big|_{\varepsilon=0} \\
-	&= \Big(\partial_{\varepsilon}\int_{\Tau^2} (\nabla_{\bs{x}} u \cdot \nabla_{\bs{x}} \hat{u} + \varepsilon \nabla_{\bs{x}} \tilde{u} \cdot \nabla_{\bs{x}} \hat{u}) d(\bs{x})\Big)\Big|_{\varepsilon=0} \\
-	&= \int_{\Tau^2} (\nabla_{\bs{x}} \tilde{u} \cdot \nabla_{\bs{x}} \hat{u}) d(\bs{x})
+	&= \Bigg(\partial_{\varepsilon}\int_{\mathcal{T}^2} \frac{\nabla_{\bs{x}}u \cdot \nabla_{\bs{x}}\hat{u} + \varepsilon \nabla_{\bs{x}} \tilde{u} \cdot \nabla_{\bs{x}} \hat{u}}{\sqrt{-\frac{1}{f^2} + \nablax u \cdot \nablax u + 2\varepsilon \nablax u \cdot \nablax \tilde{u} + \varepsilon^2 \nablax \tilde{u}\cdot \nablax\tilde{u} }}d(\bs{x})\Bigg)\Big|_{\varepsilon=0} \\
+	&= \int_{\Tau^2} \Bigg(\frac{\nablax \tilde{u} \cdot \nablax \hat{u}}{\sqrt{-\frac{1}{f^2} + |\nablax u|^2}} - \frac{(\nablax u \cdot \nablax \hat{u})(\nablax u \cdot \nablax \tilde{u})}{(-\frac{1}{f^2} + |\nablax u|^2)^{\frac{3}{2}}} \Bigg)d(\bs{x})
 \end{align*}
 The weak form of the Newton system at a point $u^k \in H_0^1(\Tau^2)$ is then
 \begin{equation}
