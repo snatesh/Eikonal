@@ -104,9 +104,7 @@ and they satisfy a mutual orthonormality condition under the weighted inner prod
 \begin{equation}\label{eq:koornorth}
 	\langle P_{j,m}^{(a,b,c)},P_{k,n}^{(a,b,c)}\rangle_{w^{(a,b,c)}} = \delta_{jk}\delta_{mn}. 
 \end{equation}
-A given basis polynomial is not only orthonormal to those with different total degree, but also to those others within the same-degree homogeneous subspace. In other words, $P_k^n,\s0\leq k\leq n$ forms a basis for the space of homogeneous polynomials of degree $n$. By considering ordered collections of these subspaces (where ordering is in terms of the degree $n$ of the space), instead of individual polynomials, we can more elegantly reformulate the Eikonal problem into a weak-type form. Let $$\bb{P}_n(x_1,x_2) = (P_0^n(x_1,x_2),\cdots P_n^n(x_1,x_2))^T,$$ and let $$\bs{P} = (\bb{P}_0^T,\bb{P}_1^T,\cdots,\bb{P}_{n-1}^T)^T.$$ The above notation amounts to a vectorization of the basis for the general space of polynomials in two variables $\Pi_{n-1}^2$ defined of $\Tau^2$.
-
-Now, consider the $(n-1)$ order Jacobi polynomial expansion of the solution $u$ under the parameter family $(a,b,c)$. For $\bs{x} \in \Tau^d$, and $N = \text{dim}\Pi_{n-1}^2$ coefficients $\bs{u} \in \bb{R}^N$, we can write it as 
+A given basis polynomial is not only orthonormal to those with different total degree, but also to those others within the same-degree homogeneous subspace. In other words, $P_k^n,\s0\leq k\leq n$ forms a basis for the space of homogeneous polynomials of degree $n$. By considering ordered collections of these subspaces (where ordering is in terms of the degree $n$ of the space), instead of individual polynomials, we can more elegantly reformulate the Eikonal problem into a weak-type form. Let $$\bb{P}_n(x_1,x_2) = (P_0^n(x_1,x_2),\cdots P_n^n(x_1,x_2))^T,$$ and let $$\bs{P} = (\bb{P}_0^T,\bb{P}_1^T,\cdots,\bb{P}_{n-1}^T)^T.$$ The above notation amounts to a vectorization of the basis for the general space of polynomials in two variables $\Pi_{n-1}^2$ defined of $\Tau^2$. Now, consider the $(n-1)$ order Jacobi polynomial expansion of the solution $u$ under the parameter family $(a,b,c)$. For $\bs{x} \in \Tau^d$, and $N = \text{dim}\Pi_{n-1}^2$ coefficients $\bs{u} \in \bb{R}^N$, we can write it as 
 \begin{equation}
 	u(\bs{x}) = \bs{P}^{(a,b,c)}(\bs{x})^T\bs{u}.
 \end{equation}
@@ -118,7 +116,6 @@ There exists sparse discrete operators which map $\bs{u}$ to the coefficients of
 	\bs{P}^{(a+1, b+1,c+1)}(\bs{x})^T\mathcal{K}_{(a,b+1,c+1)}^{(a+1,b+1,c+1)}\mathcal{D}_{x_2}\bs{u}
 	\end{split}
 \end{equation}
-
 Inserting this into the fully constrained Eikonal equation gives
 \begin{align}\label{eq:eikpdcoef}
 	&\Big(\bs{P}^{(a+1,b+1,c+1)}(\bs{x})^T\mathcal{K}_{(a,b,c)}^{(a+1,b+1,c+1)}\bs{c}_{\frac{1}{f}}\Big)^2 =\\ &\big(\bs{P}^{(a+1,b+1,c+1)}(\bs{x})^T\mathcal{K}_{(a+1,b,c+1)}^{(a+1,b+1,c+1)}\mathcal{D}_{x_1}\bs{u}\big)^2 +\nonumber \\ &\big(\bs{P}^{(a+1, b+1,c+1)}(\bs{x})^T\mathcal{K}_{(a,b+1,c+1)}^{(a+1,b+1,c+1)}\mathcal{D}_{x_2}\bs{u}\big)^2 = \nonumber \\
@@ -128,8 +125,7 @@ where $$\mathcal{\tilde{D}}_{x_1} = \mathcal{K}_{(a+1,b,c+1)}^{(a+1,b+1,c+1)}\ma
 \begin{equation}\label{eq:eikdcoef}
 	\big(\mathcal{\tilde{D}}_{x_1}\bs{u}\bs{u}^T\mathcal{\tilde{D}}_{x_1}^T + \mathcal{\tilde{D}}_{x_2}\bs{u}\bs{u}^T\mathcal{\tilde{D}}_{x_2}^T \big) = \tilde{\bs{c}}_{\frac{1}{f}}\tilde{\bs{c}}_{\frac{1}{f}}^T .
 \end{equation}
- Now, we seek a coefficient solution $\bs{u}$ which represents the solution \emph{globally} in $\Tau^2$. However, polynomials are differentiable, and some of the problems we are interested in yield non-differentiable solutions. This is true even in the most basic case of $f \equiv 1$, in which $u$ is the signed distance function from $\bs{x}$ to $\partial\Tau^2$, depicted below:
-
+ We seek a coefficient solution $\bs{u}$ which represents the solution \emph{globally} in $\Tau^2$. However, polynomials are differentiable, and some of the problems we are interested in yield non-differentiable solutions. This is true even in the most basic case of $f \equiv 1$, in which $u$ is the signed distance function from $\bs{x}$ to $\partial\Tau^2$, depicted below:
 \begin{figure}[H]
 	\centering
 	\includegraphics[width=0.75\linewidth]{./distT2}
@@ -137,6 +133,7 @@ where $$\mathcal{\tilde{D}}_{x_1} = \mathcal{K}_{(a+1,b,c+1)}^{(a+1,b+1,c+1)}\ma
 	(x_1-x_2 + 1)/2 \\ (x_2-x_1+1)/2
 	\end{bmatrix}\Big|\Big|_2\Big\}$}\label{fig:distT2}
 \end{figure}
+\noindent
 We cannot hope to recover a solution $\bs{u}$ which  satisfies \eqref{eq:eikdcoef} to machine precision, as that would imply the global solution has zero residual \emph{pointwise} everywhere. Hence, we must return to \eqref{eq:eikpdcoef}, and consider solving it weakly, in the sense of:
 \begin{equation}\label{eq:eikonalweak}
 	\begin{split}
@@ -146,9 +143,7 @@ We cannot hope to recover a solution $\bs{u}$ which  satisfies \eqref{eq:eikdcoe
 &\approx ||\partial_x u||_{w^{(a+1,b+1,c+1)}}^2 +  ||\partial_y u||_{w^{(a+1,b+1,c+1)}}^2.
 	\end{split}
 \end{equation}
-Here, the norm is viewed as that of a function in $L^2(\Tau^2,w^{(a+1,b+1,c+1)})$.  
-
-Parsing this equation out a bit further (condensing sub/super scripts), we have
+Here, the norm is viewed as that of a function in $L^2(\Tau^2,w^{(a+1,b+1,c+1)})$. Parsing this equation out a bit further (condensing sub/super scripts), we have
 \begin{align*}
 &\int_{\Tau^2} \bs{P}(\bs{x})^T (\bs{u_x}\bs{u_x}^T + \bs{u_y}\bs{u_y}^T)w(\bs{x})\bs{P}(\bs{x})d\bs{x} \quad \text{ (\textbf{Only $x$ part handled below})}\\
 &=\int_{\Tau^2}\bs{P}(\bs{x})^T 
@@ -190,7 +185,8 @@ w(\bs{x})\sum_{k=1}^N \sum_{j=1}^N  u_{x,k}u_{x,j}P_k(\bs{x})P_j(\bs{x}) d\bs{x}
 &= \bs{u}^T(\mathcal{\tilde D}_x^T\mathcal{\tilde D}_x + \mathcal{\tilde D}_y^T \mathcal{\tilde D}_y) \bs{u} = \tilde{\bs{c}}_{\frac{1}{f}}^T\tilde{\bs{c}}_{\frac{1}{f}},
 \end{align*}
 where we've used the mutual orthonormality relations, which persist even within a subspace of homogeneous polynomials of degree $m$, to eliminate all off-diagonal terms in the sum. Note, not all orthonormal bases are created equal, and we normally would have to retain many outer product terms in the sum because orthonormality between vectors of the same subspace is not a given. 
-
+\newpage
+\noindent 
 Thus, we want to solve the following quadratic program with equality constraints:
 
 \begin{align}\label{eq:eikonalqp}
@@ -202,9 +198,7 @@ where $G = \mathcal{\tilde D}_x^T\mathcal{\tilde D}_x + \mathcal{\tilde D}_y^T \
 	\nabla_{\bs{u}}F(\bs{u}) &= 2G\bs{u},\\
 	\nabla^2_{\bs{u}}F(\bs{u}) &= 2G,
 \end{align}
-and we still need to consider the constraint equation. 
-
-We take the approach of eliminating the constraints by solving a the minimization problem on auxiliary variables. That is, suppose $\bs{P}(\bs{x}) \in \bb{R}^{M\times N}$, $M > N$, has rank $p$. We can compute the \emph{full} \textit{SVD}  of $\bs{P}(\bs{x}) =  U \Sigma V^T$. Then, the last $n-p$ rows of $V^T$ form a basis for the $\mathcal{N}(\bs{P}(\bs{x}))$. That is, $V^T = \begin{bmatrix} V_p^T \\ V_{n-p}^T \end{bmatrix}$, and 
+and we still need to consider the constraint equation. We take the approach of eliminating the constraints by solving a the minimization problem on auxiliary variables. That is, suppose $\bs{P}(\bs{x}) \in \bb{R}^{M\times N}$, $M > N$, has rank $p$. We can compute the \emph{full} \textit{SVD}  of $\bs{P}(\bs{x}) =  U \Sigma V^T$. Then, the last $n-p$ rows of $V^T$ form a basis for the $\mathcal{N}(\bs{P}(\bs{x}))$. That is, $V^T = \begin{bmatrix} V_p^T \\ V_{n-p}^T \end{bmatrix}$, and 
  any solution $\bs{u}$ satisfying the equality constraints can be expressed as 
 \begin{equation}\label{eq:eikonalauxvar}
 \bs{u} =  V_{n-p} \bs{u}_{\text{eq}},
@@ -229,9 +223,7 @@ There is a ton of material in chapter 12 and 16 of the Nocedal/Wright optimizati
 \newpage
 
 \subsection{A variational approach}
-Let's try framing the problem from the perspective of infinite dimensional optimization. Thus far, my efforts have fallen under the discretize-then-optimize approach for solving non-linear PDEs. So, let's flip that and consider the optimize-then-discretize approach. The first order conditions for optimality of the functional may serve as a way to initialize the problem for the discretized non-linear optimization call.
-
-We want to solve
+Let's try framing the problem from the perspective of infinite dimensional optimization. Thus far, my efforts have fallen under the discretize-then-optimize approach for solving non-linear PDEs. So, let's flip that and consider the optimize-then-discretize approach. The first order conditions for optimality of the functional may serve as a way to initialize the problem for the discretized non-linear optimization call. We want to solve
 \begin{equation}
 	\begin{split}
 	\min_{u\in L_2(\Tau^2,w^{(a,b,c)})}\mathcal{L}(u),\\
@@ -242,10 +234,7 @@ where $\mathcal{L} : L_2(\Tau^2, w^{(a,bc)})\to \bb{R}^+$ is defined by
 \begin{equation}\label{eq:eikL}
 	\mathcal{L}(u) := \int_{\mathcal{T}^2}\Big[ |\nabla_{\bs{x}} u|^2 - \big(\frac{1}{f}\big)^2 \Big]^{\frac{1}{2}} d\bs{x},
 \end{equation}
-and $u,f$ are as in \eqref{eq:eikonal}, restricted to $L_2(\Tau^2, \mathcal{W}^{(a,bc)})$. 
-
-
-The steps here are to first take the Gateaux derivative of $\mathcal{L}$ as $$\delta\mathcal{L}(u,\hat{u}) = \partial \varepsilon\mathcal{L}(u+\varepsilon \hat{u})|_{\varepsilon=0} = 0,$$ where $\hat{u} \in \mathcal{H}_0^1(\Tau^2)$.  This gives the necessary condition a minimizer of $\mathcal{L}$ must satisfy. Before proceeding, recall Green's identity for $u,v \in H^1(\Tau^2)$, i.e. a multidimensional integration by parts formula:
+and $u,f$ are as in \eqref{eq:eikonal}, restricted to $L_2(\Tau^2, \mathcal{W}^{(a,bc)})$. The steps here are to first take the Gateaux derivative of $\mathcal{L}$ as $$\delta\mathcal{L}(u,\hat{u}) = \partial \varepsilon\mathcal{L}(u+\varepsilon \hat{u})|_{\varepsilon=0} = 0,$$ where $\hat{u} \in \mathcal{H}_0^1(\Tau^2)$.  This gives the necessary condition a minimizer of $\mathcal{L}$ must satisfy. Before proceeding, recall Green's identity for $u,v \in H^1(\Tau^2)$, i.e. a multidimensional integration by parts formula:
 \begin{equation}\label{eq:greenident}
 	\int_{\Tau^2} \nabla_{\bs{x}} u \cdot v d(\bs{x}) = \int_{\partial\Tau^2} (uv) \cdot \bs{n} dS(\bs{x}) - \int_{\Tau^2} u \nabla_{\bs{x}} \cdot v d(\bs{x}).
 \end{equation}
@@ -321,7 +310,7 @@ Note, Algorithm \ref{alg:eikalg} as well as the preceding derivations of weak an
 \begin{equation}\label{eq:eikLcheat}
 	\mathcal{L}(u) = \int_{\Tau^2} [(|\nablax u|^2 - \frac{1}{f^2})^2]^{\frac{1}{4}}
 \end{equation} 
-Even though \eqref{eq:eikLcheat} is equivalent to \eqref{eq:eikL}, the latter does not necessarily ensure that the range of $\mathcal{L}$ is $\bb{R}^+$ without specifying the appropriate branch of $\sqrt{}$ to consider, while the modified functional does without us having to deal with absolute values or the $\text{sgn}$ function. Any arguments raised to the $\frac{1}{2}$ or  $\frac{3}{2}$ powers, as they are in \eqref{eq:eiknewtonstrong}, can simply be squared and square root-ed before exponentiation. That is, the numerical implementation will include such a transformation to those arguments (this might work? we'll see). Expressing \eqref{eq:eiknewtonstrong} in modal form is our next challenge.
+Even though \eqref{eq:eikLcheat} is equivalent to \eqref{eq:eikL}, the latter does not necessarily ensure that the range of $\mathcal{L}$ is $\bb{R}^+$ without specifying the appropriate branch of $\sqrt{}$ to consider. The modified functional does this without us having to deal with absolute values or the $\text{sgn}$ function. Any arguments raised to the $\frac{1}{2}$ or  $\frac{3}{2}$ powers, as they are in \eqref{eq:eiknewtonstrong}, can simply be squared and square root-ed before exponentiation. That is, the numerical implementation will include such a transformation to those arguments (this might work? we'll see). Expressing \eqref{eq:eiknewtonstrong} in modal form is our next challenge.
 \newpage
 \section{The weighted Jacobi basis}
 The weighted basis 

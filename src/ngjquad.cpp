@@ -54,8 +54,8 @@ inline void set_args  ( int argc, char* argv[],
       {
         case 0:
         { 
-          alg = NLOPT_LN_NELDERMEAD;
-          std::cout << "ALGORITHM: NELDERMEAD\n";
+          alg = NLOPT_LD_SLSQP;
+          std::cout << "ALGORITHM: SLSQP\n";
           break;
         }
         case 1:
@@ -90,11 +90,11 @@ inline void set_args  ( int argc, char* argv[],
     case 1:
     {
       nthreads = 1;
-      alg = NLOPT_LN_NELDERMEAD;
-      std::cout << "ALGORITHM: NELDERMEAD\n";
+      alg = NLOPT_LD_SLSQP;
+      std::cout << "ALGORITHM: SLSQP\n";
       dim = 2; n = 4; m = 6;
-      tol = 1e-5;
-      tolc = 1e-5;
+      tol = 1e-13;
+      tolc = 1e-13;
       use_wolfe = false;
       use_newton = false;
       alph = 0;

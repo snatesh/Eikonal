@@ -100,9 +100,10 @@ for j = 1:Np
         PPT1(i,j) = W'*(V_abc(:,i).*V_abc(:,j));
     end
 end
+PPT(PPT < 1e-10) = 0;
+PPT1(PPT1 < 1e-10) = 0;
 
-PPT(PPT < 1e-10) = 0
-PPT1(PPT1 < 1e-10) = 0
+
 
 spy(PPT)
 
@@ -112,17 +113,10 @@ resTri = ((V_a1b1c1*(Dx*cu_abc)).^2 + (V_a1b1c1*(Dy*cu_abc)).^2 ...
 resTriNorm = W'*resTri
 figure(2)
 %trisurf(T,X,Y,resTri);
-trisurf(T,X,Y,V_abc*(Dx*cu_abc))
 
-cf_a1bc = K_a1bc*cf_abc;
-cf_ab1c = K_ab1c*cf_abc;
-cf_abc1 = K_abc1*cf_abc;
-cf_a1b1c1 = K_a1b1c1*(K_a1b1c*cf_a1bc);
 
-% make coeffs of df/dx and df/dy
-cdxf_a1bc1 = Dx_a1bc1*cf_abc;
-cdyf_ab1c1 = Dy_ab1c1*cf_abc;
-clapf_a2b2c2 = Lap_a2b2c2*cf_abc;
+
+
 
 % check expansions, promotions and derivatives
 % disp(norm(V_abc*cf_abc-F)/normF);
@@ -135,61 +129,9 @@ clapf_a2b2c2 = Lap_a2b2c2*cf_abc;
 % disp(norm(V_ab1c1*cdyf_ab1c1-dyF)/normdyF);
 % disp(norm(V_a2b2c2*clapf_a2b2c2-lapF)/normlapF);
 
-% construct weigted laplacian
-Wx = D1_tri_weighted(a+1,b+1,c+1,H_a1b1c1,H_ab1c,0);
-Lx = lowering_mat_tri(a,b+1,c,H_ab1c,H_abc,1);
-Dx = D1_tri(a,b,c,H_abc,H_a1bc1,0);
-Kx = promotion_mat_tri(a+1,b,c+1,H_a1bc1,H_a1b1c1,1);
-
-Wy = D1_tri_weighted(a+1,b+1,c+1,H_a1b1c1,H_a1bc,1);
-Ly = lowering_mat_tri(a+1,b,c,H_a1bc,H_abc,0);
-Dy = D1_tri(a,b,c,H_abc,H_ab1c1,1);
-Ky = promotion_mat_tri(a,b+1,c+1,H_ab1c1,H_a1b1c1,0);
-
-Dxx = Kx*Dx*Lx*Wx;
-Dyy = Ky*Dy*Ly*Wy;
-M = m*(m+1)/2;
-A = Dxx(1:M,1:M) + Dyy(1:M,1:M);
 
 
-H_abc = structure_factors_tri(n,a,b,c);
-H_a1bc = structure_factors_tri(n,a+1,b,c);
-H_a1b1c = structure_factors_tri(n,a+1,b+1,c);
-H_a1b1c1 = structure_factors_tri(n,a+1,b+1,c+1);
 
-V_abc = jPoly_tri(X,Y,H_abc,n-2,a,b,c);
-V_a1b1c1 = jPoly_tri(X,Y,H_a1b1c1,n-2,a+1,b+1,c+1);
-K_a1bc = promotion_mat_tri(a,b,c,H_abc,H_a1bc,0);
-K_a1b1c = promotion_mat_tri(a+1,b,c,H_a1bc,H_a1b1c,1);
-K_a1b1c1 = promotion_mat_tri(a+1,b+1,c,H_a1b1c,H_a1b1c1,2);
-cf_abc = V_abc'*(f(X,Y).*W);
-cf_a1b1c1 = K_a1b1c1*(K_a1b1c*(K_a1bc*cf_abc));
-V_a1b1c1w = jPoly_tri_weighted(X,Y,H_a1b1c1,n-2,a+1,b+1,c+1);
-
-
-%norm(V_abc*cf_abc-f(X,Y))
-%norm(V_a1b1c1*cf_a1b1c1-f(X,Y))
-cu_a1b1c1w = A\cf_a1b1c1;
-errs(j,iF) = norm(V_a1b1c1w*cu_a1b1c1w-u(X,Y))/norm(u(X,Y))
-Ns(j) = m*(m+1)/2;
-%%
-figure(1)
-spy(A);
-figure(2)
-semilogy(Ns,errs(:,1),'o--','displayname','$xy(1-x-y)(x+y)^8$'); hold on;
-semilogy(Ns,errs(:,2),'o--','displayname','$xy(1-x-y)\exp(y\sin(x+y))$');
-semilogy(Ns,errs(:,3),'o--','displayname','$xy(1-x-y)\exp(-(x^2+y^2))$');
-
-xlabs = {'(3,1)','(6,2)','(10,3)','(15,4)','(21,5)','(28,6)','(36,7)','(45,8)','(55,9)','(66,10)','(78,11)','(91,12)'};
-xticks(Ns);
-xticklabels(xlabs);
-ax = gca;
-ax.XAxis.FontSize = 14.5;
-xlabel('$(N,n)$');
-ax.XLabel.FontSize = 25;
-ylabel('Releative error $\frac{||u-\hat{u}||}{||u||}$');
-legend show;
-%ylim([1e-17,1]);
 %% now let's add boundary conditions to lap
 
 Vx0 = jPoly_tri(0*X,Y,H_abc,n-1,a,b,c);
