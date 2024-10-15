@@ -160,7 +160,7 @@ set_target_properties(sfactors kmat dmat jmat jweight eikonal
 
 add_executable(gjquadopt ${gjquadoptSRC})
 set_target_properties(gjquadopt PROPERTIES COMPILE_FLAGS "-DWITHOUT_NUMPY")
-target_link_libraries(gjquadopt legquad ${Python_LIBRARIES})
+target_link_libraries(gjquadopt dmat legquad ${Python_LIBRARIES})
 
 add_executable(tetquad ${tetquadSRC})
 target_link_libraries(tetquad jevd legquad)   

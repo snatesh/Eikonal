@@ -7,6 +7,7 @@
 #include<lapacke.h>
 #include<nlopt.h>
 #include<jMat.hh>
+#include<dMat.hh>
 #include<jPoly.hh>
 #include<jevd.hh>
 
@@ -26,6 +27,8 @@ struct optData
   double *Vm_T = 0, *W0 = 0, *S = 0, *F0 = 0;
   jMat<double>* Jn = 0;
   jPoly<double>* Pm = 0;
+  jPoly<double>* Pmx = 0;
+  jPoly<double>* Pmy = 0;
   double a, b, c, d;
   unsigned int N, M, n, m;
   bool run0; 
@@ -37,6 +40,9 @@ struct optData
 
   double* Cieq = 0;
   double* Ceq = 0;
+
+  double *Habc = 0, *Ha1bc1 = 0, *Hab1c1 = 0;
+  double *Dx = 0, *Dy = 0;
 
   std::string dir;
   std::string splxT;
@@ -68,6 +74,18 @@ struct optData
       // generate jacobi matrices for x,y 
       this->Jn = new jMat<double>(n, a, b, c);
       this->Pm = new jPoly<double>(N, m-1, a, b, c, nthreads); 
+      this->Pmx = new jPoly<double>(N, m-1, a+1, b, c+1, nthreads); 
+      this->Pmy = new jPoly<double>(N, m-1, a, b+1, c+1, nthreads); 
+      this->Habc  = (double*) calloc((m+1)*(m+1), sizeof(double));
+      this->Ha1bc1  = (double*) calloc((m+1)*(m+1), sizeof(double));
+      this->Hab1c1 = (double*) calloc((m+1)*(m+1), sizeof(double));
+      this->Dx = (double*) calloc(M*M, sizeof(double));
+      this->Dy = (double*) calloc(M*M, sizeof(double));
+      sFactors(m+1, a, b, c, Habc);  
+      sFactors(m+1, a+1, b, c+1, Ha1bc1);  
+      sFactors(m+1, a, b+1, c+1, Hab1c1);  
+      dMat(a, b, c, Habc, Ha1bc1, m-1, 0, Dx);
+      dMat(a, b, c, Habc, Hab1c1, m-1, 1, Dy); 
       this->Vm = Pm->V;
       this->Jn1 = Jn->Jn1;
       this->Jn2 = Jn->Jn2;
@@ -161,6 +179,8 @@ struct optData
   {
     if (Jn) { delete Jn; Jn = 0; }
     if (Pm) { delete Pm; Pm = 0; }
+    if (Pmx) { delete Pmx; Pmx = 0; }
+    if (Pmy) { delete Pmy; Pmy = 0; }
     if (X0) { free(X0); X0 = 0; }
     if (Y0) { free(Y0); Y0 = 0; }
     if (Z0) { free(Z0); Z0 = 0; }
@@ -176,6 +196,11 @@ struct optData
     if (Jnz) { free(Jnz); Jnz = 0; }
     if (Cieq)  { free(Cieq); Cieq = 0; }
     if (Ceq)  { free(Ceq); Ceq = 0; }
+    if (Habc) { free(Habc); Habc = 0; }
+    if (Ha1bc1) { free(Ha1bc1); Ha1bc1 = 0; }
+    if (Hab1c1) { free(Hab1c1); Hab1c1 = 0; }
+    if (Dx)   { free(Dx); Dx = 0; }
+    if (Dy)   { free(Dy); Dy = 0; }
   }
 
   void initmsg(unsigned int step)
@@ -303,8 +328,6 @@ struct ngjQuad
     }
   }
  
-  
- 
   static inline double optF_help (  unsigned int n, const double* Zk, 
                                     double* grad, void* _data  )
   {
@@ -345,7 +368,7 @@ struct ngjQuad
     norm2 = pow(cblas_dnrm2(M, Fk, 1), 2);
     if ( !(count % 10) && data->run0 ) 
     { 
-      //std::cout << "Eval #" << count << " : F = " << norm2 << std::endl; 
+      std::cout << "Eval #" << count << " : F = " << norm2 << std::endl; 
     }
     return norm2;
   }
@@ -358,32 +381,66 @@ struct ngjQuad
     unsigned int M = data->M;
     unsigned int N = data->N;
     unsigned int dim = data->dim;
-    double *Vm = data->Pm->V, *Fk = data->Fk;
     const double *Wk, *Xk, *Yk; 
     const double *X1k, *X2k, *X3k;
     if (grad && dim == 2)
     {
-      double h = 1e-10; 
-      double Fkph, Fkmh;
-      double* Zkph    = (double*) calloc((dim+1)*N, sizeof(double));
-      double* Zkmh    = (double*) calloc((dim+1)*N, sizeof(double));
-      for (unsigned int i = 0; i < (dim+1)*N; ++i) { Zkph[i] = Zkmh[i] = Zk[i]; }
-      // compute finite difference approx to grad
-      for (unsigned int jj = 0; jj < (dim+1)*N; ++jj)
+      Xk = Zk;
+      Yk = Zk + N; 
+      Wk = Zk + 2*N;
+      data->Pmx->computeV(Xk,Yk);
+      data->Pmy->computeV(Xk,Yk);
+      data->Pm->computeV(Xk,Yk);  
+      double* W = (double*) calloc(N*N, sizeof(double));
+      double* gx0 = (double*)  calloc(M*N, sizeof(double));
+      double* gy0 = (double*)  calloc(M*N, sizeof(double));
+      double* gx = (double*)  calloc(M*N, sizeof(double));
+      double* gy = (double*)  calloc(M*N, sizeof(double));
+      double* gradF = (double*) calloc(M*3*N, sizeof(double));     
+
+      for (unsigned int j = 0; j < N; ++j)
       {
-        // eval above and below Zk
-        Zkph[jj] += h; Zkmh[jj] -= h;
-        Fkph = optF_help(n, Zkph, grad, _data);
-        Fkmh = optF_help(n, Zkmh, grad, _data);
-        std::cout << Fkph << " " << Fkmh << std::endl;
-        // compute dFk/dx_j
-        grad[jj] = (Fkph - Fkmh) / (2.0 * h);
-        // revert to original Zk
-        Zkph[jj] -= h;
-        Zkmh[jj] += h;
+        for (unsigned int i = 0; i < N; ++i)
+        {
+          W[i + j*N] = Wk[i];
+        }
       }
-      free(Zkph);
-      free(Zkmh);
+    
+      cblas_dgemm ( CblasColMajor, CblasTrans, CblasNoTrans,
+                    M, N, N, 1.0, data->Pmx->V, N, 
+                    W, N, 0.0, gx0, M);
+      cblas_dgemm ( CblasColMajor, CblasTrans, CblasNoTrans,
+                    M, N, M, 1.0, data->Dx, M, gx0, M, 0.0, gx, M);
+      cblas_dgemm ( CblasColMajor, CblasTrans, CblasNoTrans,
+                    M, N, N, 1.0, data->Pmy->V, N, 
+                    W, N, 0.0, gy0, M);
+      cblas_dgemm ( CblasColMajor, CblasTrans, CblasNoTrans,
+                    M, N, M, 1.0, data->Dy, M, gy0, M, 0.0, gy, M);
+      
+      for (unsigned int j = 0; j < N; ++j)
+      {
+        for (unsigned int i = 0; i < M; ++i)
+        {
+          gradF[i + M*j]      = gx[i + M*j];
+          gradF[i + M*(j+N)]  = gy[i + M*j];
+          gradF[i + M*(j+2*N)] = data->Pm->V[j + N*i];  
+        }
+      } 
+     
+      optF_help(n, Zk, grad, _data);
+      cblas_dgemv ( CblasColMajor, CblasTrans, M, 3*N, 1.0, gradF, 
+                    M, data->Fk, 1, 0.0, grad, 1);
+      for (unsigned int i = 0; i < 3*N; ++i)
+      {
+        grad[i] *= 2;  
+      }
+
+      free(W);
+      free(gx);
+      free(gy);
+      free(gx0);
+      free(gy0);
+      free(gradF);
     }
     return optF_help(n, Zk, grad, _data);
   }
