@@ -54,7 +54,7 @@ inline void set_args  ( int argc, char* argv[],
       {
         case 0:
         { 
-          alg = NLOPT_LD_SLSQP;
+          alg = NLOPT_LD_MMA;
           std::cout << "ALGORITHM: SLSQP\n";
           break;
         }
@@ -129,6 +129,63 @@ inline void set_args  ( int argc, char* argv[],
 
 }
 
+inline void writeQuad(ngjQuad* gjquad, unsigned int dim)
+{
+  unsigned int N = gjquad->optdata->N;
+  if (dim == 1)
+  {
+    std::cout << "Generate the 1D quad yourself you bum!" << std::endl;
+  }
+  if (dim == 2)
+  {
+    std::stringstream ss;
+    ss  << "_N" << gjquad->optdata->N << "_n" << gjquad->optdata->n-1 
+        << "_M" << gjquad->optdata->M << "_m" << gjquad->optdata->m-1;
+    std::stringstream ssx, ssy, ssw;
+    ssx << "xtet" << ss.str() << ".txt";
+    ssy << "ytet" << ss.str() << ".txt";
+    ssw << "wtet" << ss.str() << ".txt";
+    std::ofstream xfile(ssx.str());
+    std::ofstream yfile(ssy.str());
+    std::ofstream wfile(ssw.str());
+
+    for (unsigned int i = 0; i < gjquad->optdata->N; ++i)
+    {
+      xfile << gjquad->optdata->Z0[i] << std::endl; 
+      yfile << gjquad->optdata->Z0[i+N] << std::endl; 
+      wfile << gjquad->optdata->Z0[i+2*N] << std::endl; 
+    }
+    xfile.close();
+    yfile.close();
+    wfile.close();
+  }
+  else if (dim == 3)
+  {
+    std::stringstream ss;
+    ss  << "_N" << gjquad->optdata->N << "_n" << gjquad->optdata->n-1 
+        << "_M" << gjquad->optdata->N << "_m" << gjquad->optdata->m-1;
+    std::stringstream ssx, ssy, ssz, ssw;
+    ssx << "xtet" << ss.str() << ".txt";
+    ssy << "ytet" << ss.str() << ".txt";
+    ssz << "ztet" << ss.str() << ".txt";
+    ssw << "wtet" << ss.str() << ".txt";
+    std::ofstream xfile(ssx.str());
+    std::ofstream yfile(ssy.str());
+    std::ofstream zfile(ssz.str());
+    std::ofstream wfile(ssw.str());
+    for (unsigned int i = 0; i < gjquad->optdata->N; ++i)
+    {
+      xfile << gjquad->optdata->Z0[i] << std::endl; 
+      yfile << gjquad->optdata->Z0[i+N] << std::endl; 
+      zfile << gjquad->optdata->Z0[i+2*N] << std::endl; 
+      wfile << gjquad->optdata->Z0[i+3*N] << std::endl; 
+    }
+    xfile.close();
+    yfile.close();
+    zfile.close();
+    wfile.close();
+  }
+}
 
 
 
@@ -185,37 +242,16 @@ int main(int argc, char* argv[])
   
   gjquad->runXW();
   
-  //if (dim > 1) { gjquad->runX(); }
+  if (dim > 1) { gjquad->runX(); }
 
   sumw = 0;
   for (unsigned int i = dim*N; i < (dim+1)*N; ++i) { sumw += Z0[i]; } 
   std::cout << "(final ) Sum of weights : " << sumw << std::endl;
+  writeQuad(gjquad, dim);
   
   if (dim == 3)
   {
-    std::stringstream ss;
-    ss  << "_N" << gjquad->optdata->N << "_n" << gjquad->optdata->n-1 
-        << "_M" << gjquad->optdata->N << "_m" << gjquad->optdata->m-1;
-    std::stringstream ssx, ssy, ssz, ssw;
-    ssx << "xtet" << ss.str() << ".txt";
-    ssy << "ytet" << ss.str() << ".txt";
-    ssz << "ztet" << ss.str() << ".txt";
-    ssw << "wtet" << ss.str() << ".txt";
-    std::ofstream xfile(ssx.str());
-    std::ofstream yfile(ssy.str());
-    std::ofstream zfile(ssz.str());
-    std::ofstream wfile(ssw.str());
-    for (unsigned int i = 0; i < gjquad->optdata->N; ++i)
-    {
-      xfile << gjquad->optdata->Z0[i] << std::endl; 
-      yfile << gjquad->optdata->Z0[i+N] << std::endl; 
-      zfile << gjquad->optdata->Z0[i+2*N] << std::endl; 
-      wfile << gjquad->optdata->Z0[i+3*N] << std::endl; 
-    }
-    xfile.close();
-    yfile.close();
-    zfile.close();
-    wfile.close();
+    writeQuad(gjquad, dim);
     // integrate test function on the tet
     double* Ftest = (double*) calloc(N, sizeof(double));
     for (unsigned int i = 0; i < N; ++i)

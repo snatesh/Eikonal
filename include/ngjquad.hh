@@ -366,7 +366,7 @@ struct ngjQuad
     free(I0);
     double norm2;
     norm2 = pow(cblas_dnrm2(M, Fk, 1), 2);
-    if ( !(count % 10) && data->run0 ) 
+    if ( !(count % 1000) && data->run0 ) 
     { 
       std::cout << "Eval #" << count << " : F = " << norm2 << std::endl; 
     }
@@ -385,6 +385,28 @@ struct ngjQuad
     const double *X1k, *X2k, *X3k;
     if (grad && dim == 2)
     {
+
+      //double h = 1e-6; 
+      //double Fkph, Fkmh;
+      //double* Zkph    = (double*) calloc((dim+1)*N, sizeof(double));
+      //double* Zkmh    = (double*) calloc((dim+1)*N, sizeof(double));
+      //for (unsigned int i = 0; i < (dim+1)*N; ++i) { Zkph[i] = Zkmh[i] = Zk[i]; }
+      //// compute finite difference approx to grad
+      //for (unsigned int jj = 0; jj < (dim+1)*N; ++jj)
+      //{
+      //  // eval above and below Zk
+      //  Zkph[jj] += h; Zkmh[jj] -= h;
+      //  Fkph = optF_help(n, Zkph, grad, _data);
+      //  Fkmh = optF_help(n, Zkmh, grad, _data);
+      //  std::cout << Fkph << " " << Fkmh << std::endl;
+      //  // compute dFk/dx_j
+      //  grad[jj] = (Fkph - Fkmh) / (2.0 * h);
+      //  // revert to original Zk
+      //  Zkph[jj] -= h;
+      //  Zkmh[jj] += h;
+      //}
+      //free(Zkph);
+      //free(Zkmh);
       Xk = Zk;
       Yk = Zk + N; 
       Wk = Zk + 2*N;
@@ -427,7 +449,6 @@ struct ngjQuad
         }
       } 
      
-      optF_help(n, Zk, grad, _data);
       cblas_dgemv ( CblasColMajor, CblasTrans, M, 3*N, 1.0, gradF, 
                     M, data->Fk, 1, 0.0, grad, 1);
       for (unsigned int i = 0; i < 3*N; ++i)
@@ -503,13 +524,11 @@ struct ngjQuad
     }  
     else if (dim == 2)
     {
-      double* ones = (double*) calloc(m, sizeof(double));
-      for (unsigned int i = 0; i < m; ++i) { ones[i] = 1.0; }
-      cblas_dgemv(CblasColMajor, CblasNoTrans, m, n, 1.0, data->Cieq, m, Zk, 1, -1.0, ones, 1); 
+      unsigned int N = static_cast<unsigned int>(n / 3.0);
       #pragma omp simd
       for (unsigned int i = 0; i < m; ++i)
       {
-        result[i] = ones[i]; 
+        result[i] = Zk[i] + Zk[i + N] - 1.0; 
       }
     }
     else if (dim == 3)
@@ -568,15 +587,11 @@ struct ngjQuad
           grad[i] = data->Ceq[i];
         } 
       }
-      sumw = cblas_ddot(3*N, data->Ceq, 1, Zk, 1);
-      return sumw - 1.0;
     }
-    else
-    {
-      #pragma omp simd reduction(+:sumw)
-      for (unsigned int i = dim*N; i < n; ++i) { sumw += Zk[i]; }
-      return sumw - 1.0;
-    }
+    #pragma omp simd reduction(+:sumw)
+    for (unsigned int i = dim*N; i < n; ++i) { sumw += Zk[i]; }
+    return sumw - 1.0;
+    
   } 
   
   static inline double opteqC1  ( unsigned int n, const double* Zk,
@@ -752,7 +767,7 @@ struct ngjQuad
       std::cout <<"\n BEGIN NLOPT (X,W) \n";
       std::cout << "Initial value of objective : " << minF << std::endl; 
       unsigned int N = optdata->N; 
-      nlopt_opt opt;
+      nlopt_opt opt, opt_i;
       double *lb, *ub, *tolieq;
       if (this->dim == 1)
       {
@@ -764,7 +779,11 @@ struct ngjQuad
         tolieq = (double*) calloc(1*N, sizeof(double));
         for (unsigned int i = 0; i < 2*N; ++i) { ub[i] = 1; }
         for (unsigned int i = 0; i < 1*N; ++i) { tolieq[i] = tolc; }
-        opt = nlopt_create(alg, 2*N); 
+        opt = nlopt_create(alg, 2*N);
+        nlopt_set_lower_bounds(opt, lb);
+        nlopt_set_upper_bounds(opt, ub);
+        nlopt_add_equality_constraint(opt, opteqC, optdata, tolc);
+        nlopt_set_min_objective(opt, optF, optdata);
       }
       else if (this->dim == 2)
       {
@@ -773,10 +792,17 @@ struct ngjQuad
         // x, y , w < 1
         ub = (double*) calloc(3*N, sizeof(double));
         tolieq = (double*) calloc(N, sizeof(double));
-        for (unsigned int i = 0; i < 3*N; ++i) { ub[i] = 1; }
+        for (unsigned int i = 0; i < 3*N; ++i) { ub[i] = 1.0; }
         for (unsigned int i = 0; i < N; ++i) { tolieq[i] = tolc; }
-        opt = nlopt_create(alg, 3*N); 
+        opt = nlopt_create(NLOPT_AUGLAG_EQ, 3*N);
+        opt_i = nlopt_create(alg, 3*N); 
+        nlopt_set_local_optimizer(opt, opt_i);
+        nlopt_set_lower_bounds(opt, lb);
+        nlopt_set_upper_bounds(opt, ub);
+        nlopt_add_equality_constraint(opt, opteqC, optdata, tolc);
         nlopt_add_inequality_mconstraint(opt, N, optieqC, optdata, tolieq);
+        nlopt_set_min_objective(opt, optF, optdata);
+
       }
       else if (this->dim == 3)
       {
@@ -788,16 +814,16 @@ struct ngjQuad
         for (unsigned int i = 0; i < 4*N; ++i) { ub[i] = 1; }
         for (unsigned int i = 0; i < 3*N; ++i) { tolieq[i] = tolc; }
         opt = nlopt_create(alg, 4*N); 
+        nlopt_set_lower_bounds(opt, lb);
+        nlopt_set_upper_bounds(opt, ub);
+        nlopt_add_equality_constraint(opt, opteqC, optdata, tolc);
         nlopt_add_inequality_mconstraint(opt, 3*N, optieqC, optdata, tolieq);
-  
+        nlopt_set_min_objective(opt, optF, optdata);
       }
-      nlopt_set_lower_bounds(opt, lb);
-      nlopt_set_upper_bounds(opt, ub);
-      nlopt_set_min_objective(opt, optF, optdata);
-      nlopt_add_equality_constraint(opt, opteqC, optdata, tolc);
+
       nlopt_set_xtol_rel(opt, tol);
       nlopt_set_ftol_rel(opt, tol);
-      nlopt_set_stopval(opt, tol);
+      //nlopt_set_stopval(opt, tol);
 
       nlopt_result result = nlopt_optimize(opt, optdata->Z0, &minF);
       if (result < 0 && result != -4) 
@@ -816,6 +842,7 @@ struct ngjQuad
         std::cout << "NLOPT converged with residual " << minF << std::endl;
       }
       nlopt_destroy(opt);
+      nlopt_destroy(opt_i);
       free(lb); free(ub);
       free(tolieq);
       optdata->minf = minF;
@@ -851,7 +878,7 @@ struct ngjQuad
       tolieq = (double*) calloc(2*N, sizeof(double));
       for (unsigned int i = 0; i < 2*N; ++i) { ub[i] = 1; }
       for (unsigned int i = 0; i < 2*N; ++i) { tolieq[i] = tolc; }
-      opt = nlopt_create(alg, 2*N); 
+      opt = nlopt_create(NLOPT_LN_COBYLA, 2*N); 
       nlopt_add_inequality_mconstraint(opt, 2*N, optieqC1, optdata, tolieq);
     }
     else if (this->dim == 3)
