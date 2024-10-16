@@ -83,7 +83,7 @@ The \emph{minimal} time $u(\bs{x})$ to reach the boundary $\partial \Tau^d$ from
 \end{equation}
 where $f : \overline{\Tau^d} \to \bb{R}_\star^+$ is the speed in the medium, $q : \partial\Tau^d \to \bb{R}^+$ is the time to leave $\Tau^d$ from a point on $\partial\Tau^d$. We seek to represent $u$ under an optimal, finite, weighted $L_2$ expansion, wherein $$u(\bs{x}) \approx \sum_{j = 1}^n u_jP_j(\bs{x}) = \bs{u}\cdot \bs{P}(\bs{x}),$$
 and $\bs{u}$ is the vector in $\bb{R}^n$ of coefficients of $u$ under the elements of the basis $\bs{P}(\bs{x}) : \bb{R}^d \to \bb{R}^n$. Here $\approx$ must be taken in the sense of weighted $L_2$ convergence of the series to $u$ as $n\to \infty$. For the typical case of $q\equiv 0$ (i.e. time to boundary is 0 if on the boundary), we employ a weighted basis which evaluates to 0 on the boundary, thereby naturally satisfying homogeneous Dirichlet conditions. 
-\subsection{Jacobi bases on the Triangle}{}
+\subsection{Jacobi bases on the Triangle}\label{sec:jacobibasis}
 Let us specialize for $d=2$. By $P_k^n$, we denote the $k^{\text{th}}$ Jacobi polynomial on the triangle of degree $n$ with parameters $(a,b,c)$. When the parameters must be specified, we will refer to the same polynomial by $P_{k,n}^{(a,b,c)}$. The weight function is
 \begin{equation}\label{eq:koornweight}
 	\begin{split}
@@ -113,7 +113,7 @@ The above notation amounts to a vectorization of the basis for the general space
 	u(\bs{x}) = \bs{P}^{(a,b,c)}(\bs{x})^T\bs{u}.
 \end{equation}
 There exists sparse discrete operators which map $\bs{u}$ to the coefficients of the derivative of $u$ under a modified basis, as well as those which promote the basis parameters without taking derivatives:
-\begin{equation}
+\begin{equation}\label{eq:jactrideriv}
 	\begin{split}
 	\partial_{x_1} u(\bs{x}) &= \bs{P}^{(a+1,b+1,c+1)}(\bs{x})^T\mathcal{K}_{(a+1,b,c+1)}^{(a+1,b+1,c+1)}\mathcal{D}_{x_1}\bs{u}\\
 	\partial_{x_2} u(\bs{y}) &= 
@@ -125,7 +125,9 @@ Inserting this into the fully constrained Eikonal equation gives
 	&\Big(\bs{P}^{(a+1,b+1,c+1)}(\bs{x})^T\mathcal{K}_{(a,b,c)}^{(a+1,b+1,c+1)}\bs{c}_{\frac{1}{f}}\Big)^2 =\\ &\big(\bs{P}^{(a+1,b+1,c+1)}(\bs{x})^T\mathcal{K}_{(a+1,b,c+1)}^{(a+1,b+1,c+1)}\mathcal{D}_{x_1}\bs{u}\big)^2 +\nonumber \\ &\big(\bs{P}^{(a+1, b+1,c+1)}(\bs{x})^T\mathcal{K}_{(a,b+1,c+1)}^{(a+1,b+1,c+1)}\mathcal{D}_{x_2}\bs{u}\big)^2 = \nonumber \\
 	 &\bs{P}^{(a+1,b+1,c+1)}(\bs{x})^T\big(\mathcal{\tilde{D}}_{x_1}\bs{u}\bs{u}^T\mathcal{\tilde{D}}_{x_1}^T + \mathcal{\tilde{D}}_{x_2}\bs{u}\bs{u}^T\mathcal{\tilde{D}}_{x_2}^T \big)\bs{P}^{(a+1,b,c+1)}(\bs{x}),
 \end{align}
-where $$\mathcal{\tilde{D}}_{x_1} = \mathcal{K}_{(a+1,b,c+1)}^{(a+1,b+1,c+1)}\mathcal{D}_{x_1},\quad \mathcal{\tilde{D}}_{x_2} = \mathcal{K}_{(a,b+1,c+1)}^{(a+1,b+1,c+1)}\mathcal{D}_{x_2}$$ and, the coefficients of $(1/f)$ are represented as $\bs{c}_{\frac{1}{f}}$ but promoted to the $(a+1,b+1,c+1)$ Jacobi basis. We let $\tilde{\cdot}$ indicate promotion \emph{to} $(a+1,b+1,c+1)$ from any other parameter set. The above equality holds for any point $\bs{x}\in \Tau^2$. So, for a solution $\bs{u}$, the coefficient operation must be such that:
+where \begin{equation}\label{eq:promderiv}
+	\mathcal{\tilde{D}}_{x_1} = \mathcal{K}_{(a+1,b,c+1)}^{(a+1,b+1,c+1)}\mathcal{D}_{x_1},\quad \mathcal{\tilde{D}}_{x_2} = \mathcal{K}_{(a,b+1,c+1)}^{(a+1,b+1,c+1)}\mathcal{D}_{x_2},
+	\end{equation} and, the coefficients of $(1/f)$ are represented as $\bs{c}_{\frac{1}{f}}$ but promoted to the $(a+1,b+1,c+1)$ Jacobi basis. We let $\tilde{\cdot}$ indicate promotion \emph{to} $(a+1,b+1,c+1)$ from any other parameter set. The above equality holds for any point $\bs{x}\in \Tau^2$. So, for a solution $\bs{u}$, the coefficient operation must be such that:
 \begin{equation}\label{eq:eikdcoef}
 	\big(\mathcal{\tilde{D}}_{x_1}\bs{u}\bs{u}^T\mathcal{\tilde{D}}_{x_1}^T + \mathcal{\tilde{D}}_{x_2}\bs{u}\bs{u}^T\mathcal{\tilde{D}}_{x_2}^T \big) = \tilde{\bs{c}}_{\frac{1}{f}}\tilde{\bs{c}}_{\frac{1}{f}}^T .
 \end{equation}
@@ -463,11 +465,11 @@ where we use mutual orthonormality under $w_{a,b,c}W(x,y)$ \eqref{eq:koornorth} 
 \begin{equation}\label{eq:newtobj}
 	\bs{F}(\bs{X}_1,\cdots,\bs{X}_d,\bs{W}) = \bs{P}(\bs{X})\bs{W}-\bs{\mathcal{I}},\quad  \bs{\mathcal{I}}\in\bb{R}^M,\s\bs{P}(\bs{X}) \in \bb{R}^{M\times N}
 \end{equation}
-For the Newton iteration (where $A^+$ is the Moore-Penrose pseudo-inverse)
+For the Newton iteration (where $A^+$ is the Moore-Penrose pseudoinverse)
 \begin{equation}
 	\bs{z}^{k+1} = \bs{z}^k - \alpha_k[\nabla \bs{F}(\bs{z}^k)]^+\bs{F}(\bs{z}^k),
 \end{equation}
-the choice of initial point $\bs{z}^0 = (\bs{X_1}^0,\cdots,\bs{X_d}^0,\bs{W}_0)$ and control of the step length $\alpha_k$ are vital for its convergence. Moreover, we'd like to incorporate inequality constraints on $\bs{z}^k$ to enforce that quadrature nodes are interior to $\Tau^2$, and we want the weights to be positive with unit sum. By casting the problem of finding roots of \eqref{eq:newtobj} into a minimization problem followed by a relaxation of $\bs{F}$, we can use techniques from constrained convex optimization to find acceptable quadratures. The optimization problem we would like to solve is 
+the choice of initial point $\bs{z}^0 = (\bs{X}_1^0,\cdots,\bs{X}_d^0,\bs{W}_0)$ and control of the step length $\alpha_k$ are vital for its convergence. Moreover, we'd like to incorporate inequality constraints on $\bs{z}^k$ to enforce that quadrature nodes are interior to $\Tau^2$, and we want the weights to be positive with unit sum. By casting the problem of finding roots of \eqref{eq:newtobj} into a minimization problem followed by a relaxation of $\bs{F}$, we can use techniques from constrained convex optimization to find acceptable quadratures. The optimization problem we would like to solve is 
 \begin{equation}\label{eq:newtopt}
 	\begin{split}
 		&\min_{\bs{z} \in \bb{R}^{(d+1)N}}||\bs{F}(\bs{z})||_2^2 \quad\text{such that}\\ &G\bs{z} < g,\s \begin{bmatrix} \bs{0_{1\times dN}} & \bs{1_{1\times N}}\end{bmatrix}\bs{z} = 1, \quad\text{ where}\\ &G = \begin{bmatrix} -I & \times \quad  \cdots \quad &  \times \\ \times  &  \ddots & \times \\ \vdots & \ddots  & \vdots \\ \times & \space \cdots \quad \times  & -I \\  I & \space \cdots \quad I & \times \end{bmatrix} \in \bb{R}^{(d+2)N\times 3N},\quad
@@ -475,6 +477,28 @@ the choice of initial point $\bs{z}^0 = (\bs{X_1}^0,\cdots,\bs{X_d}^0,\bs{W}_0)$
 	\end{split}
 \end{equation}
 The zero entries in the constraint matrix $G$ are denoted by $\times$, and $I$ is the $N\times N$ identity matrix. Specifically, each block row of $G$ corresponds, respectively, to the following inequality constraints: (i) $\bs{x}_1 > 0,\cdots,\bs{x}_d, \bs{w} > 0$, (ii) $\sum_{i=1}^d \bs{x}_i < 1$, and the equality constraint is $\sum_{i=1}^N w_i = 1$. \emph{If a local minimum $\bs{z}$ is found, it is not necessarily a zero of $\bs{F}(\bs{z})$. We have only satisfied the necessary KKT conditions. However, we may be closer to an actual root and will have maintained interior nodes and positive weights}. Hence, we can use this new estimate $\bs{z}$ as an initial point in a Newton iteration that will relax $\bs{F}(\bs{z})$ to zero quadratically. We can solve the quadratic program \eqref{eq:newtopt} with the sequential quadratic programming algorithm.
+\newpage
+\subsubsection{Gradients of the objective function}
+We can use the machinery developed in Section \ref{sec:jacobibasis} to compute derivatives of \eqref{eq:newtobj}. Given that these tools are only at our disposal for $d \leq 2$, we proceed for now with $d=2$ and $\bs{x} \in \Tau^2$. Let us view the objective as $\bs{F} : \bb{R}^3 \to \bb{R}^M$, and note that $\bs{P}$ is defined in the $(a,b,c)$ Jacobi basis. Applying the derivative operators defined in \eqref{eq:jactrideriv}, we have at a point $(x,y,w)$ and component $j = 1,\cdots M$ of the total derivative,
+\begin{align*}
+	\mathcal{D}(\bs{F}(x,y,w)) &= \mathcal{D}(\bs{P}(x,y) w)\\ &=  \begin{bmatrix}w\partial_x \bs{P}(x,y) &
+				  w\partial_y \bs{P}(x,y) &
+			  	  \bs{P}(x,y) \end{bmatrix} \in \bb{R}^{M \times 3} \\
+		  	  \Rightarrow 	\mathcal{D}(F_j(x,y,w)) &= \begin{bmatrix}w\partial_x \bs{P}(x,y)^T\bs{e}_j &
+		  	  	w\partial_y \bs{P}(x,y)^T \bs{e}_j &
+		  	  	\bs{P}(x,y)^T \bs{e}_j \end{bmatrix} \\
+	  	  	&= \begin{bmatrix} w\bs{P}^x(x,y)^T \tilde{\mathcal{D}}_x \bs{e}_j & w\bs{P}^y(x,y)^T \tilde{\mathcal{D}}_y \bs{e}_j &
+	  	  		\bs{P}(x,y)^T \bs{e}_j \end{bmatrix}\in \bb{R}^{1 \times 3}\\
+  	  		\Rightarrow \mathcal{D}(\bs{F}(x,y,w)) &= \begin{bmatrix} (w\bs{P}^x(x,y)^T \tilde{\mathcal{D}}_x)^T  & (w\bs{P}^y(x,y)^T \tilde{\mathcal{D}}_y)^T &
+  	  		(\bs{P}(x,y)^T)^T \end{bmatrix}  \\
+    		&= \begin{bmatrix} \tilde{\mathcal{D}}_x^T \bs{P}^x(x,y)w & \tilde{\mathcal{D}}_y^T \bs{P}^y(x,y)w & \bs{P}(x,y)\end{bmatrix} \in \bb{R}^{M \times 3}
+\end{align*}
+where $\tilde{\mathcal{D}}_x,\tilde{\mathcal{D}}_y$ are given in \eqref{eq:promderiv}, and $$\bs{P}^x = \bs{P}^{(a+1,b,c+1)}, \quad \bs{P}^y = \bs{P}^{(a,b+1,c+1)}.$$ Now, reverting to the view of the objective as $\bs{F}:\bb{R}^{3N} \to \bb{R}^M$, we can write
+\begin{equation}
+	 \mathcal{D}(\bs{F}(\bs{X},\bs{Y},\bs{W}))^T 
+	=\begin{bmatrix} \tilde{\mathcal{D}}_x^T \bs{P}^x(\bs{X},\bs{Y})\odot\bs{W} & \tilde{\mathcal{D}}_y^T \bs{P}^y(\bs{X},\bs{Y})\odot \bs{W} & \bs{P}(\bs{X},\bs{Y})\end{bmatrix}
+\end{equation}
+
 
 %\bibliographystyle{siamplain}
 %\bibliography{references}

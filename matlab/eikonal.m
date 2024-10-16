@@ -72,12 +72,11 @@ K_ab1c1_a1b1c1 = promotion_mat_tri(a,b+1,c+1,H_ab1c1,H_a1b1c1,0);
 
 % derivative matrices
 Dx_a1bc1 = D1_tri(a,b,c,H_abc,H_a1bc1,0);
-Dx_a2bc2 = D1_tri(a+1,b,c+1,H_a1bc1,H_a2bc2,0);
 Dy_ab1c1 = D1_tri(a,b,c,H_abc,H_ab1c1,1);
-Dy_ab2c2 = D1_tri(a,b+1,c+1,H_ab1c1,H_ab2c2,1);
 
 Dx = K_a1bc1_a1b1c1*Dx_a1bc1;
 Dy = K_ab1c1_a1b1c1*Dy_ab1c1;
+
 
 % Eikonal operator
 Eik_abc_a1b1c1 = Dx'*Dx + Dy'*Dy;
@@ -115,9 +114,6 @@ figure(2)
 %trisurf(T,X,Y,resTri);
 
 
-
-
-
 % check expansions, promotions and derivatives
 % disp(norm(V_abc*cf_abc-F)/normF);
 % disp(norm(V_a1bc*cf_a1bc-F)/normF);
@@ -145,7 +141,5 @@ nlap_eq = ntot_eq - nbnd_eq;
 J = J(1:nbnd_eq);
 [~,J1] = id_decomp_hack(V_bnd(J,:),nbnd_eq);
 J1 = J1(1:nbnd_eq);
-
-
 
 
