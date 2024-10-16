@@ -422,7 +422,7 @@ with $\mathcal{J}_{n,i} \in \bb{R}^{N\times N}$ symmetric. By definition, we see
 \begin{equation}\label{eq:jni}
 	x_i\bs{P} = \mathcal{J}_{n,i}\bs{P}+ \begin{bmatrix} \bf{0}_{(N-n) \times 1} \\ A_{n-1,i}\bb{P}_n\end{bmatrix},\quad i=1,2.
 \end{equation}
-We hope for a way to generalize the univariate Golub-Welsch algorithm for determining Gaussian quadrature from orthogonal polynomials on the line to the multi-variate case on the simplex. We say that $\Lambda = (\lambda_1,\lambda_2)$ is a  \emph{joint eigenvalue} of $J_{n,1},J_{n,2}$ if there is a vector $\xi \neq 0$ such that $J_{n,i}\xi = \lambda_i \xi$ for $i=1,2$. The vector $\xi$ is the \emph{joint eigenvector}. If there are $N$ distinct joint eigenvalues, then the weights and abscissa for the Gaussian quadrature are as in 1D - the nodes are the joint eigenvalues, and the weights are the square of the first component of the corresponding joint eigenvector. However, Theorem 3.7.5 of Dunkl-Xu states that a necessary and sufficient condition for this to occur is the following commutativity relation
+We hope for a way to generalize the univariate Golub-Welsch algorithm for determining Gaussian quadrature from orthogonal polynomials on the line to the multi-variate case on the simplex. We say that $\Lambda = (\lambda_1,\cdots, \lambda_d)$ is a  \emph{joint eigenvalue} of $J_{n,1},\cdots,J_{n,d}$ if there is a vector $\xi \neq 0$ such that $J_{n,i}\xi = \lambda_i \xi$ for $i=1,\cdots,d$. The vector $\xi$ is the \emph{joint eigenvector}. If there are $N$ distinct joint eigenvalues, then the weights and abscissa for the Gaussian quadrature are as in 1D - the nodes are the joint eigenvalues, and the weights are the square of the first component of the corresponding joint eigenvector. However, Theorem 3.7.5 of Dunkl-Xu states that a necessary and sufficient condition for this to occur is the following commutativity relation
 \begin{equation}
 	A_{n-1,i}A_{n-1,j}^T = A_{n-1,j}A_{n-1,i}^T,\s 1 \leq i,j\leq d
 \end{equation}
@@ -436,7 +436,7 @@ lie within $\Tau^2$ (Theorem 3.4 in VRQUAD). The algorithm described in their wo
 \begin{equation}\label{eq:jnvr}
 	(\mathcal{J}_n)_{i,j} = \int_{\mathcal{T}} (x_1+\iota x_2)P_j(x,y)P_i(x,y)w_{a,b,c}W(x,y)dxdy,\quad 0\leq i,j\leq N-1,
 \end{equation}
-where $P_j$ is the $j^\text{th}$ component of $\bs{P} = (\bb{P}_0^T,\bb{P}_1^T,\cdots,\bb{P}_{n-1}^T)^T = (P_0^0,P_0^1,P_1^1,\cdots P_n^n)^T \in \bb{R}^N$. These are precisely the same operators defined in \eqref{eq:Jn}. However, this ``complexification" trick is not available to us in $d>2$, but there do exist algorithms for finding \emph{approximate} joint diagonalizations of non-commuting matrix families. 
+where $P_j$ is the $j^\text{th}$ component of $\bs{P} = (\bb{P}_0^T,\bb{P}_1^T,\cdots,\bb{P}_{n-1}^T)^T = (P_0^0,P_0^1,P_1^1,\cdots P_n^n)^T \in \bb{R}^N$. These are precisely the same operators defined in \eqref{eq:Jn}. However, this ``complexification" trick is not available to us in dimensions $d>2$, but there do exist algorithms for finding \emph{approximate} joint diagonalizations of non-commuting matrix families. 
 \subsection{Approximate joint diagonalization of non-commuting symmetric matrices}
 The approximate joint diagonalization problem for a set of real-valued symmetric matrices $\{C^1,\cdots,C^d\}$ is to find the orthogonal matrix $U$ such that the matrices 
 \begin{equation}
@@ -452,29 +452,29 @@ is equivalent to minimizing the off-diagonal entries of $F^k$ by orthogonal simi
 \end{equation}
 is finding the best representation of $C^k$ in the basis of $U$ - a subspace fitting approach. For both problems, we require orthogonality of $U$, as we want it to represent the ``average eigenstructure" of $C^k$. For the Jacobi matrices $J_{n,i}$, this requirement is natural. We want a decomposition close to the optimal quadrature case of exact joint diagonlization. For this purpose, we use the algorithm specified in ``Jacobi Angles for Simultaneous Diagonalization". The joint-eigenvalues provide us with an initial guess to a subsequent optimization problem.
 \subsection{Strategy for finding optimal quadrature on the Simplex}
-We want to integrate the $M$ polynomials up to total degree $m-1$ exactly with $m \geq n$ using only $N$ nodes and weights. That is, with $M=\dim\Pi_{m-1}^d = {m-1+d\choose m-1}$, the integrals for which we want an exact quadrature are
+We want to integrate the $M$ polynomials up to total degree $m-1$ exactly with $m \geq n$ using only $N$ nodes and weights. That is, with $M=\dim(\Pi_{m-1}^d) = {m-1+d\choose m-1}$, the integrals for which we want an exact quadrature are
 \begin{equation}\label{eq:exactint}
 	\begin{split}
 		\mathcal{I}_j &= \int_{\Tau^d} P_j(\bs{x})w_{\bs{a}}W(\bs{x})d(\bs{x}),\quad 0\leq j \leq M-1\\
 		&=\langle P_j,P_0\rangle = \delta_{j0},
 	\end{split}
 \end{equation}
-where we use mutual orthonormality under $w_{a,b,c}W(x,y)$ \eqref{eq:koornorth} to evaluate them. If $\bs{X}_1,\dots,\bs{X}_d,\bs{w} \in \bb{R}^N$ are the nodes and weights, $\bs{\mathcal{I}} \in \bb{R}^M$ the above integrals, and $\bs{P}(\bs{x})\in \bb{R}^M$ (with $\bs{x} \in \bb{R}^d$) our $M$ polynomials, the objective function we aim to find a zero of is $\bs{F}:\bb{R}^{(d+1)N}\to\bb{R}^M$ given by
+where we use mutual orthonormality under $w_{a,b,c}W(x,y)$ \eqref{eq:koornorth} to evaluate them and arrive at the $\delta_{j0}$ term. If $\bs{X}_1,\dots,\bs{X}_d,\bs{w} \in \bb{R}^N$ are the nodes and weights, $\bs{\mathcal{I}} \in \bb{R}^M$ the above integrals, and $\bs{P}(\bs{x})\in \bb{R}^M$ (with $\bs{x} \in \bb{R}^d$) our $M$ polynomials, the objective function we aim to find a zero of is $\bs{F}:\bb{R}^{(d+1)N}\to\bb{R}^M$ given by
 \begin{equation}\label{eq:newtobj}
 	\bs{F}(\bs{X}_1,\cdots,\bs{X}_d,\bs{W}) = \bs{P}(\bs{X})\bs{W}-\bs{\mathcal{I}},\quad  \bs{\mathcal{I}}\in\bb{R}^M,\s\bs{P}(\bs{X}) \in \bb{R}^{M\times N}
 \end{equation}
-For the Newton iteration 
+For the Newton iteration (where $A^+$ is the Moore-Penrose pseudo-inverse)
 \begin{equation}
 	\bs{z}^{k+1} = \bs{z}^k - \alpha_k[\nabla \bs{F}(\bs{z}^k)]^+\bs{F}(\bs{z}^k),
 \end{equation}
 the choice of initial point $\bs{z}^0 = (\bs{X_1}^0,\cdots,\bs{X_d}^0,\bs{W}_0)$ and control of the step length $\alpha_k$ are vital for its convergence. Moreover, we'd like to incorporate inequality constraints on $\bs{z}^k$ to enforce that quadrature nodes are interior to $\Tau^2$, and we want the weights to be positive with unit sum. By casting the problem of finding roots of \eqref{eq:newtobj} into a minimization problem followed by a relaxation of $\bs{F}$, we can use techniques from constrained convex optimization to find acceptable quadratures. The optimization problem we would like to solve is 
 \begin{equation}\label{eq:newtopt}
 	\begin{split}
-		&\min_{\bs{z} \in \bb{R}^{(d+1)N}}||\bs{F}(\bs{z})||_2^2 \quad\text{such that}\\ &G\bs{z} < g,\s \begin{bmatrix} \bs{0_{1\times dN}} & \bs{1_{1\times N}}\end{bmatrix}\bs{z} = 1, \quad\text{ where}\\ G &= \begin{bmatrix} -I & \times & \times \\\times & \ddots & \times \\ \times &\times  & -I \\  I & \space \cdots \quad I & \times \end{bmatrix} \in \bb{R}^{(d+2)N\times 3N},\quad
+		&\min_{\bs{z} \in \bb{R}^{(d+1)N}}||\bs{F}(\bs{z})||_2^2 \quad\text{such that}\\ &G\bs{z} < g,\s \begin{bmatrix} \bs{0_{1\times dN}} & \bs{1_{1\times N}}\end{bmatrix}\bs{z} = 1, \quad\text{ where}\\ &G = \begin{bmatrix} -I & \times \quad  \cdots \quad &  \times \\ \times  &  \ddots & \times \\ \vdots & \ddots  & \vdots \\ \times & \space \cdots \quad \times  & -I \\  I & \space \cdots \quad I & \times \end{bmatrix} \in \bb{R}^{(d+2)N\times 3N},\quad
 		g = \begin{bmatrix} \bs{0_{dN\times 1}} \\ \bs{1_{2N\times 1}} \end{bmatrix} \in \bb{R}^{(d+3)M}.
 	\end{split}
 \end{equation}
-The zero entries in the constraint matrix $G$ are denoted by $\times$, and $I$ is the $N\times N$ identity matrix. Specifically, each block row of $G$ corresponds, respectively, to the following inequality constraints: (i) $\bs{x} > 0$, (ii) $\bs{y} > 0$, (iii) $\bs{w} > 0$, (iv) $\bs{x} < 1$, (v) $\sum_{i=1}^d \bs{x}_i < 1$, and the equality constraint is $\sum_{i=1}^N w_i = 1$. \emph{If a local minimum $\bs{z}$ is found, it is not necessarily a zero of $\bs{F}(\bs{z})$. We have only satisfied the necessary KKT conditions. However, we may be closer to an actual root and will have maintained interior nodes and positive weights}. Hence, we can use this new estimate $\bs{z}$ as an initial point in a Newton iteration that will relax $\bs{F}(\bs{z})$ to zero quadratically. There exist several methods for solving the nonlinear program \eqref{eq:newtopt}, such as sequential quadratic programming described by Schittkowski \cite{sqp} and faithfully implemented within the \texttt{fmincon} package of \texttt{MATLAB}. Step length control, like that described in \cite{polyak}, is required to prevent $||\bs{F}||$ from blowing up at the next Netwon step, and is easy to incorporate into the Newton iteration.
+The zero entries in the constraint matrix $G$ are denoted by $\times$, and $I$ is the $N\times N$ identity matrix. Specifically, each block row of $G$ corresponds, respectively, to the following inequality constraints: (i) $\bs{x}_1 > 0,\cdots,\bs{x}_d, \bs{w} > 0$, (ii) $\sum_{i=1}^d \bs{x}_i < 1$, and the equality constraint is $\sum_{i=1}^N w_i = 1$. \emph{If a local minimum $\bs{z}$ is found, it is not necessarily a zero of $\bs{F}(\bs{z})$. We have only satisfied the necessary KKT conditions. However, we may be closer to an actual root and will have maintained interior nodes and positive weights}. Hence, we can use this new estimate $\bs{z}$ as an initial point in a Newton iteration that will relax $\bs{F}(\bs{z})$ to zero quadratically. We can solve the quadratic program \eqref{eq:newtopt} with the sequential quadratic programming algorithm.
 
 %\bibliographystyle{siamplain}
 %\bibliography{references}
