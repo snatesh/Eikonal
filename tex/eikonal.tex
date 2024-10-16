@@ -477,28 +477,91 @@ the choice of initial point $\bs{z}^0 = (\bs{X}_1^0,\cdots,\bs{X}_d^0,\bs{W}_0)$
 	\end{split}
 \end{equation}
 The zero entries in the constraint matrix $G$ are denoted by $\times$, and $I$ is the $N\times N$ identity matrix. Specifically, each block row of $G$ corresponds, respectively, to the following inequality constraints: (i) $\bs{x}_1 > 0,\cdots,\bs{x}_d, \bs{w} > 0$, (ii) $\sum_{i=1}^d \bs{x}_i < 1$, and the equality constraint is $\sum_{i=1}^N w_i = 1$. \emph{If a local minimum $\bs{z}$ is found, it is not necessarily a zero of $\bs{F}(\bs{z})$. We have only satisfied the necessary KKT conditions. However, we may be closer to an actual root and will have maintained interior nodes and positive weights}. Hence, we can use this new estimate $\bs{z}$ as an initial point in a Newton iteration that will relax $\bs{F}(\bs{z})$ to zero quadratically. We can solve the quadratic program \eqref{eq:newtopt} with the sequential quadratic programming algorithm.
+\\\\
+We also consider the Newton descent direction, and associated update for finding roots of $||\bs{F}(\bs{z})||_2^2 := \bs{f}:\bb{R}^{3N}\to \bb{R}$. Namely,
+\begin{equation}\label{eq:newtsys}
+\bs{z}^{k+1} = \bs{z}^k + [\mathcal{D}^2(\bs{f})|_{\bs{z_k}}]^{-1}[\mathcal{D}(\bs{f})|_{\bs{z_k}}]
+\end{equation}
+Ideally, we won't have to use a quadratic program for solving \eqref{eq:newtopt}, and Newton descent will be sufficient.
 \newpage
-\subsubsection{Gradients of the objective function}
+\subsubsection{Gradient and Hessian of the objective function}
 We can use the machinery developed in Section \ref{sec:jacobibasis} to compute derivatives of \eqref{eq:newtobj}. Given that these tools are only at our disposal for $d \leq 2$, we proceed for now with $d=2$ and $\bs{x} \in \Tau^2$. Let us view the objective as $\bs{F} : \bb{R}^3 \to \bb{R}^M$, and note that $\bs{P}$ is defined in the $(a,b,c)$ Jacobi basis. Applying the derivative operators defined in \eqref{eq:jactrideriv}, we have at a point $(x,y,w)$ and component $j = 1,\cdots M$ of the total derivative,
 \begin{align*}
 	\mathcal{D}(\bs{F}(x,y,w)) &= \mathcal{D}(\bs{P}(x,y) w)\\ &=  \begin{bmatrix}w\partial_x \bs{P}(x,y) &
-				  w\partial_y \bs{P}(x,y) &
-			  	  \bs{P}(x,y) \end{bmatrix} \in \bb{R}^{M \times 3} \\
-		  	  \Rightarrow 	\mathcal{D}(F_j(x,y,w)) &= \begin{bmatrix}w\partial_x \bs{P}(x,y)^T\bs{e}_j &
-		  	  	w\partial_y \bs{P}(x,y)^T \bs{e}_j &
-		  	  	\bs{P}(x,y)^T \bs{e}_j \end{bmatrix} \\
-	  	  	&= \begin{bmatrix} w\bs{P}^x(x,y)^T \tilde{\mathcal{D}}_x \bs{e}_j & w\bs{P}^y(x,y)^T \tilde{\mathcal{D}}_y \bs{e}_j &
-	  	  		\bs{P}(x,y)^T \bs{e}_j \end{bmatrix}\in \bb{R}^{1 \times 3}\\
-  	  		\Rightarrow \mathcal{D}(\bs{F}(x,y,w)) &= \begin{bmatrix} (w\bs{P}^x(x,y)^T \tilde{\mathcal{D}}_x)^T  & (w\bs{P}^y(x,y)^T \tilde{\mathcal{D}}_y)^T &
-  	  		(\bs{P}(x,y)^T)^T \end{bmatrix}  \\
-    		&= \begin{bmatrix} \tilde{\mathcal{D}}_x^T \bs{P}^x(x,y)w & \tilde{\mathcal{D}}_y^T \bs{P}^y(x,y)w & \bs{P}(x,y)\end{bmatrix} \in \bb{R}^{M \times 3}
+		w\partial_y \bs{P}(x,y) &
+		\bs{P}(x,y) \end{bmatrix} \in \bb{R}^{M \times 3} \\
+	\Rightarrow   \mathcal{D}(F_j(x,y,w)) &= \begin{bmatrix}w\partial_x \bs{P}(x,y)^T\bs{e}_j &
+		w\partial_y \bs{P}(x,y)^T \bs{e}_j &
+		\bs{P}(x,y)^T \bs{e}_j \end{bmatrix} \\
+	&= \begin{bmatrix} w\bs{P}^x(x,y)^T \mathcal{D}_x \bs{e}_j & w\bs{P}^y(x,y)^T \mathcal{D}_y \bs{e}_j &
+		\bs{P}(x,y)^T \bs{e}_j \end{bmatrix}\in \bb{R}^{1 \times 3}\\
+	\Rightarrow \mathcal{D}(\bs{F}(x,y,w)) &= \begin{bmatrix} (w\bs{P}^x(x,y)^T \mathcal{D}_x)^T  & (w\bs{P}^y(x,y)^T \mathcal{D}_y)^T &
+		(\bs{P}(x,y)^T)^T \end{bmatrix}  \\
+	&= \begin{bmatrix} \mathcal{D}_x^T \bs{P}^x(x,y)w & \mathcal{D}_y^T \bs{P}^y(x,y)w & \bs{P}(x,y)\end{bmatrix} \in \bb{R}^{M \times 3}
 \end{align*}
-where $\tilde{\mathcal{D}}_x,\tilde{\mathcal{D}}_y$ are given in \eqref{eq:promderiv}, and $$\bs{P}^x = \bs{P}^{(a+1,b,c+1)}, \quad \bs{P}^y = \bs{P}^{(a,b+1,c+1)}.$$ Now, reverting to the view of the objective as $\bs{F}:\bb{R}^{3N} \to \bb{R}^M$, we can write
+where $\mathcal{D}_x,\mathcal{D}_y$ map coefficients in a $\bs{P}(x,y)$ expansion to coefficients of the derivative of the expansion, and $$\bs{P}^x = \bs{P}^{(a+1,b,c+1)}, \quad \bs{P}^y = \bs{P}^{(a,b+1,c+1)}.$$ Now, reverting to the view of the objective as $\bs{F}:\bb{R}^{3N} \to \bb{R}^M$, we can write
 \begin{equation}
-	 \mathcal{D}(\bs{F}(\bs{X},\bs{Y},\bs{W}))^T 
-	=\begin{bmatrix} \tilde{\mathcal{D}}_x^T \bs{P}^x(\bs{X},\bs{Y})\odot\bs{W} & \tilde{\mathcal{D}}_y^T \bs{P}^y(\bs{X},\bs{Y})\odot \bs{W} & \bs{P}(\bs{X},\bs{Y})\end{bmatrix}
+	\begin{split}
+		&[\mathcal{D}(\bs{F})]|_{(\bs{X},\bs{Y},\bs{W})}
+		=\\&\begin{bmatrix} \mathcal{D}_x^T \bs{P}^x(\bs{X},\bs{Y})\odot\bs{W} & \mathcal{D}_y^T \bs{P}^y(\bs{X},\bs{Y})\odot \bs{W} & \bs{P}(\bs{X},\bs{Y})\end{bmatrix} \in \bb{R}^{M\times 3N}
+	\end{split}
 \end{equation}
-
+If we instead consider the equivalent problem of finding zeros of the objective norm $\bs{f}: \bb{R}^{3N} \to \bb{R}$, $\bs{f}(\bs{X},\bs{Y},\bs{W})= ||\bs{F}||_2^2$, (solved by the iteration \eqref{eq:newtsys}), we must chain out derivatives to find the mapping $\mathcal{D}(\bs{f}):\bb{R}^{3N} \to L(\bb{R}^{3N},\bb{R})$ at a point $(\bs{X},\bs{Y},\bs{W})$ is given by
+\begin{equation}
+	[\mathcal{D}(\bs{f})]|_{(\bs{X},\bs{Y},\bs{W})} = 2\bs{F}(\bs{X},\bs{Y},\bs{W})^T[\mathcal{D}(\bs{F})]|_{(\bs{X},\bs{Y},\bs{W})} \in \bb{R}^{1\times 3N},
+\end{equation}
+where $L(U,V)$ is the space of linear mappings between finite dimensional vector spaces $U,V$.
+In this case, the Hessian matrix of $\bs{f}$ is a mapping $\mathcal{D}^2(\bs{f}):\bb{R}^{3N} \to L(\bb{R}^{3N},\bb{R}^{3N})$ given at a point $(\bs{X},\bs{Y},\bs{W})$ by
+\begin{equation}\label{eq:hessf}
+	\begin{split}
+		 [\mathcal{D}^2(\bs{f})]|_{(\bs{X},\bs{Y},\bs{W})} &= 2\bs{F}(\bs{X},\bs{Y},\bs{W})^T[\mathcal{D}^2(\bs{F})]|_{(\bs{X},\bs{Y},\bs{W})}\\ &+ 2\Big([\mathcal{D}(\bs{F})]|_{(\bs{X},\bs{Y},\bs{W})}\Big)^T [\mathcal{D}(\bs{F})]|_{(\bs{X},\bs{Y},\bs{W})} \\
+		 & \in \bb{R}^{3N\times 3N}
+	\end{split}
+\end{equation}
+The vector Hessian of $\bs{F}$ appears in \eqref{eq:hessf}, and we can make sense of its tensor structure by the definition of $\bs{D}^2(\bs{f})$ at a point in $\bb{R}^{3N}$ existing as an element of $L(\bb{R}^{3N},\bb{R}^{3N})$. Viewing the objective as $\bs{F} : \bb{R}^3 \to \bb{R}^M$, the Hessian is the map $$\mathcal{D}^2(\bs{F}):\bb{R}^3 \to L(\bb{R}^3,L(\bb{R}^3,\bb{R}^M)),$$ which is given by
+\begin{align*}
+	&\mathcal{D}^2(\bs{F}(x,y,w))) = \mathcal{D}(\mathcal{D}(\bs{P}(x,y)w)) \\
+	&= \mathcal{D}\Big(\begin{bmatrix}w\partial_x \bs{P}(x,y) & w\partial_y \bs{P}(x,y) & \bs{P}(x,y) \end{bmatrix} \Big) \\
+	&= \begin{bmatrix} \mathcal{D}(w\partial_x \bs{P}(x,y)) & \mathcal{D}(w\partial_y \bs{P}(x,y)) & \mathcal{D}(\bs{P}(x,y)) \end{bmatrix} \\\\
+	&= \begin{bmatrix}
+		w \partial_{xx} \bs{P}(x,y) &
+		w \partial_{xy} \bs{P}(x,y) & 
+		\partial_x\bs{P}(x,y)\\ 
+		w\partial_{yx}\bs{P}(x,y) & w\partial_{yy}\bs{P}(x,y) & \partial_y\bs{P}(x,y) \\
+		 \partial_x\bs{P}(x,y) &
+		\partial_y\bs{P}(x,y) &  0
+	\end{bmatrix}  \\\\
+	&=
+	\begin{bmatrix}
+	\mathcal{D}_{xx}^T \bs{P}^{xx}(x,y) w & \mathcal{D}_{xy}^T \bs{P}^{xy}(x,y) w & \mathcal{D}_x^T\bs{P}^x(x,y) \\ \\
+	\mathcal{D}_{yx}^T \bs{P}^{yx}(x,y) w & \mathcal{D}_{yy}^T \bs{P}^{yy}(x,y) w & \mathcal{D}_y^T\bs{P}^y(x,y) \\ \\
+	\mathcal{D}_x^T\bs{P}^x(x,y) & \mathcal{D}_y^T\bs{P}^y(x,y) & \bs{0}
+	\end{bmatrix} \in \bb{R}^{3M\times 3},
+\end{align*}
+where
+\begin{align*}
+	\mathcal{D}_{xx} &= \mathcal{D}_{x,(a+1,b,c+1)}^{(a+2,b,c+2)}\mathcal{D}_{x,(a,b,c)}^{(a+1,b,c+1)},\quad \bs{P}^{xx} = \bs{P}^{(a+2,b,c+2)},\\
+	\mathcal{D}_{yy} &= 
+	\mathcal{D}_{y,(a,b+1,c+1)}^{(a,b+2,c+2)}\mathcal{D}_{y,(a,b,c)}^{(a,b+1,c+1)}, \quad \bs{P}^{yy} = \bs{P}^{(a,b+2,c+2)}\\
+	\mathcal{D}_{xy} &= \mathcal{D}_{x,(a,b+1,c+1)}^{(a+1,b+1,c+2)}\mathcal{D}_{y,(a,b,c)}^{(a,b+1,c+1)},\quad \bs{P}^{xy} = \bs{P}^{(a+1,b+1,c+2)},\\
+	\mathcal{D}_{yx} &=
+	\mathcal{D}_{y,(a+1,b,c+1)}^{(a,b+1,c+2)}\mathcal{D}_{x,(a,b,c)}^{(a+1,b,c+1)},\quad \bs{P}^{yx} = \bs{P}^{(a+1,b+1,c+2)}
+\end{align*}
+Reverting our view of the objective to $\bs{F}:\bb{R}^{3N} \to \bb{R}^M$, we can write
+\begin{equation}
+	\mathcal{D}^2(\bs{F}(\bs{X},\bs{Y},\bs{W})) =
+		\begin{bmatrix}
+		[\bs{P}^{xx}(\bs{X},\bs{Y})\odot\bs{W}]^T\mathcal{D}_{xx}  \\
+		[\bs{P}^{yx}(\bs{X},\bs{Y})\odot\bs{W}]^T\mathcal{D}_{yx}  \\
+		[\bs{P}^x(\bs{X},\bs{Y})\odot\bs{W}]^T\mathcal{D}_{x}  \\
+		[\bs{P}^{xy}(\bs{X},\bs{Y})\odot\bs{W}]^T \mathcal{D}_{xy} \\
+		[\bs{P}^{yy}(\bs{X},\bs{Y})\odot\bs{W}]^T\mathcal{D}_{yy} \\
+		[\bs{P}^y(\bs{X},\bs{Y})\odot \bs{W}]^T \mathcal{D}_y\\
+		\bs{P}^x(\bs{X},\bs{Y})^T \mathcal{D}_x \\
+		\bs{P}^y(\bs{X},\bs{Y})^T \mathcal{D}_y \\
+		\bs{0}
+	\end{bmatrix}^T \in \bb{R}^{M\times (3N\cdot 3)},
+\end{equation}
 
 %\bibliographystyle{siamplain}
 %\bibliography{references}
