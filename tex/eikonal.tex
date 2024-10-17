@@ -480,11 +480,11 @@ The zero entries in the constraint matrix $G$ are denoted by $\times$, and $I$ i
 \\\\
 We also consider the Newton descent direction, and associated update for finding roots of $||\bs{F}(\bs{z})||_2^2 := \bs{f}:\bb{R}^{3N}\to \bb{R}$. Namely,
 \begin{equation}\label{eq:newtsys}
-\bs{z}^{k+1} = \bs{z}^k + [\mathcal{D}^2(\bs{f})|_{\bs{z_k}}]^{-1}[\mathcal{D}(\bs{f})|_{\bs{z_k}}]
+\bs{z}^{k+1} = \bs{z}^k - [\mathcal{D}^2(\bs{f})|_{\bs{z_k}}]^{-1}[\mathcal{D}(\bs{f})|_{\bs{z_k}}]
 \end{equation}
 Ideally, we won't have to use a quadratic program for solving \eqref{eq:newtopt}, and Newton descent will be sufficient.
 \newpage
-\subsubsection{Gradient and Hessian of the objective function}
+\subsubsection{Derivatives of the objective functions}
 We can use the machinery developed in Section \ref{sec:jacobibasis} to compute derivatives of \eqref{eq:newtobj}. Given that these tools are only at our disposal for $d \leq 2$, we proceed for now with $d=2$ and $\bs{x} \in \Tau^2$. Let us view the objective as $\bs{F} : \bb{R}^3 \to \bb{R}^M$, and note that $\bs{P}$ is defined in the $(a,b,c)$ Jacobi basis. Applying the derivative operators defined in \eqref{eq:jactrideriv}, we have at a point $(x,y,w)$ and component $j = 1,\cdots M$ of the total derivative,
 \begin{align*}
 	\mathcal{D}(\bs{F}(x,y,w)) &= \mathcal{D}(\bs{P}(x,y) w)\\ &=  \begin{bmatrix}w\partial_x \bs{P}(x,y) &
@@ -547,21 +547,55 @@ where
 	\mathcal{D}_{yx} &=
 	\mathcal{D}_{y,(a+1,b,c+1)}^{(a,b+1,c+2)}\mathcal{D}_{x,(a,b,c)}^{(a+1,b,c+1)},\quad \bs{P}^{yx} = \bs{P}^{(a+1,b+1,c+2)}
 \end{align*}
+We have the following maps for the $j^{\text{th}}$ function in our vector valued objective:
+\begin{align*}
+&F_j : \bb{R}^{3N} \to \bb{R} \\
+\Rightarrow &\mathcal{D}(F_j) : \bb{R}^{3N} \to L(\bb{R}^{3N},\bb{R}) ,\quad \mathcal{D}(F_j(\bs{X},\bs{Y},\bs{W})) \in \bb{R}^{1\times 3N}\\
+\Rightarrow &\mathcal{D}^2(F_j) : \bb{R}^{3N} \to L(\bb{R}^{3N},L(\bb{R}^{3N},\bb{R})),\quad \mathcal{D}^2(F_j(\bs{X},\bs{Y},\bs{W}) \in \bb{R}^{3N\times 3N}
+\end{align*}
+
+
+Explicitly, with $\bs{e}_j \in \bb{R}^M, \bs{u}_k \in \bb{R}^{3N}$ standard basis vectors,
+\begin{align*}
+	&\mathcal{D}(F_j(\bs{X},\bs{Y},\bs{W})) = \begin{bmatrix}\bs{e}_j^T\partial_x \bs{P}(\bs{X},\bs{Y})\odot \bs{W} &
+		\bs{e}_j^T\partial_y \bs{P}(\bs{X},\bs{Y})\odot \bs{W} &
+		\bs{e}_j^T\bs{P}(\bs{X},\bs{Y}) \end{bmatrix} = dF_j(\bs{X},\bs{Y},\bs{W}) \in L(\bb{R}^{3N},\bb{R})\\
+	&\mathcal{D}(dF_{jk}(\bs{X},\bs{Y},\bs{W})) = \mathcal{D}(dF_j(\bs{X},\bs{Y},\bs{W})\bs{u}_k)\\
+	&= \begin{cases}
+		&\begin{bmatrix}\bs{e}_j^T \partial_{xx} \bs{P}(X_k,Y_k)w_k & \bs{e}_j^T \partial_{yx}\bs{P}(X_k,Y_k)w_k & \bs{e}_j^T \partial_x\bs{P}(X_k,Y_k)\end{bmatrix},\quad 1 \leq  k \leq N \\
+		&\begin{bmatrix}\bs{e}_j^T \partial_{xy} \bs{P}(X_{k-N},Y_{k-N})w_{k-N} & \bs{e}_j^T \partial_{yy}\bs{P}(X_{k-N},Y_{k-N})w_{k-N} & \bs{e}_j^T \partial_y\bs{P}(X_{k-N},Y_{k-N})\end{bmatrix},\quad N+1 \leq  k \leq 2N\\
+		&\begin{bmatrix} \bs{e}_j^T\partial_x \bs{P}(X_{k-2N},Y_{k-2N}) & \bs{e}_j^T \partial_y \bs{P}(X_{k-2N},Y_{k-2N}) & 0 \end{bmatrix},\quad 2N+1 \leq k \leq 3N
+	\end{cases}\\
+	&= \begin{bmatrix} \bs{W}\odot\bs{P}^x(\bs{X},\bs{Y})^T \mathcal{D}_x  \\ \bs{W}\odot\bs{P}^y(\bs{X},\bs{Y})^T \mathcal{D}_y  \\
+		\bs{P}(\bs{X},\bs{Y})^T  \end{bmatrix}\bs{e}_j \\
+	&\Rightarrow \mathcal{D}(\bs{F}(\bs{X},\bs{Y},\bs{W})) = \begin{bmatrix} \bs{W}\odot\bs{P}^x(\bs{X},\bs{Y})^T \mathcal{D}_x  \\ \bs{W}\odot\bs{P}^y(\bs{X},\bs{Y})^T \mathcal{D}_y  \\
+		\bs{P}(\bs{X},\bs{Y})^T  \end{bmatrix}I_{M\times M} \\
+	 &= \begin{bmatrix} \bs{W}\odot\bs{P}^x(\bs{X},\bs{Y})^T \mathcal{D}_x  \\ \bs{W}\odot\bs{P}^y(\bs{X},\bs{Y})^T \mathcal{D}_y  \\
+		\bs{P}(\bs{X},\bs{Y})^T  \end{bmatrix} \in \bb{R}^{3N\times M}
+\end{align*}
+\begin{align*}
+	\mathcal{D}^2(F_j(\bs{X},\bs{Y},\bs{W})) &=
+	\begin{bmatrix}
+	\bs{W}\odot\partial_{xx}\bs{P}(\bs{X},\bs{Y})^T\bs{e}_j & \bs{W}\odot \partial_{xy} \bs{P}(\bs{X},\bs{Y})^T \bs{e}_j & \partial_x \bs{P}(\bs{X},\bs{Y})^T \bs{e}_j\\
+	\bs{W}\odot\partial_{yx}\bs{P}(\bs{X},\bs{Y})^T\bs{e}_j & \bs{W}\odot \partial_{yy} \bs{P}(\bs{X},\bs{Y})^T \bs{e}_j & \partial_y \bs{P}(\bs{X},\bs{Y})^T \bs{e}_j\\
+	\partial_x \bs{P}(\bs{X},\bs{Y})^T \bs{e}_j   & \partial_y \bs{P}(\bs{X},\bs{Y})^T \bs{e}_j	& 0_{N\times M}\bs{e}_j
+	\end{bmatrix} \\
+	&= 
+	\begin{bmatrix}
+	\bs{W}\odot \bs{P}^{xx}(\bs{X},\bs{Y})^T \mathcal{D}_{xx} & \bs{W}\odot \bs{P}^{xy}(\bs{X},\bs{Y})^T\mathcal{D}_{xy} & \bs{P}^x(\bs{X},\bs{Y})^T\mathcal{D}_x \\
+	\bs{W}\odot \bs{P}^{yx}(\bs{X},\bs{Y})^T \mathcal{D}_{yx} & \bs{W}\odot \bs{P}^{yy}(\bs{X},\bs{Y})^T\mathcal{D}_{yy} & \bs{P}^y(\bs{X},\bs{Y})^T\mathcal{D}_y \\
+	\bs{P}^x(\bs{X},\bs{Y})^T \mathcal{D}_x & \bs{P}^y(\bs{X},\bs{Y})^T\mathcal{D}_y & 0_{N\times M}
+	\end{bmatrix} (I_{3\times 3} \otimes \bs{e}_j)\\
+	\Rightarrow \mathcal{D}(\bs{F}(x,y,w))	&= 
+	\begin{bmatrix}
+		w \bs{P}^{xx}(x,y)^T \mathcal{D}_{xx} & w \bs{P}^{xy}(x,y)^T\mathcal{D}_{xy} & \bs{P}^x(x,y)^T\mathcal{D}_x \\
+		w \bs{P}^{yx}(x,y)^T \mathcal{D}_{yx} & w \bs{P}^{yy}(x,y)^T\mathcal{D}_{yy} & \bs{P}^y(x,y)^T\mathcal{D}_y \\
+		\bs{P}^x(x,y)^T \mathcal{D}_x & \bs{P}^y(x,y)^T\mathcal{D}_y & 0
+	\end{bmatrix} (I_{3\times 3} \otimes I_{M\times M})
+\end{align*}
+
 Reverting our view of the objective to $\bs{F}:\bb{R}^{3N} \to \bb{R}^M$, we can write
-\begin{equation}
-	\mathcal{D}^2(\bs{F}(\bs{X},\bs{Y},\bs{W})) =
-		\begin{bmatrix}
-		[\bs{P}^{xx}(\bs{X},\bs{Y})\odot\bs{W}]^T\mathcal{D}_{xx}  \\
-		[\bs{P}^{yx}(\bs{X},\bs{Y})\odot\bs{W}]^T\mathcal{D}_{yx}  \\
-		[\bs{P}^x(\bs{X},\bs{Y})\odot\bs{W}]^T\mathcal{D}_{x}  \\
-		[\bs{P}^{xy}(\bs{X},\bs{Y})\odot\bs{W}]^T \mathcal{D}_{xy} \\
-		[\bs{P}^{yy}(\bs{X},\bs{Y})\odot\bs{W}]^T\mathcal{D}_{yy} \\
-		[\bs{P}^y(\bs{X},\bs{Y})\odot \bs{W}]^T \mathcal{D}_y\\
-		\bs{P}^x(\bs{X},\bs{Y})^T \mathcal{D}_x \\
-		\bs{P}^y(\bs{X},\bs{Y})^T \mathcal{D}_y \\
-		\bs{0}
-	\end{bmatrix}^T \in \bb{R}^{M\times (3N\cdot 3)},
-\end{equation}
+
 
 %\bibliographystyle{siamplain}
 %\bibliography{references}
