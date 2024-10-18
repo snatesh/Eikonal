@@ -3,7 +3,7 @@ clear all; close all; clc;
 % jacobi poly params
 a = 0.5; b = 0.5; c = 0.5;
 % source and target poly total degree (+1)
-n = 17; m = 20; d = 2;
+n = 25; m = 26; d = 2;
 fname = strcat('triquadLeg_',num2str(n-1),'_',num2str(m-1),'.mat');
 % jacobi matrices
 [Jn1,Jn2,A1,A2,B1,B2,Hn] = jMatON_tri(n,a,b,c);
@@ -19,28 +19,22 @@ Yk = imag(X0); Xk = real(X0);
 Vm = jPoly_tri(Xk,Yk,Hm,m-1,a,b,c);
 Vm_pinv = pinv(Vm');
 Wk = Vm_pinv(:,1);
+%%
+usewolfe = true;
 
-iter = 0;
-tol = 15*eps; maxiter = 100000;
-%Fk = Fobj(Xk,Yk,Wk,n,m,a,b,c);
-Fk = fobj(Xk,Yk,Wk,n,m,a,b,c);
-pk = norm(Fk); 
-rho = 0.9; gam = 1e-4;   
-Zk = [Xk;Yk;Wk];
-
-usewolfe = false;
-
+tol = 1e-14; rho = 0.9; gam = 1e-4; h = 1e-8;
+pk = tol+1; Zk = [Xk;Yk;Wk];
+iter = 0; maxiter = 1000;
 while pk>tol && iter < maxiter
   iter = iter + 1;
+  Fk = fobj(Xk,Yk,Wk,n,m,a,b,c);
   % compute gradient
-  gradFk = gradfobj(Xk,Yk,Wk,n,m,a,b,c);  
-  hessFk = hessfobjFD(Xk,Yk,Wk,n,m,a,b,c,1e-8);
+  gradFk = gradfobj(Xk,Yk,Wk,n,m,a,b,c);
+  hessFk = hessfobj(Xk,Yk,Wk,n,m,a,b,c,h);
   % step direction
-  %dZk = -gradFk\Fk;  
-  
   dZk = -hessFk\gradFk';
   % linesearch with wolfe conditions
-  alph = 0.0001; 
+  alph = 1; 
   Zk1 = Zk+alph*dZk;
   Xk1 = Zk1(1:N); 
   Yk1 = Zk1(N+1:2*N); 
@@ -57,7 +51,7 @@ while pk>tol && iter < maxiter
       Fk1 = fobj(Xk1,Yk1,Wk1,n,m,a,b,c);
       pk1 = norm(Fk1);
       iter_i = iter_i+1;
-      disp([iter_i,pk,alph])
+      disp([pk1,alph])
     end
   end
   Xk = Xk1; 
@@ -113,16 +107,58 @@ dF = [Dx'*(V_a1bc1'.*W') Dy'*(V_ab1c1'.*W') V_abc'];
 
 end
 
+
 function df = gradfobj(X,Y,W,n,m,a,b,c)
 
 df = 2*Fobj(X,Y,W,n,m,a,b,c)'*gradFobj(X,Y,W,n,m,a,b,c);
 
 end
 
-function Hf = hessfobjFD(X,Y,W,n,m,a,b,c,h)
+function Hf = hessFobjFD(X,Y,W,n,m,a,b,c,h)
 
 N = n*(n+1)/2;
-Hf = zeros(3*N,3*N);
+M = m*(m+1)/2;
+Hf = zeros(M,3*N,3*N);
+Z = [X;Y;W];
+
+for ii = 1:(3*N)
+  % df(z+h)
+  Z(ii) = Z(ii)+h;
+  x = Z(1:N); y = Z(N+1:2*N); w = Z(2*N+1:3*N);
+  dfkph = gradFobj(x,y,w,n,m,a,b,c);
+  % df(z-h)
+  Z(ii) = Z(ii)-2*h;
+  x = Z(1:N); y = Z(N+1:2*N); w = Z(2*N+1:3*N);
+  dfkmh = gradFobj(x,y,w,n,m,a,b,c);
+  ddf = (dfkph-dfkmh)/(2.0*h);
+  Hf(:,:,ii) = ddf;
+  % restore Z
+  Z(ii) = Z(ii)+h;
+end
+
+end
+
+function hf = hessfobj(X,Y,W,n,m,a,b,c,h)
+ 
+N = n*(n+1)/2;
+M = m*(m+1)/2;
+Z = [X;Y;W];
+F = Fobj(X,Y,W,n,m,a,b,c);
+DF = gradFobj(X,Y,W,n,m,a,b,c);
+D2F = hessFobjFD(X,Y,W,n,m,a,b,c,h);
+hf = zeros(3*N,3*N);
+for j = 1:M
+  D2Fj = reshape(D2F(j,:,:),3*N,3*N);
+  hf = hf + F(j)*D2Fj;
+end
+hf = hf + DF'*DF;
+hf = 2*hf;
+end
+
+function hf = hessfobjFD(X,Y,W,n,m,a,b,c,h)
+
+N = n*(n+1)/2;
+hf = zeros(3*N,3*N);
 Z = [X;Y;W];
 for ii = 1:3*N
   % f(z+h)
@@ -134,7 +170,7 @@ for ii = 1:3*N
   x = Z(1:N); y = Z(N+1:2*N); w = Z(2*N+1:3*N);
   fkmh = gradfobj(x,y,w,n,m,a,b,c)';
   % FD approx to gradF
-  Hf(:,ii) = (fkph-fkmh)/(2.0*h);
+  hf(:,ii) = (fkph-fkmh)/(2.0*h);
   % restore Z
   Z(ii) = Z(ii)+h;
 end

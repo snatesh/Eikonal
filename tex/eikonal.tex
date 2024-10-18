@@ -461,11 +461,11 @@ We want to integrate the $M$ polynomials up to total degree $m-1$ exactly with $
 		&=\langle P_j,P_0\rangle = \delta_{j0},
 	\end{split}
 \end{equation}
-where we use mutual orthonormality under $w_{a,b,c}W(x,y)$ \eqref{eq:koornorth} to evaluate them and arrive at the $\delta_{j0}$ term. If $\bs{X}_1,\dots,\bs{X}_d,\bs{w} \in \bb{R}^N$ are the nodes and weights, $\bs{\mathcal{I}} \in \bb{R}^M$ the above integrals, and $\bs{P}(\bs{x})\in \bb{R}^M$ (with $\bs{x} \in \bb{R}^d$) our $M$ polynomials, the objective function we aim to find a zero of is $\bs{F}:\bb{R}^{(d+1)N}\to\bb{R}^M$ given by
+where we use mutual orthonormality under $w_{a,b,c}W(x,y)$ \eqref{eq:koornorth} to evaluate them and arrive at the $\delta_{j0}$ term. If $\bs{X}_1,\dots,\bs{X}_d,\bs{W} \in \bb{R}^N$ are the nodes and weights, $\bs{\mathcal{I}} \in \bb{R}^M$ the above integrals, and $\bs{P}(\bs{x})\in \bb{R}^M$ (with $\bs{x} \in \bb{R}^d$) our $M$ polynomials, the objective function we aim to find a zero of is $\bs{F}:\bb{R}^{(d+1)N}\to\bb{R}^M$ given by
 \begin{equation}\label{eq:newtobj}
 	\bs{F}(\bs{X}_1,\cdots,\bs{X}_d,\bs{W}) = \bs{P}(\bs{X})\bs{W}-\bs{\mathcal{I}},\quad  \bs{\mathcal{I}}\in\bb{R}^M,\s\bs{P}(\bs{X}) \in \bb{R}^{M\times N}
 \end{equation}
-For the Newton iteration (where $A^+$ is the Moore-Penrose pseudoinverse)
+For the Gauss-Newton iteration (where $A^+$ is the Moore-Penrose pseudoinverse)
 \begin{equation}
 	\bs{z}^{k+1} = \bs{z}^k - \alpha_k[\nabla \bs{F}(\bs{z}^k)]^+\bs{F}(\bs{z}^k),
 \end{equation}
@@ -485,21 +485,33 @@ We also consider the Newton descent direction, and associated update for finding
 Ideally, we won't have to use a quadratic program for solving \eqref{eq:newtopt}, and Newton descent will be sufficient.
 \newpage
 \subsubsection{Derivatives of the objective functions}
-We can use the machinery developed in Section \ref{sec:jacobibasis} to compute derivatives of \eqref{eq:newtobj}. Given that these tools are only at our disposal for $d \leq 2$, we proceed for now with $d=2$ and $\bs{x} \in \Tau^2$. Let us view the objective as $\bs{F} : \bb{R}^3 \to \bb{R}^M$, and note that $\bs{P}$ is defined in the $(a,b,c)$ Jacobi basis. Applying the derivative operators defined in \eqref{eq:jactrideriv}, we have at a point $(x,y,w)$ and component $j = 1,\cdots M$ of the total derivative,
+We can use the machinery developed in Section \ref{sec:jacobibasis} to compute derivatives of \eqref{eq:newtobj}. Given that these tools are only at our disposal for $d \leq 2$, we proceed for now with $d=2$ and $\bs{x} \in \Tau^2$. We view each component of the objective as a function $F_j : \bb{R}^{3N} \to \bb{R}$, and note that $\bs{P}$ is defined in the $(a,b,c)$ Jacobi basis. Applying the derivative operators defined in \eqref{eq:jactrideriv}, we have at a point $(\bs{X},\bs{Y},\bs{W})$, 
 \begin{align*}
-	\mathcal{D}(\bs{F}(x,y,w)) &= \mathcal{D}(\bs{P}(x,y) w)\\ &=  \begin{bmatrix}w\partial_x \bs{P}(x,y) &
-		w\partial_y \bs{P}(x,y) &
-		\bs{P}(x,y) \end{bmatrix} \in \bb{R}^{M \times 3} \\
-	\Rightarrow   \mathcal{D}(F_j(x,y,w)) &= \begin{bmatrix}w\partial_x \bs{P}(x,y)^T\bs{e}_j &
-		w\partial_y \bs{P}(x,y)^T \bs{e}_j &
-		\bs{P}(x,y)^T \bs{e}_j \end{bmatrix} \\
-	&= \begin{bmatrix} w\bs{P}^x(x,y)^T \mathcal{D}_x \bs{e}_j & w\bs{P}^y(x,y)^T \mathcal{D}_y \bs{e}_j &
-		\bs{P}(x,y)^T \bs{e}_j \end{bmatrix}\in \bb{R}^{1 \times 3}\\
-	\Rightarrow \mathcal{D}(\bs{F}(x,y,w)) &= \begin{bmatrix} (w\bs{P}^x(x,y)^T \mathcal{D}_x)^T  & (w\bs{P}^y(x,y)^T \mathcal{D}_y)^T &
-		(\bs{P}(x,y)^T)^T \end{bmatrix}  \\
-	&= \begin{bmatrix} \mathcal{D}_x^T \bs{P}^x(x,y)w & \mathcal{D}_y^T \bs{P}^y(x,y)w & \bs{P}(x,y)\end{bmatrix} \in \bb{R}^{M \times 3}
+	&F_j(\bs{X},\bs{Y},\bs{W}) = \bs{e}_j^T \bs{P}(\bs{X},\bs{Y})\bs{W} - \delta_{1j} 
+	= \sum_{i=1}^N P_j(x_i,y_i)w_i - \delta_{1j}, \\
+	&\frac{\partial F_j}{\partial x_k} =  w_k \bs{P}^x(x_k,y_k)^T\mathcal{D}_x \bs{e}_j,\quad
+	\frac{\partial F_j}{\partial y_k} = w_k \bs{P}^y(x_k,y_k)^T\mathcal{D}_y \bs{e}_j,\quad
+	\frac{\partial F_j}{\partial w_k} = \bs{P}(x_k,y_k)^T \bs{e}_j,\\
+	&\frac{\partial^2 F_j}{\partial x_l \partial x_k} = w_k \bs{P}^{xx}(x_k,y_k)^T\mathcal{D}_{xx}\bs{e}_j \delta_{lk},\quad
+	\frac{\partial^2 F_j}{\partial x_l \partial y_k} = w_k \bs{P}^{xy}(x_k,y_k)^T\mathcal{D}_{xy}\bs{e}_j \delta_{lk},\quad
+	\frac{\partial^2 F_j}{\partial x_l \partial w_k} = \bs{P}^x(x_k,y_k)^T\mathcal{D}_x\bs{e}_j\delta_{lk},\\
+	&\frac{\partial^2 F_j}{\partial y_l \partial x_k} = w_k \bs{P}^{yx}(x_k,y_k)^T\mathcal{D}_{yx}\bs{e}_j \delta_{lk},\quad 	\frac{\partial^2 F_j}{\partial y_l \partial y_k} = w_k \bs{P}^{yy}(x_k,y_k)^T\mathcal{D}_{yy}\bs{e}_j \delta_{lk},\quad 
+	\frac{\partial^2 F_j}{\partial y_l \partial w_k} =  \bs{P}^{y}(x_k,y_k)^T\mathcal{D}_{y}\bs{e}_j \delta_{lk},\\
+	&\frac{\partial^2 F_j}{\partial w_l \partial x_k} =  \bs{P}^{x}(x_k,y_k)^T\mathcal{D}_{x}\bs{e}_j \delta_{lk},\quad 
+	\frac{\partial^2 F_j}{\partial w_l \partial y_k} = \bs{P}^{y}(x_k,y_k)^T \mathcal{D}_y\bs{e}_j,\quad \frac{\partial^2 F_j}{\partial w_l \partial w_k} = 0\cdot \delta_{lk},
 \end{align*}
-where $\mathcal{D}_x,\mathcal{D}_y$ map coefficients in a $\bs{P}(x,y)$ expansion to coefficients of the derivative of the expansion, and $$\bs{P}^x = \bs{P}^{(a+1,b,c+1)}, \quad \bs{P}^y = \bs{P}^{(a,b+1,c+1)}.$$ Now, reverting to the view of the objective as $\bs{F}:\bb{R}^{3N} \to \bb{R}^M$, we can write
+where 
+\begin{align*}
+\mathcal{D}_x &= \mathcal{D}_{x,(a,b,c)}^{a+1,b,c+1},\quad \bs{P}^x = \bs{P}^{(a+1,b,c+1)},\quad
+\mathcal{D}_y = \mathcal{D}_{x,(a,b,c)}^{a,b+1,c+1},\quad \bs{P}^y = \bs{P}^{(a,b+1,c+1)}\\
+\mathcal{D}_{xx} &= \mathcal{D}_{x,(a+1,b,c+1)}^{(a+2,b,c+2)}\mathcal{D}_{x,(a,b,c)}^{(a+1,b,c+1)},\quad \bs{P}^{xx} = \bs{P}^{(a+2,b,c+2)},\quad
+\mathcal{D}_{yy} = 
+\mathcal{D}_{y,(a,b+1,c+1)}^{(a,b+2,c+2)}\mathcal{D}_{y,(a,b,c)}^{(a,b+1,c+1)}, \quad \bs{P}^{yy} = \bs{P}^{(a,b+2,c+2)}\\
+\mathcal{D}_{xy} &= \mathcal{D}_{x,(a,b+1,c+1)}^{(a+1,b+1,c+2)}\mathcal{D}_{y,(a,b,c)}^{(a,b+1,c+1)},\quad \bs{P}^{xy} = \bs{P}^{(a+1,b+1,c+2)},\quad
+\mathcal{D}_{yx} =
+\mathcal{D}_{y,(a+1,b,c+1)}^{(a+1,b+1,c+2)}\mathcal{D}_{x,(a,b,c)}^{(a+1,b,c+1)},\quad \bs{P}^{yx} = \bs{P}^{yx}
+\end{align*}
+Now, reverting to the view of the objective as $\bs{F}:\bb{R}^{3N} \to \bb{R}^M$, we can write
 \begin{equation}
 	\begin{split}
 		&[\mathcal{D}(\bs{F})]|_{(\bs{X},\bs{Y},\bs{W})}
@@ -514,87 +526,13 @@ where $L(U,V)$ is the space of linear mappings between finite dimensional vector
 In this case, the Hessian matrix of $\bs{f}$ is a mapping $\mathcal{D}^2(\bs{f}):\bb{R}^{3N} \to L(\bb{R}^{3N},\bb{R}^{3N})$ given at a point $(\bs{X},\bs{Y},\bs{W})$ by
 \begin{equation}\label{eq:hessf}
 	\begin{split}
-		 [\mathcal{D}^2(\bs{f})]|_{(\bs{X},\bs{Y},\bs{W})} &= 2\bs{F}(\bs{X},\bs{Y},\bs{W})^T[\mathcal{D}^2(\bs{F})]|_{(\bs{X},\bs{Y},\bs{W})}\\ &+ 2\Big([\mathcal{D}(\bs{F})]|_{(\bs{X},\bs{Y},\bs{W})}\Big)^T [\mathcal{D}(\bs{F})]|_{(\bs{X},\bs{Y},\bs{W})} \\
+		 [\mathcal{D}^2(\bs{f})]|_{(\bs{X},\bs{Y},\bs{W})} &=
+		 2\sum_{j=1}^M F_j(\bs{X},\bs{Y},\bs{W})[\mathcal{D}^2(F_j)]|_{(\bs{X},\bs{Y},\bs{W})} \\ &+ 2\Big([\mathcal{D}(\bs{F})]|_{(\bs{X},\bs{Y},\bs{W})}\Big)^T [\mathcal{D}(\bs{F})]|_{(\bs{X},\bs{Y},\bs{W})} \\
 		 & \in \bb{R}^{3N\times 3N}
 	\end{split}
 \end{equation}
-The vector Hessian of $\bs{F}$ appears in \eqref{eq:hessf}, and we can make sense of its tensor structure by the definition of $\bs{D}^2(\bs{f})$ at a point in $\bb{R}^{3N}$ existing as an element of $L(\bb{R}^{3N},\bb{R}^{3N})$. Viewing the objective as $\bs{F} : \bb{R}^3 \to \bb{R}^M$, the Hessian is the map $$\mathcal{D}^2(\bs{F}):\bb{R}^3 \to L(\bb{R}^3,L(\bb{R}^3,\bb{R}^M)),$$ which is given by
-\begin{align*}
-	&\mathcal{D}^2(\bs{F}(x,y,w))) = \mathcal{D}(\mathcal{D}(\bs{P}(x,y)w)) \\
-	&= \mathcal{D}\Big(\begin{bmatrix}w\partial_x \bs{P}(x,y) & w\partial_y \bs{P}(x,y) & \bs{P}(x,y) \end{bmatrix} \Big) \\
-	&= \begin{bmatrix} \mathcal{D}(w\partial_x \bs{P}(x,y)) & \mathcal{D}(w\partial_y \bs{P}(x,y)) & \mathcal{D}(\bs{P}(x,y)) \end{bmatrix} \\\\
-	&= \begin{bmatrix}
-		w \partial_{xx} \bs{P}(x,y) &
-		w \partial_{xy} \bs{P}(x,y) & 
-		\partial_x\bs{P}(x,y)\\ 
-		w\partial_{yx}\bs{P}(x,y) & w\partial_{yy}\bs{P}(x,y) & \partial_y\bs{P}(x,y) \\
-		 \partial_x\bs{P}(x,y) &
-		\partial_y\bs{P}(x,y) &  0
-	\end{bmatrix}  \\\\
-	&=
-	\begin{bmatrix}
-	\mathcal{D}_{xx}^T \bs{P}^{xx}(x,y) w & \mathcal{D}_{xy}^T \bs{P}^{xy}(x,y) w & \mathcal{D}_x^T\bs{P}^x(x,y) \\ \\
-	\mathcal{D}_{yx}^T \bs{P}^{yx}(x,y) w & \mathcal{D}_{yy}^T \bs{P}^{yy}(x,y) w & \mathcal{D}_y^T\bs{P}^y(x,y) \\ \\
-	\mathcal{D}_x^T\bs{P}^x(x,y) & \mathcal{D}_y^T\bs{P}^y(x,y) & \bs{0}
-	\end{bmatrix} \in \bb{R}^{3M\times 3},
-\end{align*}
-where
-\begin{align*}
-	\mathcal{D}_{xx} &= \mathcal{D}_{x,(a+1,b,c+1)}^{(a+2,b,c+2)}\mathcal{D}_{x,(a,b,c)}^{(a+1,b,c+1)},\quad \bs{P}^{xx} = \bs{P}^{(a+2,b,c+2)},\\
-	\mathcal{D}_{yy} &= 
-	\mathcal{D}_{y,(a,b+1,c+1)}^{(a,b+2,c+2)}\mathcal{D}_{y,(a,b,c)}^{(a,b+1,c+1)}, \quad \bs{P}^{yy} = \bs{P}^{(a,b+2,c+2)}\\
-	\mathcal{D}_{xy} &= \mathcal{D}_{x,(a,b+1,c+1)}^{(a+1,b+1,c+2)}\mathcal{D}_{y,(a,b,c)}^{(a,b+1,c+1)},\quad \bs{P}^{xy} = \bs{P}^{(a+1,b+1,c+2)},\\
-	\mathcal{D}_{yx} &=
-	\mathcal{D}_{y,(a+1,b,c+1)}^{(a,b+1,c+2)}\mathcal{D}_{x,(a,b,c)}^{(a+1,b,c+1)},\quad \bs{P}^{yx} = \bs{P}^{(a+1,b+1,c+2)}
-\end{align*}
-We have the following maps for the $j^{\text{th}}$ function in our vector valued objective:
-\begin{align*}
-&F_j : \bb{R}^{3N} \to \bb{R} \\
-\Rightarrow &\mathcal{D}(F_j) : \bb{R}^{3N} \to L(\bb{R}^{3N},\bb{R}) ,\quad \mathcal{D}(F_j(\bs{X},\bs{Y},\bs{W})) \in \bb{R}^{1\times 3N}\\
-\Rightarrow &\mathcal{D}^2(F_j) : \bb{R}^{3N} \to L(\bb{R}^{3N},L(\bb{R}^{3N},\bb{R})),\quad \mathcal{D}^2(F_j(\bs{X},\bs{Y},\bs{W}) \in \bb{R}^{3N\times 3N}
-\end{align*}
+The vector Hessian of $\bs{F}$ appears in \eqref{eq:hessf}, and we can make sense of its tensor structure by reviewing the mixed partial formulae given at the beginning of this section.
 
-
-Explicitly, with $\bs{e}_j \in \bb{R}^M, \bs{u}_k \in \bb{R}^{3N}$ standard basis vectors,
-\begin{align*}
-	&\mathcal{D}(F_j(\bs{X},\bs{Y},\bs{W})) = \begin{bmatrix}\bs{e}_j^T\partial_x \bs{P}(\bs{X},\bs{Y})\odot \bs{W} &
-		\bs{e}_j^T\partial_y \bs{P}(\bs{X},\bs{Y})\odot \bs{W} &
-		\bs{e}_j^T\bs{P}(\bs{X},\bs{Y}) \end{bmatrix} = dF_j(\bs{X},\bs{Y},\bs{W}) \in L(\bb{R}^{3N},\bb{R})\\
-	&\mathcal{D}(dF_{jk}(\bs{X},\bs{Y},\bs{W})) = \mathcal{D}(dF_j(\bs{X},\bs{Y},\bs{W})\bs{u}_k)\\
-	&= \begin{cases}
-		&\begin{bmatrix}\bs{e}_j^T \partial_{xx} \bs{P}(X_k,Y_k)w_k & \bs{e}_j^T \partial_{yx}\bs{P}(X_k,Y_k)w_k & \bs{e}_j^T \partial_x\bs{P}(X_k,Y_k)\end{bmatrix},\quad 1 \leq  k \leq N \\
-		&\begin{bmatrix}\bs{e}_j^T \partial_{xy} \bs{P}(X_{k-N},Y_{k-N})w_{k-N} & \bs{e}_j^T \partial_{yy}\bs{P}(X_{k-N},Y_{k-N})w_{k-N} & \bs{e}_j^T \partial_y\bs{P}(X_{k-N},Y_{k-N})\end{bmatrix},\quad N+1 \leq  k \leq 2N\\
-		&\begin{bmatrix} \bs{e}_j^T\partial_x \bs{P}(X_{k-2N},Y_{k-2N}) & \bs{e}_j^T \partial_y \bs{P}(X_{k-2N},Y_{k-2N}) & 0 \end{bmatrix},\quad 2N+1 \leq k \leq 3N
-	\end{cases}\\
-	&= \begin{bmatrix} \bs{W}\odot\bs{P}^x(\bs{X},\bs{Y})^T \mathcal{D}_x  \\ \bs{W}\odot\bs{P}^y(\bs{X},\bs{Y})^T \mathcal{D}_y  \\
-		\bs{P}(\bs{X},\bs{Y})^T  \end{bmatrix}\bs{e}_j \\
-	&\Rightarrow \mathcal{D}(\bs{F}(\bs{X},\bs{Y},\bs{W})) = \begin{bmatrix} \bs{W}\odot\bs{P}^x(\bs{X},\bs{Y})^T \mathcal{D}_x  \\ \bs{W}\odot\bs{P}^y(\bs{X},\bs{Y})^T \mathcal{D}_y  \\
-		\bs{P}(\bs{X},\bs{Y})^T  \end{bmatrix}I_{M\times M} \\
-	 &= \begin{bmatrix} \bs{W}\odot\bs{P}^x(\bs{X},\bs{Y})^T \mathcal{D}_x  \\ \bs{W}\odot\bs{P}^y(\bs{X},\bs{Y})^T \mathcal{D}_y  \\
-		\bs{P}(\bs{X},\bs{Y})^T  \end{bmatrix} \in \bb{R}^{3N\times M}
-\end{align*}
-\begin{align*}
-	\mathcal{D}^2(F_j(\bs{X},\bs{Y},\bs{W})) &=
-	\begin{bmatrix}
-	\bs{W}\odot\partial_{xx}\bs{P}(\bs{X},\bs{Y})^T\bs{e}_j & \bs{W}\odot \partial_{xy} \bs{P}(\bs{X},\bs{Y})^T \bs{e}_j & \partial_x \bs{P}(\bs{X},\bs{Y})^T \bs{e}_j\\
-	\bs{W}\odot\partial_{yx}\bs{P}(\bs{X},\bs{Y})^T\bs{e}_j & \bs{W}\odot \partial_{yy} \bs{P}(\bs{X},\bs{Y})^T \bs{e}_j & \partial_y \bs{P}(\bs{X},\bs{Y})^T \bs{e}_j\\
-	\partial_x \bs{P}(\bs{X},\bs{Y})^T \bs{e}_j   & \partial_y \bs{P}(\bs{X},\bs{Y})^T \bs{e}_j	& 0_{N\times M}\bs{e}_j
-	\end{bmatrix} \\
-	&= 
-	\begin{bmatrix}
-	\bs{W}\odot \bs{P}^{xx}(\bs{X},\bs{Y})^T \mathcal{D}_{xx} & \bs{W}\odot \bs{P}^{xy}(\bs{X},\bs{Y})^T\mathcal{D}_{xy} & \bs{P}^x(\bs{X},\bs{Y})^T\mathcal{D}_x \\
-	\bs{W}\odot \bs{P}^{yx}(\bs{X},\bs{Y})^T \mathcal{D}_{yx} & \bs{W}\odot \bs{P}^{yy}(\bs{X},\bs{Y})^T\mathcal{D}_{yy} & \bs{P}^y(\bs{X},\bs{Y})^T\mathcal{D}_y \\
-	\bs{P}^x(\bs{X},\bs{Y})^T \mathcal{D}_x & \bs{P}^y(\bs{X},\bs{Y})^T\mathcal{D}_y & 0_{N\times M}
-	\end{bmatrix} (I_{3\times 3} \otimes \bs{e}_j)\\
-	\Rightarrow \mathcal{D}(\bs{F}(x,y,w))	&= 
-	\begin{bmatrix}
-		w \bs{P}^{xx}(x,y)^T \mathcal{D}_{xx} & w \bs{P}^{xy}(x,y)^T\mathcal{D}_{xy} & \bs{P}^x(x,y)^T\mathcal{D}_x \\
-		w \bs{P}^{yx}(x,y)^T \mathcal{D}_{yx} & w \bs{P}^{yy}(x,y)^T\mathcal{D}_{yy} & \bs{P}^y(x,y)^T\mathcal{D}_y \\
-		\bs{P}^x(x,y)^T \mathcal{D}_x & \bs{P}^y(x,y)^T\mathcal{D}_y & 0
-	\end{bmatrix} (I_{3\times 3} \otimes I_{M\times M})
-\end{align*}
-
-Reverting our view of the objective to $\bs{F}:\bb{R}^{3N} \to \bb{R}^M$, we can write
 
 
 %\bibliographystyle{siamplain}
