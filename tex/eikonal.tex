@@ -402,6 +402,7 @@ $\Delta_W$, the weighted Laplace operator, is then given by
 	\end{split}
 \end{equation}
 The cross partial terms are needed only when we include affine transformations from general triangles to the standard reference triangle, as they appear when chaining out derivatives of the parametrization.
+\newpage
 \section{Quadrature generation for Jacobi polynomials on the Simplex}
 Here, we detail the procedure for generating quadrature rules on the simplex. Suppose that $\bs{P}(\bs{x}) \in \bb{R}^N$, with $$N = \text{dim}(\Pi_{n-1}^d)= {n-1+d\choose n-1},$$ as in \eqref{eq:polyvec} (in which we had $d=2$), and $\bs{x} \in \bb{R}^d$. The orthonormal 3-term relation for Jacobi polynomials on the simplex is given by 
 \begin{align}
@@ -465,11 +466,19 @@ where we use mutual orthonormality under $w_{a,b,c}W(x,y)$ \eqref{eq:koornorth} 
 \begin{equation}\label{eq:newtobj}
 	\bs{F}(\bs{X}_1,\cdots,\bs{X}_d,\bs{W}) = \bs{P}(\bs{X})\bs{W}-\bs{\mathcal{I}},\quad  \bs{\mathcal{I}}\in\bb{R}^M,\s\bs{P}(\bs{X}) \in \bb{R}^{M\times N}
 \end{equation}
-For the Gauss-Newton iteration (where $A^+$ is the Moore-Penrose pseudoinverse)
-\begin{equation}
-	\bs{z}^{k+1} = \bs{z}^k - \alpha_k[\nabla \bs{F}(\bs{z}^k)]^+\bs{F}(\bs{z}^k),
+Letting $$\bs{z} = (\bs{X}_1,\cdots,\bs{X}_d,\bs{W}) \in \bb{R}^{(d+1)N},$$ we can use the Gauss-Newton iteration (where $A^+$ is the Moore-Penrose pseudoinverse)
+\begin{equation}\label{eq:gauss-newt}
+	\bs{z}^{k+1} = \bs{z}^k - \alpha_k[\nabla( \bs{F}(\bs{z}^k))]^+\bs{F}(\bs{z}^k),
 \end{equation}
-the choice of initial point $\bs{z}^0 = (\bs{X}_1^0,\cdots,\bs{X}_d^0,\bs{W}_0)$ and control of the step length $\alpha_k$ are vital for its convergence. Moreover, we'd like to incorporate inequality constraints on $\bs{z}^k$ to enforce that quadrature nodes are interior to $\Tau^2$, and we want the weights to be positive with unit sum. By casting the problem of finding roots of \eqref{eq:newtobj} into a minimization problem followed by a relaxation of $\bs{F}$, we can use techniques from constrained convex optimization to find acceptable quadratures. The optimization problem we would like to solve is 
+to find roots of \eqref{eq:newtobj}, where $\alpha \in (0,1)$. As we show in Section \ref{sec:objderivs}, we have access to analytical formula for computing the derivatives of \eqref{eq:newtobj}, which enables us to alternatively use the damped Newton iteration
+\begin{equation}\label{eq:newtsysvec}
+	\bs{z}^{k+1} = \bs{z}^k - \alpha [\mathcal{D}^2(\bs{F}(\bs{z^k}))]^{-1}\nabla(\bs{F}(\bs{z}^k)).
+\end{equation}
+We also consider the Newton iteration for finding roots of $$||\bs{F}(\bs{z})||_2^2 := \bs{f}:\bb{R}^{3N}\to \bb{R}.$$ Namely,
+\begin{equation}\label{eq:newtsys}
+	\bs{z}^{k+1} = \bs{z}^k - \alpha [\mathcal{D}^2(\bs{f}(\bs{z}^k))]^{-1}\nabla(\bs{f}(\bs{z}^k))
+\end{equation}
+The choice of initial point $\bs{z}^0 = (\bs{X}_1^0,\cdots,\bs{X}_d^0,\bs{W}_0)$ and control of the step length $\alpha_k$ are vital for its convergence. Moreover, we'd like to incorporate inequality constraints on $\bs{z}^k$ to enforce that quadrature nodes are interior to $\Tau^2$, and we want the weights to be positive with unit sum. By casting the problem of finding roots of \eqref{eq:newtobj}-\eqref{eq:newtsys} into a minimization problem followed by a relaxation of $\bs{F}$, we can use techniques from constrained convex optimization to find acceptable quadratures. The optimization problem we would like to solve is 
 \begin{equation}\label{eq:newtopt}
 	\begin{split}
 		&\min_{\bs{z} \in \bb{R}^{(d+1)N}}||\bs{F}(\bs{z})||_2^2 \quad\text{such that}\\ &G\bs{z} < g,\s \begin{bmatrix} \bs{0_{1\times dN}} & \bs{1_{1\times N}}\end{bmatrix}\bs{z} = 1, \quad\text{ where}\\ &G = \begin{bmatrix} -I & \times \quad  \cdots \quad &  \times \\ \times  &  \ddots & \times \\ \vdots & \ddots  & \vdots \\ \times & \space \cdots \quad \times  & -I \\  I & \space \cdots \quad I & \times \end{bmatrix} \in \bb{R}^{(d+2)N\times 3N},\quad
@@ -478,13 +487,9 @@ the choice of initial point $\bs{z}^0 = (\bs{X}_1^0,\cdots,\bs{X}_d^0,\bs{W}_0)$
 \end{equation}
 The zero entries in the constraint matrix $G$ are denoted by $\times$, and $I$ is the $N\times N$ identity matrix. Specifically, each block row of $G$ corresponds, respectively, to the following inequality constraints: (i) $\bs{x}_1 > 0,\cdots,\bs{x}_d, \bs{w} > 0$, (ii) $\sum_{i=1}^d \bs{x}_i < 1$, and the equality constraint is $\sum_{i=1}^N w_i = 1$. \emph{If a local minimum $\bs{z}$ is found, it is not necessarily a zero of $\bs{F}(\bs{z})$. We have only satisfied the necessary KKT conditions. However, we may be closer to an actual root and will have maintained interior nodes and positive weights}. Hence, we can use this new estimate $\bs{z}$ as an initial point in a Newton iteration that will relax $\bs{F}(\bs{z})$ to zero quadratically. We can solve the quadratic program \eqref{eq:newtopt} with the sequential quadratic programming algorithm.
 \\\\
-We also consider the Newton descent direction, and associated update for finding roots of $||\bs{F}(\bs{z})||_2^2 := \bs{f}:\bb{R}^{3N}\to \bb{R}$. Namely,
-\begin{equation}\label{eq:newtsys}
-\bs{z}^{k+1} = \bs{z}^k - [\mathcal{D}^2(\bs{f})|_{\bs{z_k}}]^{-1}[\mathcal{D}(\bs{f})|_{\bs{z_k}}]
-\end{equation}
 Ideally, we won't have to use a quadratic program for solving \eqref{eq:newtopt}, and Newton descent will be sufficient.
 \newpage
-\subsubsection{Derivatives of the objective functions}
+\subsubsection{Derivatives of the objective functions}\label{sec:objderivs}
 We can use the machinery developed in Section \ref{sec:jacobibasis} to compute derivatives of \eqref{eq:newtobj}. Given that these tools are only at our disposal for $d \leq 2$, we proceed for now with $d=2$ and $\bs{x} \in \Tau^2$. We view each component of the objective as a function $F_j : \bb{R}^{3N} \to \bb{R}$, and note that $\bs{P}$ is defined in the $(a,b,c)$ Jacobi basis. Applying the derivative operators defined in \eqref{eq:jactrideriv}, we have at a point $(\bs{X},\bs{Y},\bs{W})$, 
 \begin{align*}
 	&F_j(\bs{X},\bs{Y},\bs{W}) = \bs{e}_j^T \bs{P}(\bs{X},\bs{Y})\bs{W} - \delta_{1j} 
@@ -498,27 +503,24 @@ We can use the machinery developed in Section \ref{sec:jacobibasis} to compute d
 	&\frac{\partial^2 F_j}{\partial y_l \partial x_k} = w_k \bs{P}^{yx}(x_k,y_k)^T\mathcal{D}_{yx}\bs{e}_j \delta_{lk},\quad 	\frac{\partial^2 F_j}{\partial y_l \partial y_k} = w_k \bs{P}^{yy}(x_k,y_k)^T\mathcal{D}_{yy}\bs{e}_j \delta_{lk},\quad 
 	\frac{\partial^2 F_j}{\partial y_l \partial w_k} =  \bs{P}^{y}(x_k,y_k)^T\mathcal{D}_{y}\bs{e}_j \delta_{lk},\\
 	&\frac{\partial^2 F_j}{\partial w_l \partial x_k} =  \bs{P}^{x}(x_k,y_k)^T\mathcal{D}_{x}\bs{e}_j \delta_{lk},\quad 
-	\frac{\partial^2 F_j}{\partial w_l \partial y_k} = \bs{P}^{y}(x_k,y_k)^T \mathcal{D}_y\bs{e}_j,\quad \frac{\partial^2 F_j}{\partial w_l \partial w_k} = 0\cdot \delta_{lk},
+	\frac{\partial^2 F_j}{\partial w_l \partial y_k} = \bs{P}^{y}(x_k,y_k)^T \mathcal{D}_y\bs{e}_j\delta_{lk},\quad \frac{\partial^2 F_j}{\partial w_l \partial w_k} = 0\cdot \delta_{lk},
 \end{align*}
 where 
 \begin{align*}
 \mathcal{D}_x &= \mathcal{D}_{x,(a,b,c)}^{a+1,b,c+1},\quad \bs{P}^x = \bs{P}^{(a+1,b,c+1)},\quad
 \mathcal{D}_y = \mathcal{D}_{x,(a,b,c)}^{a,b+1,c+1},\quad \bs{P}^y = \bs{P}^{(a,b+1,c+1)}\\
-\mathcal{D}_{xx} &= \mathcal{D}_{x,(a+1,b,c+1)}^{(a+2,b,c+2)}\mathcal{D}_{x,(a,b,c)}^{(a+1,b,c+1)},\quad \bs{P}^{xx} = \bs{P}^{(a+2,b,c+2)},\quad
-\mathcal{D}_{yy} = 
+\mathcal{D}_{xx} &= \mathcal{D}_{x,(a+1,b,c+1)}^{(a+2,b,c+2)}\mathcal{D}_{x,(a,b,c)}^{(a+1,b,c+1)},\quad \bs{P}^{xx} = \bs{P}^{(a+2,b,c+2)},\\
+\mathcal{D}_{yy} &= 
 \mathcal{D}_{y,(a,b+1,c+1)}^{(a,b+2,c+2)}\mathcal{D}_{y,(a,b,c)}^{(a,b+1,c+1)}, \quad \bs{P}^{yy} = \bs{P}^{(a,b+2,c+2)}\\
-\mathcal{D}_{xy} &= \mathcal{D}_{x,(a,b+1,c+1)}^{(a+1,b+1,c+2)}\mathcal{D}_{y,(a,b,c)}^{(a,b+1,c+1)},\quad \bs{P}^{xy} = \bs{P}^{(a+1,b+1,c+2)},\quad
-\mathcal{D}_{yx} =
-\mathcal{D}_{y,(a+1,b,c+1)}^{(a+1,b+1,c+2)}\mathcal{D}_{x,(a,b,c)}^{(a+1,b,c+1)},\quad \bs{P}^{yx} = \bs{P}^{yx}
+\mathcal{D}_{xy} &= \mathcal{D}_{x,(a,b+1,c+1)}^{(a+1,b+1,c+2)}\mathcal{D}_{y,(a,b,c)}^{(a,b+1,c+1)},\quad \bs{P}^{xy} = \bs{P}^{(a+1,b+1,c+2)},\\
+\mathcal{D}_{yx} &=
+\mathcal{D}_{y,(a+1,b,c+1)}^{(a+1,b+1,c+2)}\mathcal{D}_{x,(a,b,c)}^{(a+1,b,c+1)},\quad \bs{P}^{yx} = \bs{P}^{xy}
 \end{align*}
 Now, reverting to the view of the objective as $\bs{F}:\bb{R}^{3N} \to \bb{R}^M$, we can write
-\begin{equation}
-	\begin{split}
-		&[\mathcal{D}(\bs{F})]|_{(\bs{X},\bs{Y},\bs{W})}
-		=\\&\begin{bmatrix} \mathcal{D}_x^T \bs{P}^x(\bs{X},\bs{Y})\odot\bs{W} & \mathcal{D}_y^T \bs{P}^y(\bs{X},\bs{Y})\odot \bs{W} & \bs{P}(\bs{X},\bs{Y})\end{bmatrix} \in \bb{R}^{M\times 3N}
-	\end{split}
-\end{equation}
-If we instead consider the equivalent problem of finding zeros of the objective norm $\bs{f}: \bb{R}^{3N} \to \bb{R}$, $\bs{f}(\bs{X},\bs{Y},\bs{W})= ||\bs{F}||_2^2$, (solved by the iteration \eqref{eq:newtsys}), we must chain out derivatives to find the mapping $\mathcal{D}(\bs{f}):\bb{R}^{3N} \to L(\bb{R}^{3N},\bb{R})$ at a point $(\bs{X},\bs{Y},\bs{W})$ is given by
+\begin{align}
+[\mathcal{D}(\bs{F})]|_{(\bs{X},\bs{Y},\bs{W})} =\begin{bmatrix} \mathcal{D}_x^T \bs{P}^x(\bs{X},\bs{Y})\odot\bs{W} & \mathcal{D}_y^T \bs{P}^y(\bs{X},\bs{Y})\odot \bs{W} & \bs{P}(\bs{X},\bs{Y})\end{bmatrix} \in \bb{R}^{M\times 3N},
+\end{align}
+and we can use this formula in the Gauss-Newton update \eqref{eq:gauss-newt}. If we instead consider the equivalent problem of finding zeros of the objective norm $\bs{f}: \bb{R}^{3N} \to \bb{R}$, $\bs{f}(\bs{X},\bs{Y},\bs{W})= ||\bs{F}||_2^2$, (solved by the iteration \eqref{eq:newtsys}), we must chain out derivatives to find the mapping $\mathcal{D}(\bs{f}):\bb{R}^{3N} \to L(\bb{R}^{3N},\bb{R})$ at a point $(\bs{X},\bs{Y},\bs{W})$ is given by
 \begin{equation}
 	[\mathcal{D}(\bs{f})]|_{(\bs{X},\bs{Y},\bs{W})} = 2\bs{F}(\bs{X},\bs{Y},\bs{W})^T[\mathcal{D}(\bs{F})]|_{(\bs{X},\bs{Y},\bs{W})} \in \bb{R}^{1\times 3N},
 \end{equation}
@@ -531,9 +533,56 @@ In this case, the Hessian matrix of $\bs{f}$ is a mapping $\mathcal{D}^2(\bs{f})
 		 & \in \bb{R}^{3N\times 3N}
 	\end{split}
 \end{equation}
-The vector Hessian of $\bs{F}$ appears in \eqref{eq:hessf}, and we can make sense of its tensor structure by reviewing the mixed partial formulae given at the beginning of this section.
+The vector Hessian of $\bs{F}$ appears in \eqref{eq:hessf}, and we can make sense of its tensor structure by reviewing the mixed partial formulae given at the beginning of this section. In particular, 
+we have
+\begin{align}
+\partial_{\bs{X}\bs{X}}(\bs{F}_j(\bs{X},\bs{Y},\bs{W})) &=
+I_{N\times N} \odot \Bigg(\bs{1}_N^T \otimes \Big(\bs{W}\odot  \bs{P}^{xx}(\bs{X},\bs{Y})^T \mathcal{D}_{xx}\bs{e}_j\Big)\Bigg),\\
+\partial_{\bs{Y}\bs{X}}(\bs{F}_j(\bs{X},\bs{Y},\bs{W})) &=
+I_{N\times N} \odot \Bigg(\bs{1}_N^T \otimes \Big(\bs{W}\odot  \bs{P}^{yx}(\bs{X},\bs{Y})^T \mathcal{D}_{yx}\bs{e}_j\Big)\Bigg),\\
+\partial_{\bs{W}\bs{X}}(\bs{F}_j(\bs{X},\bs{Y},\bs{W})) &=
+I_{N\times N} \odot \Bigg(\bs{1}_N^T \otimes \Big( \bs{P}^{x}(\bs{X},\bs{Y})^T \mathcal{D}_{x}\bs{e}_j\Big)\Bigg),\\
+\partial_{\bs{X}\bs{Y}}(\bs{F}_j(\bs{X},\bs{Y},\bs{W})) &=
+I_{N\times N} \odot \Bigg(\bs{1}_N^T \otimes \Big(\bs{W}\odot  \bs{P}^{xy}(\bs{X},\bs{Y})^T \mathcal{D}_{xy}\bs{e}_j\Big)\Bigg),\\
+\partial_{\bs{Y}\bs{Y}}(\bs{F}_j(\bs{X},\bs{Y},\bs{W})) &=
+I_{N\times N} \odot \Bigg(\bs{1}_N^T \otimes \Big(\bs{W}\odot  \bs{P}^{yy}(\bs{X},\bs{Y})^T \mathcal{D}_{yy}\bs{e}_j\Big)\Bigg),\\
+\partial_{\bs{W}\bs{Y}}(\bs{F}_j(\bs{X},\bs{Y},\bs{W})) &=
+I_{N\times N} \odot \Bigg(\bs{1}_N^T \otimes \Big( \bs{P}^{y}(\bs{X},\bs{Y})^T \mathcal{D}_{y}\bs{e}_j\Big)\Bigg),\\
+\partial_{\bs{X}\bs{W}}(\bs{F}_j(\bs{X},\bs{Y},\bs{W})) &=
+I_{N\times N} \odot \Bigg(\bs{1}_N^T \otimes \Big( \bs{P}^{x}(\bs{X},\bs{Y})^T \mathcal{D}_{x}\bs{e}_j\Big)\Bigg),\\
+\partial_{\bs{Y}\bs{W}}(\bs{F}_j(\bs{X},\bs{Y},\bs{W})) &=
+I_{N\times N} \odot \Bigg(\bs{1}_N^T \otimes \Big( \bs{P}^{y}(\bs{X},\bs{Y})^T \mathcal{D}_{y}\bs{e}_j\Big)\Bigg),\\
+\partial_{\bs{W}\bs{W}}(\bs{F}_j(\bs{X},\bs{Y},\bs{W})) &=
+0_{N\times N},
+\end{align}
+where $\cdot \otimes \cdot$ symbolizes the Kronecker product, and $\cdot \odot \cdot $ is component-wise multiplication along the columns of the argument to the right\footnote{Viewing $\bs{W}$ as a column of size $N$, we compute the component-wise product with columns of the matrix on the right. It would be more correct to define a function $\texttt{repmat}(W,k)$, which takes a vector $W \in \bb{R}^N$ and repeats it $k$ times, producing a matrix in $\bb{R}^{N\times k}$ with each of the $k$ columns a copy of $W$, but for $N\neq M$, the ambiguity in matching sizes of the arguments to $\odot$ is eliminated.}.
+We verify the correctness of our formulae for the first and second derivatives of our vector and scalar objectives by comparing with second-order finite difference approximations. In particular, we show in Figure \ref{fig:derivCheck} the relative error in the 2-norm error between the analytical evaluation and the finite difference approximation. Since the difference scheme is second order, we expect the error to behave like $\mathcal{O}(h^2)$, where $h$ is the stencil width. That is, we should observe that $$\log(||\mathcal{D}(\bs{F}) - \hat{\mathcal{D}}(\bs{F})||) \approx 2\log(h) + \beta,$$ where $\beta$ is the order constant, and $\hat{\mathcal{D}(F)}$ is the finite difference approximation. The same relationship holds for $\mathcal{D}^2(F)$ and other derivatives as well. On a $\log-\log$ scale, this means the slope of the error lines should be around 2. Indeed, we do observe this relationship in the regime of asymptotic convergence, before round-off error dominates truncation error for the finite difference scheme.
 
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=1\linewidth]{./derivCheck}
+	\caption{Relative error in the 2-norm (Frobenius for matrix valued derivatives) of the analytical derivative formulae when compared to second order finite difference approximations. We see that our formulae must be correct, if our finite difference implementation is correct (which is an initial assumption). The kink in the error curves after which the error increases is typical of a finite difference scheme, and occurs at the ``usual" locaton for at least twice differentiable functons, i.e. $h \approx 1e-6$. This corresponds to the point where numerical round-off error (due to IEEE floating point specification) dominates truncation error, and can be explicitly determined via error analysis by making reference to the Taylor error term in the difference scheme, with propagation of $\varepsilon_{\text{mach}}$} \label{fig:derivCheck}
+\end{figure}
 
+The plot also illustrates the utility of having available to us the analytical derivative formulae. In particular, we note that the solution variables to any of the proposed iterations involve nodes interior to $\Tau^2$, and the zero of the objective function is only some $\varepsilon$ perturbation away from the initial points obtained by \texttt{JEVD} or complex eigenvalue decomposition. If this $\varepsilon$ is smaller than 1e-6, which I've empirically observed is the case, finite difference schemes are not appropriate for approximating the vector Hessian or gradient of the objective.
+
+\begin{remark}
+	For this sort of simple ``reverse" verification test, we assume that we don't know if our analytical formulae are correct, and that a \emph{verified} finite difference implementation is available. Then, we are essentially re-verifying the finite difference implementation, which on success, implies correctness of the analytical formulae.
+\end{remark}
+At this point, we can parse out what we mean by applying the inverse of the vector Hessian of $\bs{F}:\bb{R}^{3N}\to \bb{R}^M$ to the vector gradient in \eqref{eq:newtsysvec}. We know that $$\mathcal{D}^2(\bs{F}(\bs{z})) \in \bb{R}^{M\times 3N\times 3N},\quad \mathcal{D}(\bs{F}(\bs{z})) \in\bb{R}^{M\times 3N}.$$ Then, we take the following natural interpretation\footnote{For a function $\bs{u}:\bb{R}^N \to \bb{R}^M$, we note the distinction between $\mathcal{D}(\bs{u}(\bs{z}))$ and $\nabla(\bs{u}(\bs{z}))$. The former is an element of $L(\bb{R}^N,\bb{R}^M)$, equivalently viewed as a set of $M$ elements of $L(\bb{R}^N,\bb{R})$, or $M$ row vectors in $\bb{R}^N$ (left argument of dot product). The latter evaluated at a point is as an element of $L(\bb{R}^M,\bb{R}^N)$, equivalently viewed as a set of $M$ elements of $L(\bb{R},\bb{R}^N)$, or $M$ column vectors in $\bb{R}^N$ (right argument of dot product). TLDR; $[\mathcal{D}(\bs u)]^T = \nabla(\bs{u})$}
+\begin{align*}
+[\mathcal{D}^2(\bs{F}(\bs{z}))]^{-1} &:= 
+\begin{bmatrix}
+	[\mathcal{D}^2(F_1(\bs{z}))]^{-1}& \cdots &[\mathcal{D}^2(F_M(\bs{z}))]^{-1}
+\end{bmatrix}\\
+\nabla(\bs{F}(\bs{z})) &:=
+\begin{bmatrix}
+	\mathcal{D}(F_j(\bs{z}))^T\\ 
+	\vdots \\
+	\mathcal{D}(F_j(\bs{z}))^T
+\end{bmatrix}\\
+\Rightarrow [\mathcal{D}^2(\bs{F}(\bs{z}))]^{-1}\mathcal{D}(\bs{F}(\bs{z})) &:= \sum_{j=1}^M \mathcal{D}^2(F_j(\bs{z}))^{-1}\nabla(F_j(\bs{z})) \in \bb{R}^{3N\times 1},\quad \text{(as required)}
+\end{align*}
 
 %\bibliographystyle{siamplain}
 %\bibliography{references}

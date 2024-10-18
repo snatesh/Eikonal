@@ -3,7 +3,7 @@ clear all; close all; clc;
 % jacobi poly params
 a = 0.5; b = 0.5; c = 0.5;
 % source and target poly total degree (+1)
-n = 25; m = 26; d = 2;
+n = 16; m = 20; d = 2;
 fname = strcat('triquadLeg_',num2str(n-1),'_',num2str(m-1),'.mat');
 % jacobi matrices
 [Jn1,Jn2,A1,A2,B1,B2,Hn] = jMatON_tri(n,a,b,c);
@@ -19,8 +19,8 @@ Yk = imag(X0); Xk = real(X0);
 Vm = jPoly_tri(Xk,Yk,Hm,m-1,a,b,c);
 Vm_pinv = pinv(Vm');
 Wk = Vm_pinv(:,1);
-%%
-usewolfe = true;
+%Hf = hessFobj(Xk,Yk,Wk,n,m,a,b,c);
+usewolfe = false;
 
 tol = 1e-14; rho = 0.9; gam = 1e-4; h = 1e-8;
 pk = tol+1; Zk = [Xk;Yk;Wk];
@@ -34,7 +34,7 @@ while pk>tol && iter < maxiter
   % step direction
   dZk = -hessFk\gradFk';
   % linesearch with wolfe conditions
-  alph = 1; 
+  alph = 0.001; 
   Zk1 = Zk+alph*dZk;
   Xk1 = Zk1(1:N); 
   Yk1 = Zk1(N+1:2*N); 
@@ -114,6 +114,59 @@ df = 2*Fobj(X,Y,W,n,m,a,b,c)'*gradFobj(X,Y,W,n,m,a,b,c);
 
 end
 
+function Hf = hessFobj(X,Y,W,n,m,a,b,c)
+
+H_abc = structure_factors_tri(m+1,a,b,c);
+H_a1bc1 = structure_factors_tri(m+1,a+1,b,c+1);
+H_ab1c1 = structure_factors_tri(m+1,a,b+1,c+1);
+H_a2bc2 = structure_factors_tri(m+1,a+2,b,c+2);
+H_ab2c2 = structure_factors_tri(m+1,a,b+2,c+2);
+H_a1b1c2 = structure_factors_tri(m+1,a+1,b+1,c+2);
+
+Dx = D1_tri(a,b,c,H_abc,H_a1bc1,0);
+Dy = D1_tri(a,b,c,H_abc,H_ab1c1,1);
+Dxx = D1_tri(a+1,b,c+1,H_a1bc1,H_a2bc2,0) * Dx;
+Dyy = D1_tri(a,b+1,c+1,H_ab1c1,H_ab2c2,1) * Dy;
+
+Dxy = D1_tri(a,b+1,c+1,H_ab1c1,H_a1b1c2,0) * Dy;
+Dyx = D1_tri(a+1,b,c+1,H_a1bc1,H_a1b1c2,1) * Dx;
+
+Px = jPoly_tri(X,Y,H_a1bc1,m-1,a+1,b,c+1);
+Py = jPoly_tri(X,Y,H_ab1c1,m-1,a,b+1,c+1);
+Pxx = jPoly_tri(X,Y,H_a2bc2,m-1,a+2,b,c+2);
+Pyy = jPoly_tri(X,Y,H_ab2c2,m-1,a,b+2,c+2);
+Pxy = jPoly_tri(X,Y,H_a1b1c2,m-1,a+1,b+1,c+2);
+
+N = n*(n+1)/2;
+M = m*(m+1)/2;
+Hf = zeros(M,3*N,3*N);
+
+dxxF = W.*(Pxx*Dxx);
+dyxF = W.*(Pxy*Dyx);
+dwxF = Px*Dx;
+dxyF = W.*(Pxy*Dxy);
+dyyF = W.*(Pyy*Dyy);
+dwyF = Py*Dy;
+dxwF = dwxF;
+dywF = dwyF;
+dwwFj = zeros(N,N); 
+for j = 1:M
+  dxxFj = diag(dxxF(:,j));
+  dyxFj = diag(dyxF(:,j));
+  dwxFj = diag(dwxF(:,j));
+  dxyFj = diag(dxyF(:,j));
+  dyyFj = diag(dyyF(:,j));
+  dwyFj = diag(dwyF(:,j));
+  dxwFj = diag(dxwF(:,j));
+  dywFj = diag(dywF(:,j));
+ 
+  Hf(j,:,:) = [ dxxFj dyxFj dwxFj;...
+                dxyFj dyyFj dwyFj;...
+                dxwFj dywFj dwwFj ];
+end
+
+end
+
 function Hf = hessFobjFD(X,Y,W,n,m,a,b,c,h)
 
 N = n*(n+1)/2;
@@ -145,7 +198,8 @@ M = m*(m+1)/2;
 Z = [X;Y;W];
 F = Fobj(X,Y,W,n,m,a,b,c);
 DF = gradFobj(X,Y,W,n,m,a,b,c);
-D2F = hessFobjFD(X,Y,W,n,m,a,b,c,h);
+%D2F = hessFobjFD(X,Y,W,n,m,a,b,c,h);
+D2F = hessFobj(X,Y,W,n,m,a,b,c);
 hf = zeros(3*N,3*N);
 for j = 1:M
   D2Fj = reshape(D2F(j,:,:),3*N,3*N);
