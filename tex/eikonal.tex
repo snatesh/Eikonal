@@ -577,9 +577,9 @@ At this point, we can parse out what we mean by applying the inverse of the vect
 \end{bmatrix}\\
 \nabla(\bs{F}(\bs{z})) &:=
 \begin{bmatrix}
-	\mathcal{D}(F_j(\bs{z}))^T\\ 
+	\mathcal{D}(F_1(\bs{z}))^T\\ 
 	\vdots \\
-	\mathcal{D}(F_j(\bs{z}))^T
+	\mathcal{D}(F_M(\bs{z}))^T
 \end{bmatrix}\\
 \Rightarrow [\mathcal{D}^2(\bs{F}(\bs{z}))]^{-1}\mathcal{D}(\bs{F}(\bs{z})) &:= \sum_{j=1}^M \mathcal{D}^2(F_j(\bs{z}))^{-1}\nabla(F_j(\bs{z})) \in \bb{R}^{3N\times 1},\quad \text{(as required)}
 \end{align*}
