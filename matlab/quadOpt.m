@@ -3,7 +3,7 @@ clear all; close all; clc;
 % jacobi poly params
 a = 0.5; b = 0.5; c = 0.5;
 % source and target poly total degree (+1)
-n = 16; m = 20; d = 2;
+n = 20; m = 22; d = 2;
 fname = strcat('triquadLeg_',num2str(n-1),'_',num2str(m-1),'.mat');
 % jacobi matrices
 [Jn1,Jn2,A1,A2,B1,B2,Hn] = jMatON_tri(n,a,b,c);
@@ -19,27 +19,36 @@ Yk = imag(X0); Xk = real(X0);
 Vm = jPoly_tri(Xk,Yk,Hm,m-1,a,b,c);
 Vm_pinv = pinv(Vm');
 Wk = Vm_pinv(:,1);
-%Hf = hessFobj(Xk,Yk,Wk,n,m,a,b,c);
 usewolfe = false;
+gradFk = gradFobj(Xk,Yk,Wk,n,m,a,b,c);
+hessfk = hessfobj(Xk,Yk,Wk,n,m,a,b,c);
 
+%%
 tol = 1e-14; rho = 0.9; gam = 1e-4; h = 1e-8;
 pk = tol+1; Zk = [Xk;Yk;Wk];
-iter = 0; maxiter = 1000;
-while pk>tol && iter < maxiter
+iter = 0; maxiter = 10000; go = true;
+while pk>tol && iter < maxiter && go
   iter = iter + 1;
-  Fk = fobj(Xk,Yk,Wk,n,m,a,b,c);
+  Fk = Fobj(Xk,Yk,Wk,n,m,a,b,c);
   % compute gradient
-  gradFk = gradfobj(Xk,Yk,Wk,n,m,a,b,c);
-  hessFk = hessfobj(Xk,Yk,Wk,n,m,a,b,c,h);
+  gradFk = gradFobj(Xk,Yk,Wk,n,m,a,b,c);
+  dZk = -gradFk\Fk;
+ % hessFk = hessFobj(Xk,Yk,Wk,n,m,a,b,c); 
   % step direction
-  dZk = -hessFk\gradFk';
+%  dZk = zeros(3*N,1);
+%   for j = 1:M
+%     hessFkj = reshape(hessFk(j,:,:),3*N,3*N)';
+%     issymmetric(hessFkj)
+%     gradFkj = gradFk(j,:)';
+%     dZk = dZk + hessFkj\gradFkj;
+%   end
   % linesearch with wolfe conditions
   alph = 0.001; 
   Zk1 = Zk+alph*dZk;
   Xk1 = Zk1(1:N); 
   Yk1 = Zk1(N+1:2*N); 
   Wk1 = Zk1(2*N+1:3*N);
-  Fk1 = fobj(Xk1,Yk1,Wk1,n,m,a,b,c);
+  Fk1 = Fobj(Xk1,Yk1,Wk1,n,m,a,b,c);
   pk1 = norm(Fk1); iter_i = 0; 
   if (usewolfe)
     while (pk1>norm(Fk+gam*alph*gradFk*dZk) && iter_i < maxiter && alph>eps)
@@ -48,12 +57,26 @@ while pk>tol && iter < maxiter
       Xk1 = Zk1(1:N);
       Yk1 = Zk1(N+1:2*N);
       Wk1 = Zk1(2*N+1:3*N);
-      Fk1 = fobj(Xk1,Yk1,Wk1,n,m,a,b,c);
+      Fk1 = Fobj(Xk1,Yk1,Wk1,n,m,a,b,c);
       pk1 = norm(Fk1);
       iter_i = iter_i+1;
       disp([pk1,alph])
     end
   end
+
+  for j = 1:N
+    if (Xk1(j) < 0 || Xk1(j) > 1 || ...
+        Yk1(j) < 0 || Yk1(j) > 1 || ...
+        Yk1(j) > 1-Xk1(j))
+      go = false; 
+      break;
+    end
+  end
+
+  if (norm(Zk-Zk1)/norm(Zk) < 1e-14)
+    break;
+  end
+  if (go)
   Xk = Xk1; 
   Yk = Yk1; 
   Wk = Wk1; 
@@ -61,7 +84,9 @@ while pk>tol && iter < maxiter
   Fk = Fk1; 
   pk = pk1;
   disp([pk,alph])
+  end
 end
+
 
 Vm = jPoly_tri(Xk,Yk,Hm,m-1,a,b,c);
 ftest = @(X,Y) sin(X.^2+Y.^2);%.*exp(cos(Y));
@@ -191,14 +216,13 @@ end
 
 end
 
-function hf = hessfobj(X,Y,W,n,m,a,b,c,h)
+function hf = hessfobj(X,Y,W,n,m,a,b,c)
  
 N = n*(n+1)/2;
 M = m*(m+1)/2;
 Z = [X;Y;W];
 F = Fobj(X,Y,W,n,m,a,b,c);
 DF = gradFobj(X,Y,W,n,m,a,b,c);
-%D2F = hessFobjFD(X,Y,W,n,m,a,b,c,h);
 D2F = hessFobj(X,Y,W,n,m,a,b,c);
 hf = zeros(3*N,3*N);
 for j = 1:M

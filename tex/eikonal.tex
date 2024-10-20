@@ -474,18 +474,73 @@ to find roots of \eqref{eq:newtobj}, where $\alpha \in (0,1)$. As we show in Sec
 \begin{equation}\label{eq:newtsysvec}
 	\bs{z}^{k+1} = \bs{z}^k - \alpha [\mathcal{D}^2(\bs{F}(\bs{z^k}))]^{-1}\nabla(\bs{F}(\bs{z}^k)).
 \end{equation}
-We also consider the Newton iteration for finding roots of $$||\bs{F}(\bs{z})||_2^2 := \bs{f}:\bb{R}^{3N}\to \bb{R}.$$ Namely,
+\color{red} This iteration does not work well, as the Hessian for each component of the objective is not well conditioned, i.e. near singular. Using the convex problem is a better approach. \color{blue} However, the Gauss-Newton iteration gives rapid convergence towards the solution, albeit with violation of the constraints. It might be wise to use Gauss-Newton to further initialize the guess for the solution, before passing it to iteration \eqref{eq:newtsys}. \color{black} We also consider the Newton iteration for the equivalent problem of finding roots of the convex function $f:\bb{R}^{(d+1)N}\to \bb{R}$ defined by
+\begin{equation}\label{eq:newtobjscalar}
+	f(\bs{z}) := ||\bs{F}(\bs{z})||_2^2,
+\end{equation}	
+with iteration
 \begin{equation}\label{eq:newtsys}
-	\bs{z}^{k+1} = \bs{z}^k - \alpha [\mathcal{D}^2(\bs{f}(\bs{z}^k))]^{-1}\nabla(\bs{f}(\bs{z}^k))
+	\bs{z}^{k+1} = \bs{z}^k - \alpha [\mathcal{D}^2(f(\bs{z}^k))]^{-1}\nabla(f(\bs{z}^k))
 \end{equation}
-The choice of initial point $\bs{z}^0 = (\bs{X}_1^0,\cdots,\bs{X}_d^0,\bs{W}_0)$ and control of the step length $\alpha_k$ are vital for its convergence. Moreover, we'd like to incorporate inequality constraints on $\bs{z}^k$ to enforce that quadrature nodes are interior to $\Tau^2$, and we want the weights to be positive with unit sum. By casting the problem of finding roots of \eqref{eq:newtobj}-\eqref{eq:newtsys} into a minimization problem followed by a relaxation of $\bs{F}$, we can use techniques from constrained convex optimization to find acceptable quadratures. The optimization problem we would like to solve is 
+The choice of initial point $\bs{z}^0 = (\bs{X}_1^0,\cdots,\bs{X}_d^0,\bs{W}_0)$ and control of the step length $\alpha_k$ are vital for its convergence. Moreover, we'd like to incorporate inequality constraints on $\bs{z}^k$ to enforce that quadrature nodes are interior to $\Tau^2$, and we want the weights to be positive with unit sum. By casting the problem of finding roots of \eqref{eq:newtobj}, \eqref{eq:newtobjscalar} into a minimization problem , we can use techniques from constrained optimization to find acceptable quadratures. The problem we would like to solve, stated in canonical form, is 
 \begin{equation}\label{eq:newtopt}
 	\begin{split}
-		&\min_{\bs{z} \in \bb{R}^{(d+1)N}}||\bs{F}(\bs{z})||_2^2 \quad\text{such that}\\ &G\bs{z} < g,\s \begin{bmatrix} \bs{0_{1\times dN}} & \bs{1_{1\times N}}\end{bmatrix}\bs{z} = 1, \quad\text{ where}\\ &G = \begin{bmatrix} -I & \times \quad  \cdots \quad &  \times \\ \times  &  \ddots & \times \\ \vdots & \ddots  & \vdots \\ \times & \space \cdots \quad \times  & -I \\  I & \space \cdots \quad I & \times \end{bmatrix} \in \bb{R}^{(d+2)N\times 3N},\quad
-		g = \begin{bmatrix} \bs{0_{dN\times 1}} \\ \bs{1_{2N\times 1}} \end{bmatrix} \in \bb{R}^{(d+3)M}.
+		\min_{\bs{z} \in \bb{R}^{(d+1)N}}& f(\bs{z}) \quad\text{such that} \\
+		h(\bs{z}) &= 0,\\
+		\bs{g}(\bs{z}) &\leq 0,
+%		\\ &G\bs{z} < g,\s \begin{bmatrix} \bs{0_{1\times dN}} & \bs{1_{1\times N}}\end{bmatrix}\bs{z} = 1, \quad\text{ where}\\ &G = \begin{bmatrix} -I & \times \quad  \cdots \quad &  \times \\ \times  &  \ddots & \times \\ \vdots & \ddots  & \vdots \\ \times & \space \cdots \quad \times  & -I \\  I & \space \cdots \quad I & \times \end{bmatrix} \in \bb{R}^{(d+2)N\times 3N},\quad
+%		g = \begin{bmatrix} \bs{0_{dN\times 1}} \\ \bs{1_{2N\times 1}} \end{bmatrix} \in \bb{R}^{(d+3)M}.
 	\end{split}
 \end{equation}
-The zero entries in the constraint matrix $G$ are denoted by $\times$, and $I$ is the $N\times N$ identity matrix. Specifically, each block row of $G$ corresponds, respectively, to the following inequality constraints: (i) $\bs{x}_1 > 0,\cdots,\bs{x}_d, \bs{w} > 0$, (ii) $\sum_{i=1}^d \bs{x}_i < 1$, and the equality constraint is $\sum_{i=1}^N w_i = 1$. \emph{If a local minimum $\bs{z}$ is found, it is not necessarily a zero of $\bs{F}(\bs{z})$. We have only satisfied the necessary KKT conditions. However, we may be closer to an actual root and will have maintained interior nodes and positive weights}. Hence, we can use this new estimate $\bs{z}$ as an initial point in a Newton iteration that will relax $\bs{F}(\bs{z})$ to zero quadratically. We can solve the quadratic program \eqref{eq:newtopt} with the sequential quadratic programming algorithm.
+where $h:\bb{R}^{(d+1)N}\to \bb{R}$ and $\bs{g}:\bb{R}^{(d+1)N} \to \bb{R}^{(d+2)N}$ are given by
+\begin{equation}
+	\begin{split}
+	h(\bs{z}) &= 
+	\begin{bmatrix}
+		\bs{0}_{1\times dN} & \bs{1}_{1\times N}
+		\end{bmatrix}\bs{z},\quad
+	\bs{g}(\bs{z}) = G\bs{z}-\begin{bmatrix} \bs{0_{dN\times 1}} \\ \bs{1_{2N\times 1}} \end{bmatrix},\\
+	G &= \begin{bmatrix}
+		-I_1 & \times & \cdots & \times \\
+	\times & \ddots & \vdots & \vdots \\
+	\vdots & \cdots & \ddots & \vdots \\
+	\times & \cdots & \cdots & -I_d \\
+		I_1  & \cdots & I_d & \times
+		\end{bmatrix} \in \bb{R}^{(d+2)N \times (d+1)N}.
+	\end{split}
+\end{equation}
+The zero entries in the constraint matrix $G$ are denoted by $\times$, and each $I_1,\cdots,I_d$ is an $N\times N$ identity matrix. Specifically, each block row of the constraint equation $\bs{g}(\bs{z})$ corresponds, respectively, to the following inequality constraints for  $j = 1 \cdots N$:\\
+\begin{itemize} 
+ \item[(i)] $X_{1j} \geq 0,\cdots,X_{dj} \geq 0, W_j \geq 0$, which restricts the solution to the positive $(d+1)$-orthant (including positive weights).
+ \item[(ii)] $|\bs{X}_j|_1 \leq 1$, which is the $L_1$-norm definition of the simplex.
+\end{itemize}
+\vspace{8pt}
+The single equality constraint is encoded in $h$, which when parsed out reads as\\
+\begin{itemize}
+\item[(iii)] $\sum_{j=1}^N W_j = 1$, enforcing unit weight sum.
+\end{itemize}
+\vspace{8pt}
+We can solve \eqref{eq:newtopt} by the augmented Lagrangian method, in which we transform the inequality constraints into equality constraints by introducing slack variables $\bs{s}$, and augment the objective function with Lagrange multipliers penalizing violation of the equality constraints. Ultimately, we find a solution which satisfies the Karush-Kuhn-Tucker (KKT) conditions of the augmented Lagrangian, and hope it corresponds sufficiently to roots of \eqref{eq:newtobj}, \eqref{eq:newtobjscalar}. For this purpose, we define the equality constrained problem
+\begin{equation}\label{eq:optauglag}
+	\begin{split}
+		\min_{\bs{z} \in \bb{R}^{(d+1)N}}& f(\bs{z}) \quad\text{such that} \\
+		\bs{h}(\bs{z},\bs{s}) &= 0,
+	\end{split}
+\end{equation}
+where the vector valued equality constraint function $\bs{h} : \bb{R}^{(d+1)N+(d+2)N}\to \bb{R}^{(d+2)N+1}$ with slack variable $\bs{s}\in \bb{R}^{(d+2)N}$ is given by
+\begin{equation}
+	\bs{h}(\bs{z},\bs{s}) = \begin{bmatrix}
+		h(\bs{z}) \\
+		\bs{g}(\bs{z}) + \bs{s}
+		\end{bmatrix}
+\end{equation}
+\\\\
+Let $L(\bs{z},\bs{\lambda})$ denote the augmented Lagrangian of \eqref{eq:newtopt}. With $\bs{\lambda}\in \bb{R}^{(d+1)N+1}$, $L$ is defined as
+\begin{equation}
+L(\bs{z},\bs{\lambda}) = f(\bs{z}) + \bs{\lambda}^T \bs{h}(\bs{z},\bs{s})
+\end{equation}
+
+ \emph{If a local minimum $\bs{z}$ is found, it is not necessarily a zero of $\bs{F}(\bs{z})$. We have only satisfied the necessary KKT conditions. However, we may be closer to an actual root and will have maintained interior nodes and positive weights}. Hence, we can use this new estimate $\bs{z}$ as an initial point in a Newton iteration that will relax $\bs{F}(\bs{z})$ to zero quadratically. 
 \\\\
 Ideally, we won't have to use a quadratic program for solving \eqref{eq:newtopt}, and Newton descent will be sufficient.
 \newpage
