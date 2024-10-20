@@ -20,8 +20,11 @@ Vm = jPoly_tri(Xk,Yk,Hm,m-1,a,b,c);
 Vm_pinv = pinv(Vm');
 Wk = Vm_pinv(:,1);
 usewolfe = false;
-gradFk = gradFobj(Xk,Yk,Wk,n,m,a,b,c);
-hessfk = hessfobj(Xk,Yk,Wk,n,m,a,b,c);
+%gradFk = gradFobj(Xk,Yk,Wk,n,m,a,b,c);
+%hessfk = hessfobj(Xk,Yk,Wk,n,m,a,b,c);
+T = delaunay(Xk,Yk);
+Fk = Fobj(Xk,Yk,Wk,n,m,a,b,c);
+trisurf(T,Xk,Yk,Fk(1:N))
 
 %%
 tol = 1e-14; rho = 0.9; gam = 1e-4; h = 1e-8;

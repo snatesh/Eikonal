@@ -486,20 +486,20 @@ The choice of initial point $\bs{z}^0 = (\bs{X}_1^0,\cdots,\bs{X}_d^0,\bs{W}_0)$
 \begin{equation}\label{eq:newtopt}
 	\begin{split}
 		\min_{\bs{z} \in \bb{R}^{(d+1)N}}& f(\bs{z}) \quad\text{such that} \\
-		h(\bs{z}) &= 0,\\
-		\bs{g}(\bs{z}) &\leq 0,
+		f_i(\bs{z}) &\preceq 0,\\
+		h_1(\bs{z}) &= A\bs{z} -1 = 0
 %		\\ &G\bs{z} < g,\s \begin{bmatrix} \bs{0_{1\times dN}} & \bs{1_{1\times N}}\end{bmatrix}\bs{z} = 1, \quad\text{ where}\\ &G = \begin{bmatrix} -I & \times \quad  \cdots \quad &  \times \\ \times  &  \ddots & \times \\ \vdots & \ddots  & \vdots \\ \times & \space \cdots \quad \times  & -I \\  I & \space \cdots \quad I & \times \end{bmatrix} \in \bb{R}^{(d+2)N\times 3N},\quad
 %		g = \begin{bmatrix} \bs{0_{dN\times 1}} \\ \bs{1_{2N\times 1}} \end{bmatrix} \in \bb{R}^{(d+3)M}.
 	\end{split}
 \end{equation}
-where $h:\bb{R}^{(d+1)N}\to \bb{R}$ and $\bs{g}:\bb{R}^{(d+1)N} \to \bb{R}^{(d+2)N}$ are given by
+where $A \in \bb{R}^{1\times (d+1)N}$ and $\bs{f}:\bb{R}^{(d+1)N} \to \bb{R}^{(d+2)N} := \begin{bmatrix} f_1(\bs{z}) \\ \cdots \\ f_{(d+2)N}(\bs{z})\end{bmatrix}$ are given by
 \begin{equation}
 	\begin{split}
-	h(\bs{z}) &= 
+	A &= 
 	\begin{bmatrix}
 		\bs{0}_{1\times dN} & \bs{1}_{1\times N}
-		\end{bmatrix}\bs{z},\quad
-	\bs{g}(\bs{z}) = G\bs{z}-\begin{bmatrix} \bs{0_{dN\times 1}} \\ \bs{1_{2N\times 1}} \end{bmatrix},\\
+		\end{bmatrix},\quad
+	\bs{f}(\bs{z}) = G\bs{z}-\begin{bmatrix} \bs{0_{dN\times 1}} \\ \bs{1_{2N\times 1}} \end{bmatrix},\\
 	G &= \begin{bmatrix}
 		-I_1 & \times & \cdots & \times \\
 	\times & \ddots & \vdots & \vdots \\
@@ -509,7 +509,7 @@ where $h:\bb{R}^{(d+1)N}\to \bb{R}$ and $\bs{g}:\bb{R}^{(d+1)N} \to \bb{R}^{(d+2
 		\end{bmatrix} \in \bb{R}^{(d+2)N \times (d+1)N}.
 	\end{split}
 \end{equation}
-The zero entries in the constraint matrix $G$ are denoted by $\times$, and each $I_1,\cdots,I_d$ is an $N\times N$ identity matrix. Specifically, each block row of the constraint equation $\bs{g}(\bs{z})$ corresponds, respectively, to the following inequality constraints for  $j = 1 \cdots N$:\\
+The zero entries in the constraint matrix $G$ are denoted by $\times$, and each $I_1,\cdots,I_d$ is an $N\times N$ identity matrix. Specifically, each block row of the constraint equation $\bs{f}(\bs{z})$ corresponds, respectively, to the following inequality constraints for  $j = 1 \cdots N$:\\
 \begin{itemize} 
  \item[(i)] $X_{1j} \geq 0,\cdots,X_{dj} \geq 0, W_j \geq 0$, which restricts the solution to the positive $(d+1)$-orthant (including positive weights).
  \item[(ii)] $|\bs{X}_j|_1 \leq 1$, which is the $L_1$-norm definition of the simplex.
@@ -520,29 +520,45 @@ The single equality constraint is encoded in $h$, which when parsed out reads as
 \item[(iii)] $\sum_{j=1}^N W_j = 1$, enforcing unit weight sum.
 \end{itemize}
 \vspace{8pt}
-We can solve \eqref{eq:newtopt} by the augmented Lagrangian method, in which we transform the inequality constraints into equality constraints by introducing slack variables $\bs{s}$, and augment the objective function with Lagrange multipliers penalizing violation of the equality constraints. Ultimately, we find a solution which satisfies the Karush-Kuhn-Tucker (KKT) conditions of the augmented Lagrangian, and hope it corresponds sufficiently to roots of \eqref{eq:newtobj}, \eqref{eq:newtobjscalar}. For this purpose, we define the equality constrained problem
-\begin{equation}\label{eq:optauglag}
+Let $L:\bb{R}^{(d+1)N}\times \bb{R}^{(d+2)N}\times \bb{R}\to \bb{R}$ denote the \emph{Lagrangian} of the \emph{primal objective} \eqref{eq:newtopt}. With $\bs{\lambda}\in \bb{R}^{(d+2)N}$, and $\nu\in \bb{R}$, it is given by 
+\begin{equation}\label{eq:objlag}
+L(\bs{z},\lambda,\nu) = f(\bs{z}) + \bs{\lambda}^T\bs{f} + \nu A\bs{z}.
+\end{equation}
+The \emph{Lagrange dual function} of \eqref{eq:objlag} is defined as the minimum value of the Lagrangian over $\bs{z}$: 
+\begin{equation}\label{eq:objlagdual}
+	g(\bs{\lambda},\nu) = \inf_{\bs{z}\in(\Tau^d \times \bb{R}^{N+}_{\star})}L(\bs{z},\bs{\lambda},\nu).
+\end{equation} 
+The dual function gives a lower bound on the optimal value $p^\star$ of the optimization problem \eqref{eq:newtopt}. It stands to reason that there may exist a ``best" lower bound, obtainable through solving the \emph{Lagrange dual problem}:
+\begin{equation}\label{eq:objlagdualopt}
+\begin{split}
+&\max_{\bs{\lambda}\in \bb{R}^{(d+2)N},\nu\in \bb{R}} g(\bs{\lambda},\nu)\\
+&\text{ subject to } \bs{\lambda} \succeq 0
+\end{split}
+\end{equation}
+The dual problem is a convex optimization problem, since the objective $g(\bs{\lambda},\nu)$ is the pointwise infimum of a family of affine functions of $(\bs{\lambda},\nu)$ (they are the sums of hyperplanes with normal $\bs{\lambda}$ and $\nu$). This holds regardless of the convexity of the original objective $f(\bs{z})$. Thus, there exists a notion of the \emph{duality gap}. If $p^\star$ is the optimal value of the primal problem \eqref{eq:newtopt}, and $d^\star$ is that of the dual problem, then the lower bound property of the dual problem implies, regardless of the convexity of the primal objective, that
+\begin{equation}\label{eq:dualgap}
+	d^\star \leq p^\star.
+\end{equation}
+The difference $p^\star-d^\star$ is referred to as the duality gap. If the duality gap is zero, then we say that \emph{strong duality} holds. That is, the bound obtained from the Lagrange dual function is tight, and solving the dual problem gives us a solution for the primal problem. The dual problem can be solved using the regular techniques of constrained convex optimization. \\\\
+If $\bs{z}^\star$ and $(\bs{\lambda}^\star, \nu^\star)$ are primal and dual optimal points, respectively, with zero duality gap, then $\bs{z}^\star$ minimizes $L(\bs{z},\bs{\lambda}^\star,\nu)$ over $\bs{z}$. Hence, the first order necessary optimality conditions must hold; namely, that the gradient of $L$ must vanish:
+\begin{equation}\label{eq:kktpre}
+	\nabla f(\bs{z}^\star) + \bs{\lambda}^T\nabla\bs{f}(\bs{z}^\star) + \nu A^T = 0.
+\end{equation}
+This leads to the following conditions characterizing the solution to any optimization problem for which strong duality holds, known as the Karush-Kuhn-Tucker (KKT) conditions, which we specify for \eqref{eq:newtopt}:
+\begin{equation}
 	\begin{split}
-		\min_{\bs{z} \in \bb{R}^{(d+1)N}}& f(\bs{z}) \quad\text{such that} \\
-		\bs{h}(\bs{z},\bs{s}) &= 0,
+		\bs{f}(\bs{z}^\star) &\preceq 0,\\
+		h_1(\bs{z}^\star) &= 0,\\
+		\bs{\lambda} &\succeq 0,\\
+		\bs{\lambda}^T \bs{f}(\bs{z}^\star) &= 0,\\
+		\nabla f(\bs{z}^\star) + \bs{\lambda}^T\nabla\bs{f}(\bs{z}^\star) + \nu A^T &= 0.
 	\end{split}
 \end{equation}
-where the vector valued equality constraint function $\bs{h} : \bb{R}^{(d+1)N+(d+2)N}\to \bb{R}^{(d+2)N+1}$ with slack variable $\bs{s}\in \bb{R}^{(d+2)N}$ is given by
-\begin{equation}
-	\bs{h}(\bs{z},\bs{s}) = \begin{bmatrix}
-		h(\bs{z}) \\
-		\bs{g}(\bs{z}) + \bs{s}
-		\end{bmatrix}
-\end{equation}
-\\\\
-Let $L(\bs{z},\bs{\lambda})$ denote the augmented Lagrangian of \eqref{eq:newtopt}. With $\bs{\lambda}\in \bb{R}^{(d+1)N+1}$, $L$ is defined as
-\begin{equation}
-L(\bs{z},\bs{\lambda}) = f(\bs{z}) + \bs{\lambda}^T \bs{h}(\bs{z},\bs{s})
-\end{equation}
 
- \emph{If a local minimum $\bs{z}$ is found, it is not necessarily a zero of $\bs{F}(\bs{z})$. We have only satisfied the necessary KKT conditions. However, we may be closer to an actual root and will have maintained interior nodes and positive weights}. Hence, we can use this new estimate $\bs{z}$ as an initial point in a Newton iteration that will relax $\bs{F}(\bs{z})$ to zero quadratically. 
-\\\\
-Ideally, we won't have to use a quadratic program for solving \eqref{eq:newtopt}, and Newton descent will be sufficient.
+\begin{remark}
+If an optimal primal dual pair is found, $\bs{z}^\star$ is not necessarily a zero of $\bs{F}(\bs{z})$. We have only satisfied the necessary KKT conditions. However, we may be closer to an actual root and will have maintained interior nodes and positive weights. We can use this new estimate $\bs{z}^\star$ as an initial point in a Newton iteration that will relax $\bs{F}(\bs{z})$ to zero quadratically. 
+\end{remark}
+
 \newpage
 \subsubsection{Derivatives of the objective functions}\label{sec:objderivs}
 We can use the machinery developed in Section \ref{sec:jacobibasis} to compute derivatives of \eqref{eq:newtobj}. Given that these tools are only at our disposal for $d \leq 2$, we proceed for now with $d=2$ and $\bs{x} \in \Tau^2$. We view each component of the objective as a function $F_j : \bb{R}^{3N} \to \bb{R}$, and note that $\bs{P}$ is defined in the $(a,b,c)$ Jacobi basis. Applying the derivative operators defined in \eqref{eq:jactrideriv}, we have at a point $(\bs{X},\bs{Y},\bs{W})$, 
@@ -575,15 +591,15 @@ Now, reverting to the view of the objective as $\bs{F}:\bb{R}^{3N} \to \bb{R}^M$
 \begin{align}
 [\mathcal{D}(\bs{F})]|_{(\bs{X},\bs{Y},\bs{W})} =\begin{bmatrix} \mathcal{D}_x^T \bs{P}^x(\bs{X},\bs{Y})\odot\bs{W} & \mathcal{D}_y^T \bs{P}^y(\bs{X},\bs{Y})\odot \bs{W} & \bs{P}(\bs{X},\bs{Y})\end{bmatrix} \in \bb{R}^{M\times 3N},
 \end{align}
-and we can use this formula in the Gauss-Newton update \eqref{eq:gauss-newt}. If we instead consider the equivalent problem of finding zeros of the objective norm $\bs{f}: \bb{R}^{3N} \to \bb{R}$, $\bs{f}(\bs{X},\bs{Y},\bs{W})= ||\bs{F}||_2^2$, (solved by the iteration \eqref{eq:newtsys}), we must chain out derivatives to find the mapping $\mathcal{D}(\bs{f}):\bb{R}^{3N} \to L(\bb{R}^{3N},\bb{R})$ at a point $(\bs{X},\bs{Y},\bs{W})$ is given by
+and we can use this formula in the Gauss-Newton update \eqref{eq:gauss-newt}. If we instead consider the equivalent problem of finding zeros of the objective norm $f: \bb{R}^{3N} \to \bb{R}$, $\bs{f}(\bs{X},\bs{Y},\bs{W})= ||\bs{F}||_2^2$, (solved by the iteration \eqref{eq:newtsys}), we must chain out derivatives to find the mapping $\mathcal{D}(\bs{f}):\bb{R}^{3N} \to L(\bb{R}^{3N},\bb{R})$ at a point $(\bs{X},\bs{Y},\bs{W})$ is given by
 \begin{equation}
-	[\mathcal{D}(\bs{f})]|_{(\bs{X},\bs{Y},\bs{W})} = 2\bs{F}(\bs{X},\bs{Y},\bs{W})^T[\mathcal{D}(\bs{F})]|_{(\bs{X},\bs{Y},\bs{W})} \in \bb{R}^{1\times 3N},
+	[\mathcal{D}(f)]|_{(\bs{X},\bs{Y},\bs{W})} = 2\bs{F}(\bs{X},\bs{Y},\bs{W})^T[\mathcal{D}(\bs{F})]|_{(\bs{X},\bs{Y},\bs{W})} \in \bb{R}^{1\times 3N},
 \end{equation}
 where $L(U,V)$ is the space of linear mappings between finite dimensional vector spaces $U,V$.
 In this case, the Hessian matrix of $\bs{f}$ is a mapping $\mathcal{D}^2(\bs{f}):\bb{R}^{3N} \to L(\bb{R}^{3N},\bb{R}^{3N})$ given at a point $(\bs{X},\bs{Y},\bs{W})$ by
 \begin{equation}\label{eq:hessf}
 	\begin{split}
-		 [\mathcal{D}^2(\bs{f})]|_{(\bs{X},\bs{Y},\bs{W})} &=
+		 [\mathcal{D}^2(f)]|_{(\bs{X},\bs{Y},\bs{W})} &=
 		 2\sum_{j=1}^M F_j(\bs{X},\bs{Y},\bs{W})[\mathcal{D}^2(F_j)]|_{(\bs{X},\bs{Y},\bs{W})} \\ &+ 2\Big([\mathcal{D}(\bs{F})]|_{(\bs{X},\bs{Y},\bs{W})}\Big)^T [\mathcal{D}(\bs{F})]|_{(\bs{X},\bs{Y},\bs{W})} \\
 		 & \in \bb{R}^{3N\times 3N}
 	\end{split}
@@ -610,7 +626,7 @@ I_{N\times N} \odot \Bigg(\bs{1}_N^T \otimes \Big( \bs{P}^{y}(\bs{X},\bs{Y})^T \
 \partial_{\bs{W}\bs{W}}(\bs{F}_j(\bs{X},\bs{Y},\bs{W})) &=
 0_{N\times N},
 \end{align}
-where $\cdot \otimes \cdot$ symbolizes the Kronecker product, and $\cdot \odot \cdot $ is component-wise multiplication along the columns of the argument to the right\footnote{Viewing $\bs{W}$ as a column of size $N$, we compute the component-wise product with columns of the matrix on the right. It would be more correct to define a function $\texttt{repmat}(W,k)$, which takes a vector $W \in \bb{R}^N$ and repeats it $k$ times, producing a matrix in $\bb{R}^{N\times k}$ with each of the $k$ columns a copy of $W$, but for $N\neq M$, the ambiguity in matching sizes of the arguments to $\odot$ is eliminated.}.
+where $\cdot \otimes \cdot$ symbolizes the Kronecker product, and $\cdot \odot \cdot $ is component-wise multiplication along the columns of the argument to the right\footnote{Viewing $\bs{W}$ as a column of size $N$, we compute the component-wise product with columns of the matrix on the right. It would be more correct to define a function $\texttt{repmat}(W,k)$, which takes a vector $W \in \bb{R}^N$ and repeats it $k$ times, producing a matrix in $\bb{R}^{N\times k}$ with each of the $k$ columns a copy of $W$. However, for $N\neq M$, the ambiguity in matching sizes of the arguments to $\odot$ is eliminated.}.
 We verify the correctness of our formulae for the first and second derivatives of our vector and scalar objectives by comparing with second-order finite difference approximations. In particular, we show in Figure \ref{fig:derivCheck} the relative error in the 2-norm error between the analytical evaluation and the finite difference approximation. Since the difference scheme is second order, we expect the error to behave like $\mathcal{O}(h^2)$, where $h$ is the stencil width. That is, we should observe that $$\log(||\mathcal{D}(\bs{F}) - \hat{\mathcal{D}}(\bs{F})||) \approx 2\log(h) + \beta,$$ where $\beta$ is the order constant, and $\hat{\mathcal{D}(F)}$ is the finite difference approximation. The same relationship holds for $\mathcal{D}^2(F)$ and other derivatives as well. On a $\log-\log$ scale, this means the slope of the error lines should be around 2. Indeed, we do observe this relationship in the regime of asymptotic convergence, before round-off error dominates truncation error for the finite difference scheme.
 
 \begin{figure}[H]
@@ -619,10 +635,10 @@ We verify the correctness of our formulae for the first and second derivatives o
 	\caption{Relative error in the 2-norm (Frobenius for matrix valued derivatives) of the analytical derivative formulae when compared to second order finite difference approximations. We see that our formulae must be correct, if our finite difference implementation is correct (which is an initial assumption). The kink in the error curves after which the error increases is typical of a finite difference scheme, and occurs at the ``usual" locaton for at least twice differentiable functons, i.e. $h \approx 1e-6$. This corresponds to the point where numerical round-off error (due to IEEE floating point specification) dominates truncation error, and can be explicitly determined via error analysis by making reference to the Taylor error term in the difference scheme, with propagation of $\varepsilon_{\text{mach}}$} \label{fig:derivCheck}
 \end{figure}
 
-The plot also illustrates the utility of having available to us the analytical derivative formulae. In particular, we note that the solution variables to any of the proposed iterations involve nodes interior to $\Tau^2$, and the zero of the objective function is only some $\varepsilon$ perturbation away from the initial points obtained by \texttt{JEVD} or complex eigenvalue decomposition. If this $\varepsilon$ is smaller than 1e-6, which I've empirically observed is the case, finite difference schemes are not appropriate for approximating the vector Hessian or gradient of the objective.
+The plot also illustrates the utility of having available to us the analytical derivative formulae. In particular, we note that the solution variables to any of the proposed iterations involve nodes interior to $\Tau^2$, and the zero of the objective function is only some $\varepsilon$ perturbation away from the initial points obtained by \texttt{JEVD} or complex eigenvalue decomposition. If this $\varepsilon$ is smaller than 1e-6 for any component of the solution, which I've empirically observed is the case, finite difference schemes are not appropriate for approximating the vector Hessian or gradient of the objective.
 
 \begin{remark}
-	For this sort of simple ``reverse" verification test, we assume that we don't know if our analytical formulae are correct, and that a \emph{verified} finite difference implementation is available. Then, we are essentially re-verifying the finite difference implementation, which on success, implies correctness of the analytical formulae.
+	For this sort of simple ``reverse" verification test, we assume that we don't know if our analytical formulae are correct, and that a \emph{verified} finite difference implementation is available. Then, we are essentially re-verifying the finite difference implementation, which on success, certifies correctness of the analytical formulae.
 \end{remark}
 At this point, we can parse out what we mean by applying the inverse of the vector Hessian of $\bs{F}:\bb{R}^{3N}\to \bb{R}^M$ to the vector gradient in \eqref{eq:newtsysvec}. We know that $$\mathcal{D}^2(\bs{F}(\bs{z})) \in \bb{R}^{M\times 3N\times 3N},\quad \mathcal{D}(\bs{F}(\bs{z})) \in\bb{R}^{M\times 3N}.$$ Then, we take the following natural interpretation\footnote{For a function $\bs{u}:\bb{R}^N \to \bb{R}^M$, we note the distinction between $\mathcal{D}(\bs{u}(\bs{z}))$ and $\nabla(\bs{u}(\bs{z}))$. The former is an element of $L(\bb{R}^N,\bb{R}^M)$, equivalently viewed as a set of $M$ elements of $L(\bb{R}^N,\bb{R})$, or $M$ row vectors in $\bb{R}^N$ (left argument of dot product). The latter evaluated at a point is as an element of $L(\bb{R}^M,\bb{R}^N)$, equivalently viewed as a set of $M$ elements of $L(\bb{R},\bb{R}^N)$, or $M$ column vectors in $\bb{R}^N$ (right argument of dot product). TLDR; $[\mathcal{D}(\bs u)]^T = \nabla(\bs{u})$}
 \begin{align*}
