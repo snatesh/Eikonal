@@ -595,7 +595,8 @@ This motivates the partitioning of the optimization problem itself. We treat the
 	h_1(\bs{X}_1^0,\cdots,\bs{X}_d^0,\bs{W}) &= A\begin{bmatrix}\bs{X}_1^0\\ \vdots \\ \bs{X}_d^0 \\ \bs{W} \end{bmatrix} -1 = 0
 \end{split}
 \end{equation}
-This problem can be solved with an infeasible start Newton method, and reduces the problem size by a factor of $1/(d+1)$. Then, we can solve the original problem, minimizing over both partitions of $\bs{z}^0$, using a log barrier method, and with the partition corresponding to $\bs{W}$ replaced initially with the solution from the partitioned problem.
+This problem can be reformulated into an equality constrained problem (with the log barrier penalizing inequality constraints), and solved with an infeasible start Newton method. This reduces the problem size by a factor of $1/(d+1)$. Then, we can solve the original problem by minimizing over both partitions of $\bs{z}^0$ using a single phase log barrier method (as we will have a strictly feasible point). The partition corresponding to $\bs{W}$ is replaced initially with the solution from the partitioned problem. \color{blue} It might be the case that we don't have to solve another optimization problem after phase I! We won't know until we try. \color{black}
+
 \subsubsection{Derivatives of the objective functions}\label{sec:objderivs}
 We can use the machinery developed in Section \ref{sec:jacobibasis} to compute derivatives of \eqref{eq:newtobj}. Given that these tools are only at our disposal for $d \leq 2$, we proceed for now with $d=2$ and $\bs{x} \in \Tau^2$. We view each component of the objective as a function $F_j : \bb{R}^{3N} \to \bb{R}$, and note that $\bs{P}$ is defined in the $(a,b,c)$ Jacobi basis. Applying the derivative operators defined in \eqref{eq:jactrideriv}, we have at a point $(\bs{X},\bs{Y},\bs{W})$, 
 \begin{align*}
