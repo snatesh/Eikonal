@@ -4,6 +4,8 @@
 %\documentclass[review,hidelinks,onefignum,onetabnum]{siamart220329}
 \usepackage{algpseudocode}
 \usepackage{algorithm}
+\usepackage{mathrsfs}  
+
 \newcommand{\bs}{\boldsymbol}
 \newcommand{\eps}{\varepsilon}
 \newcommand{\s}{\;}
@@ -404,7 +406,16 @@ $\Delta_W$, the weighted Laplace operator, is then given by
 The cross partial terms are needed only when we include affine transformations from general triangles to the standard reference triangle, as they appear when chaining out derivatives of the parametrization.
 \newpage
 \section{Quadrature generation for Jacobi polynomials on the Simplex}
-Here, we detail the procedure for generating quadrature rules on the simplex. Suppose that $\bs{P}(\bs{x}) \in \bb{R}^N$, with $$N = \text{dim}(\Pi_{n-1}^d)= {n-1+d\choose n-1},$$ as in \eqref{eq:polyvec} (in which we had $d=2$), and $\bs{x} \in \bb{R}^d$. The orthonormal 3-term relation for Jacobi polynomials on the simplex is given by 
+Here, we detail the procedure for generating quadrature rules on the simplex. That is, given $f:\Tau^d \to \bb{R}$, we seek a set of $N$ (d+1)-tuples $(\bs{X_1},\cdots,\bs{X_d},\bs{W})$ such that 
+\begin{equation}\label{eq:quaddef}
+	\begin{split}
+	&\int_{\Tau^d}f(x_1,\cdots,x_d)w^{(\bs{a})}(x_1,\cdots,x_d)dx_1\cdots dx_d\\
+	&\approx \sum_{j=1}^N f(x_{j1},\cdots,x_{jd})w_j,
+	\end{split}
+\end{equation}
+where $w^{(\bs{a})}(x_1,\cdots,x_d)$ is the normalized Jacobi weight function on $\Tau^d$, and the approximation is exact for $M>N$ polynomials
+\\\\
+Suppose that $\bs{P}(\bs{x}) \in \bb{R}^N$, with $$N = \text{dim}(\Pi_{n-1}^d)= {n-1+d\choose n-1},$$ as in \eqref{eq:polyvec} (in which we had $d=2$), and $\bs{x} \in \bb{R}^d$. The orthonormal 3-term relation for Jacobi polynomials on the simplex is given by 
 \begin{align}
 	x_i\bb{P}_n &= A_{n,i}\bb{P}_{n+1} + B_{n,i}\bb{P}_n + A_{n-1,i}^T\bb{P}_{n-1},\s i = 1,\cdots d\label{eq:recurD}\\
 	A_{n,i} &= \langle x_i \bb{P}_n,\bb{P}_{n+1}^T\rangle \in \bb{R}^{r_n^d\times r_{n+1}^d},\label{eq:recurD1}\\
@@ -454,7 +465,7 @@ is equivalent to minimizing the off-diagonal entries of $F^k$ by orthogonal simi
 	\min_{\substack{\text{$U,F^1,\cdots F^d$},\\ \text{$U^TU=UU^T=I$}}} \sum_{k=1}^d \big|\big|C^k-U^TF^k U\big|\big|_F^2
 \end{equation}
 is finding the best representation of $C^k$ in the basis of $U$ - a subspace fitting approach. For both problems, we require orthogonality of $U$, as we want it to represent the ``average eigenstructure" of $C^k$. For the Jacobi matrices $J_{n,i}$, this requirement is natural. We want a decomposition close to the optimal quadrature case of exact joint diagonlization. For this purpose, we use the algorithm specified in ``Jacobi Angles for Simultaneous Diagonalization". The joint-eigenvalues provide us with an initial guess to a subsequent optimization problem.
-\subsection{Strategy for finding optimal quadrature on the Simplex}
+\subsection{Quadrature via roots}
 We want to integrate the $M$ polynomials up to total degree $m-1$ exactly with $m \geq n$ using only $N$ nodes and weights. That is, with $M=\dim(\Pi_{m-1}^d) = {m-1+d\choose m-1}$, the integrals for which we want an exact quadrature are
 \begin{equation}\label{eq:exactint}
 	\begin{split}
@@ -464,9 +475,12 @@ We want to integrate the $M$ polynomials up to total degree $m-1$ exactly with $
 \end{equation}
 where we use mutual orthonormality under $w_{a,b,c}W(x,y)$ \eqref{eq:koornorth} to evaluate them and arrive at the $\delta_{j0}$ term. If $\bs{X}_1,\dots,\bs{X}_d,\bs{W} \in \bb{R}^N$ are the nodes and weights, $\bs{\mathcal{I}} \in \bb{R}^M$ the above integrals, and $\bs{P}(\bs{x})\in \bb{R}^M$ (with $\bs{x} \in \bb{R}^d$) our $M$ polynomials, the objective function we aim to find a zero of is $\bs{F}:\bb{R}^{(d+1)N}\to\bb{R}^M$ given by
 \begin{equation}\label{eq:newtobj}
-	\bs{F}(\bs{X}_1,\cdots,\bs{X}_d,\bs{W}) = \bs{P}(\bs{X})\bs{W}-\bs{\mathcal{I}},\quad  \bs{\mathcal{I}}\in\bb{R}^M,\s\bs{P}(\bs{X}) \in \bb{R}^{M\times N}
+	\bs{F}(\bs{X}_1,\cdots,\bs{X}_d,\bs{W}) = \bs{P}(\bs{X})\bs{W}-\bs{\mathcal{I}},\quad  \bs{\mathcal{I}} = \begin{bmatrix} 1 \\ 0 \\ \vdots \\ 0\end{bmatrix} \in\bb{R}^M,\s\bs{P}(\bs{X}) \in \bb{R}^{M\times N}
 \end{equation}
-Letting $$\bs{z} = (\bs{X}_1,\cdots,\bs{X}_d,\bs{W}) \in \bb{R}^{(d+1)N},$$ we can use the Gauss-Newton iteration (where $A^+$ is the Moore-Penrose pseudoinverse)
+Letting 
+\begin{equation}\label{eq:zpart}
+\bs{z} = (\bs{X}_1,\cdots,\bs{X}_d,\bs{W}) \in \bb{R}^{(d+1)N},
+\end{equation} we can use the Gauss-Newton iteration (where $A^+$ is the Moore-Penrose pseudoinverse)
 \begin{equation}\label{eq:gauss-newt}
 	\bs{z}^{k+1} = \bs{z}^k - \alpha_k[\nabla( \bs{F}(\bs{z}^k))]^+\bs{F}(\bs{z}^k),
 \end{equation}
@@ -482,17 +496,20 @@ with iteration
 \begin{equation}\label{eq:newtsys}
 	\bs{z}^{k+1} = \bs{z}^k - \alpha [\mathcal{D}^2(f(\bs{z}^k))]^{-1}\nabla(f(\bs{z}^k))
 \end{equation}
-The choice of initial point $\bs{z}^0 = (\bs{X}_1^0,\cdots,\bs{X}_d^0,\bs{W}_0)$ and control of the step length $\alpha_k$ are vital for its convergence. Moreover, we'd like to incorporate inequality constraints on $\bs{z}^k$ to enforce that quadrature nodes are interior to $\Tau^2$, and we want the weights to be positive with unit sum. By casting the problem of finding roots of \eqref{eq:newtobj}, \eqref{eq:newtobjscalar} into a minimization problem , we can use techniques from constrained optimization to find acceptable quadratures. The problem we would like to solve, stated in canonical form, is 
+The choice of initial point $\bs{z}^0 = (\bs{X}_1^0,\cdots,\bs{X}_d^0,\bs{W}_0)$ and control of the step length $\alpha_k$ are vital for its convergence. Moreover, we'd like to incorporate inequality constraints on $\bs{z}^k$ to enforce that quadrature nodes are interior to $\Tau^2$, and we want the weights to be positive with unit sum. By casting the problem of finding roots of \eqref{eq:newtobj}, \eqref{eq:newtobjscalar} into a minimization problem , we can use techniques from constrained optimization to find acceptable quadratures.
+
+\subsubsection{Roots via minimization}
+The optimization problem we would like to solve, stated in canonical form, is 
 \begin{equation}\label{eq:newtopt}
 	\begin{split}
 		\min_{\bs{z} \in \bb{R}^{(d+1)N}}& f(\bs{z}) \quad\text{such that} \\
-		f_i(\bs{z}) &\preceq 0,\\
+		f_i(\bs{z}) &\leq 0,\quad i = 1,\cdots (d+2)N\\
 		h_1(\bs{z}) &= A\bs{z} -1 = 0
 %		\\ &G\bs{z} < g,\s \begin{bmatrix} \bs{0_{1\times dN}} & \bs{1_{1\times N}}\end{bmatrix}\bs{z} = 1, \quad\text{ where}\\ &G = \begin{bmatrix} -I & \times \quad  \cdots \quad &  \times \\ \times  &  \ddots & \times \\ \vdots & \ddots  & \vdots \\ \times & \space \cdots \quad \times  & -I \\  I & \space \cdots \quad I & \times \end{bmatrix} \in \bb{R}^{(d+2)N\times 3N},\quad
 %		g = \begin{bmatrix} \bs{0_{dN\times 1}} \\ \bs{1_{2N\times 1}} \end{bmatrix} \in \bb{R}^{(d+3)M}.
 	\end{split}
 \end{equation}
-where $A \in \bb{R}^{1\times (d+1)N}$ and $\bs{f}:\bb{R}^{(d+1)N} \to \bb{R}^{(d+2)N} := \begin{bmatrix} f_1(\bs{z}) \\ \cdots \\ f_{(d+2)N}(\bs{z})\end{bmatrix}$ are given by
+where $A \in \bb{R}^{1\times (d+1)N}$, $\bs{f}:\bb{R}^{(d+1)N} \to \bb{R}^{(d+2)N} := \begin{bmatrix} f_1(\bs{z}) \\ \cdots \\ f_{(d+2)N}(\bs{z})\end{bmatrix}$ are given by
 \begin{equation}
 	\begin{split}
 	A &= 
@@ -504,12 +521,12 @@ where $A \in \bb{R}^{1\times (d+1)N}$ and $\bs{f}:\bb{R}^{(d+1)N} \to \bb{R}^{(d
 		-I_1 & \times & \cdots & \times \\
 	\times & \ddots & \vdots & \vdots \\
 	\vdots & \cdots & \ddots & \vdots \\
-	\times & \cdots & \cdots & -I_d \\
-		I_1  & \cdots & I_d & \times
-		\end{bmatrix} \in \bb{R}^{(d+2)N \times (d+1)N}.
+	\times & \cdots & \cdots & -I_{d+1} \\
+		I_1  & \cdots & I_{d} & \times
+		\end{bmatrix} \in \bb{R}^{(d+2)N \times (d+1)N},
 	\end{split}
 \end{equation}
-The zero entries in the constraint matrix $G$ are denoted by $\times$, and each $I_1,\cdots,I_d$ is an $N\times N$ identity matrix. Specifically, each block row of the constraint equation $\bs{f}(\bs{z})$ corresponds, respectively, to the following inequality constraints for  $j = 1 \cdots N$:\\
+and $f$ is given by \eqref{eq:newtobjscalar}. The zero entries in the constraint matrix $G$ are denoted by $\times$, and each $I_1,\cdots,I_d$ is an $N\times N$ identity matrix. Specifically, each block row of the constraint equation $\bs{f}(\bs{z})$ corresponds, respectively, to the following inequality constraints for  $j = 1 \cdots N$:\\
 \begin{itemize} 
  \item[(i)] $X_{1j} \geq 0,\cdots,X_{dj} \geq 0, W_j \geq 0$, which restricts the solution to the positive $(d+1)$-orthant (including positive weights).
  \item[(ii)] $|\bs{X}_j|_1 \leq 1$, which is the $L_1$-norm definition of the simplex.
@@ -526,7 +543,7 @@ L(\bs{z},\lambda,\nu) = f(\bs{z}) + \bs{\lambda}^T\bs{f} + \nu A\bs{z}.
 \end{equation}
 The \emph{Lagrange dual function} of \eqref{eq:objlag} is defined as the minimum value of the Lagrangian over $\bs{z}$: 
 \begin{equation}\label{eq:objlagdual}
-	g(\bs{\lambda},\nu) = \inf_{\bs{z}\in(\Tau^d \times \bb{R}^{N+}_{\star})}L(\bs{z},\bs{\lambda},\nu).
+	g(\bs{\lambda},\nu) = \inf_{\bs{z}\in\bb{R}^{(d+1)N}}L(\bs{z},\bs{\lambda},\nu).
 \end{equation} 
 The dual function gives a lower bound on the optimal value $p^\star$ of the optimization problem \eqref{eq:newtopt}. It stands to reason that there may exist a ``best" lower bound, obtainable through solving the \emph{Lagrange dual problem}:
 \begin{equation}\label{eq:objlagdualopt}
@@ -535,17 +552,17 @@ The dual function gives a lower bound on the optimal value $p^\star$ of the opti
 &\text{ subject to } \bs{\lambda} \succeq 0
 \end{split}
 \end{equation}
-The dual problem is a convex optimization problem, since the objective $g(\bs{\lambda},\nu)$ is the pointwise infimum of a family of affine functions of $(\bs{\lambda},\nu)$ (they are the sums of hyperplanes with normal $\bs{\lambda}$ and $\nu$). This holds regardless of the convexity of the original objective $f(\bs{z})$. Thus, there exists a notion of the \emph{duality gap}. If $p^\star$ is the optimal value of the primal problem \eqref{eq:newtopt}, and $d^\star$ is that of the dual problem, then the lower bound property of the dual problem implies, regardless of the convexity of the primal objective, that
+The dual problem is a concave optimization problem, since the objective $g(\bs{\lambda},\nu)$ is the pointwise infimum of a family of affine functions of $(\bs{\lambda},\nu)$ (they are the sums of hyperplanes with normal $\bs{\lambda}$ and $\nu$). This holds regardless of the convexity of the original objective $f(\bs{z})$. Thus, there exists a notion of the \emph{duality gap}. If $p^\star$ is the optimal value of the primal problem \eqref{eq:newtopt}, and $d^\star$ is that of the dual problem, then the lower bound property of the dual problem implies, regardless of the convexity of the primal objective, that
 \begin{equation}\label{eq:dualgap}
 	d^\star \leq p^\star.
 \end{equation}
-The difference $p^\star-d^\star$ is referred to as the duality gap. If the duality gap is zero, then we say that \emph{strong duality} holds. That is, the bound obtained from the Lagrange dual function is tight, and solving the dual problem gives us a solution for the primal problem. The dual problem can be solved using the regular techniques of constrained convex optimization. \\\\
-If $\bs{z}^\star$ and $(\bs{\lambda}^\star, \nu^\star)$ are primal and dual optimal points, respectively, with zero duality gap, then $\bs{z}^\star$ minimizes $L(\bs{z},\bs{\lambda}^\star,\nu)$ over $\bs{z}$. Hence, the first order necessary optimality conditions must hold; namely, that the gradient of $L$ must vanish:
+The difference $p^\star-d^\star$ is referred to as the duality gap. If the duality gap is zero, then we say that \emph{strong duality} holds. That is, the bound obtained from the Lagrange dual function is tight, and solving the dual problem gives us a solution for the primal problem. The dual problem can be solved using the regular techniques of constrained convex optimization, though we have described it only for theoretical clarification. \\\\
+If $\bs{z}^\star$ and $(\bs{\lambda}^\star, \nu^\star)$ are primal and dual optimal points, respectively, with zero duality gap, then $\bs{z}^\star$ minimizes $L(\bs{z},\bs{\lambda}^\star,\nu^\star)$ over $\bs{z}$. Hence, the first order necessary optimality conditions must hold; namely, that the gradient of $L$ must vanish:
 \begin{equation}\label{eq:kktpre}
 	\nabla f(\bs{z}^\star) + \bs{\lambda}^T\nabla\bs{f}(\bs{z}^\star) + \nu A^T = 0.
 \end{equation}
 This leads to the following conditions characterizing the solution to any optimization problem for which strong duality holds, known as the Karush-Kuhn-Tucker (KKT) conditions, which we specify for \eqref{eq:newtopt}:
-\begin{equation}
+\begin{equation}\label{eq:kktpost}
 	\begin{split}
 		\bs{f}(\bs{z}^\star) &\preceq 0,\\
 		h_1(\bs{z}^\star) &= 0,\\
@@ -556,10 +573,29 @@ This leads to the following conditions characterizing the solution to any optimi
 \end{equation}
 
 \begin{remark}
-If an optimal primal dual pair is found, $\bs{z}^\star$ is not necessarily a zero of $\bs{F}(\bs{z})$. We have only satisfied the necessary KKT conditions. However, we may be closer to an actual root and will have maintained interior nodes and positive weights. We can use this new estimate $\bs{z}^\star$ as an initial point in a Newton iteration that will relax $\bs{F}(\bs{z})$ to zero quadratically. 
+If an optimal primal dual pair is found, $\bs{z}^\star$ is not necessarily a zero of $\bs{F}(\bs{z})$. We have only satisfied the necessary KKT conditions. However, we may be closer to an actual root and will have maintained interior nodes and positive weights. We can use this new estimate $\bs{z}^\star$ as an initial point in a Gauss-Newton iteration that may relax $\bs{F}(\bs{z})$ to zero quadratically. 
 \end{remark}
 
-\newpage
+We will solve \eqref{eq:newtopt} (when it is solvable) using an interior-point method. Specifically, we employ a two-stage barrier method. In the phase I stage, a strictly feasible point is computed. Then, in the phase II stage, a log barrier is used to reformulate the constrained problem into an unconstrained problem, with the feasible point from phase I serving as the initial point in a Newton iteration. Note, we only aim to solve the KKT conditions \eqref{eq:kktpost}. We detail the formulation and solution method in the next section.
+
+\subsubsection{Two-stage barrier method}
+First, we classify the activity of our constraint functions. If the inequality constraint $f_i(\bs{z}) = 0$, then $f_i$ is considered \emph{active} at $\bs{z}$. If $f_i(\bs{z}) < 0$, then $f_i$ is \emph{inactive}. Equality constraints are considered active at all feasible points. For our problem \eqref{eq:newtopt}, we find an initial point $\bs{z}^0$  through approximate joint diagonalization of the Jacobi matrices for the Jacobi polynomials on the simplex. Vioreanu and Rokhlin show (\color{red} perhaps I can show it's also true for JEVD, but this is not trivial.\color{black}) that the matched eigenvalues are \emph{interior} to $\Tau^d$. However, initializing the weights as the first column of the pseudo-inverse of the interpolation matrix does not guarantee positivity of each weight, of that they sum to unity (but is close). Recalling our partitioning of the solution variable $\bs{z}$ defined in \eqref{eq:zpart}, we have the following constraint activity characterization:
+\vspace{8pt}
+\begin{itemize}
+	\item $f_i(\bs{z}^0)$ is \emph{inactive} for $i=1,\cdots,dN$ and for $i=(d+1)N+1,\cdots,(d+2)N$.
+	\item $f_i(\bs{z}^0)$ is \emph{active} only for $i = dN+1,\cdots,(d+1)N$
+\end{itemize}
+\vspace{8pt}
+This motivates the partitioning of the optimization problem itself. We treat the feasible partition of $\bs{z}^0$ as fixed, and solve the following optimization problem over the the infeasible partition, with only the active constraints applied:
+
+\begin{equation}\label{eq:optW}
+\begin{split}
+	\min_{\bs{W} \in \bb{R}^{N}}& f(\bs{X}_1^0,\cdots,\bs{X}_d^0,\bs{W}) \quad\text{such that} \\
+	f_i(\bs{X}_1^0,\cdots,\bs{X}_d^0,\bs{W}) &\leq 0,\quad i = dN+1,\cdots,(d+1)N\\
+	h_1(\bs{X}_1^0,\cdots,\bs{X}_d^0,\bs{W}) &= A\begin{bmatrix}\bs{X}_1^0\\ \vdots \\ \bs{X}_d^0 \\ \bs{W} \end{bmatrix} -1 = 0
+\end{split}
+\end{equation}
+This problem can be solved with an infeasible start Newton method, and reduces the problem size by a factor of $1/(d+1)$. Then, we can solve the original problem, minimizing over both partitions of $\bs{z}^0$, using a log barrier method, and with the partition corresponding to $\bs{W}$ replaced initially with the solution from the partitioned problem.
 \subsubsection{Derivatives of the objective functions}\label{sec:objderivs}
 We can use the machinery developed in Section \ref{sec:jacobibasis} to compute derivatives of \eqref{eq:newtobj}. Given that these tools are only at our disposal for $d \leq 2$, we proceed for now with $d=2$ and $\bs{x} \in \Tau^2$. We view each component of the objective as a function $F_j : \bb{R}^{3N} \to \bb{R}$, and note that $\bs{P}$ is defined in the $(a,b,c)$ Jacobi basis. Applying the derivative operators defined in \eqref{eq:jactrideriv}, we have at a point $(\bs{X},\bs{Y},\bs{W})$, 
 \begin{align*}
@@ -627,7 +663,7 @@ I_{N\times N} \odot \Bigg(\bs{1}_N^T \otimes \Big( \bs{P}^{y}(\bs{X},\bs{Y})^T \
 0_{N\times N},
 \end{align}
 where $\cdot \otimes \cdot$ symbolizes the Kronecker product, and $\cdot \odot \cdot $ is component-wise multiplication along the columns of the argument to the right\footnote{Viewing $\bs{W}$ as a column of size $N$, we compute the component-wise product with columns of the matrix on the right. It would be more correct to define a function $\texttt{repmat}(W,k)$, which takes a vector $W \in \bb{R}^N$ and repeats it $k$ times, producing a matrix in $\bb{R}^{N\times k}$ with each of the $k$ columns a copy of $W$. However, for $N\neq M$, the ambiguity in matching sizes of the arguments to $\odot$ is eliminated.}.
-We verify the correctness of our formulae for the first and second derivatives of our vector and scalar objectives by comparing with second-order finite difference approximations. In particular, we show in Figure \ref{fig:derivCheck} the relative error in the 2-norm error between the analytical evaluation and the finite difference approximation. Since the difference scheme is second order, we expect the error to behave like $\mathcal{O}(h^2)$, where $h$ is the stencil width. That is, we should observe that $$\log(||\mathcal{D}(\bs{F}) - \hat{\mathcal{D}}(\bs{F})||) \approx 2\log(h) + \beta,$$ where $\beta$ is the order constant, and $\hat{\mathcal{D}(F)}$ is the finite difference approximation. The same relationship holds for $\mathcal{D}^2(F)$ and other derivatives as well. On a $\log-\log$ scale, this means the slope of the error lines should be around 2. Indeed, we do observe this relationship in the regime of asymptotic convergence, before round-off error dominates truncation error for the finite difference scheme.
+We verify the correctness of our formulae for the first and second derivatives of our vector and scalar objectives by comparing with second-order finite difference approximations. In particular, we show in Figure \ref{fig:derivCheck} the relative error in the 2-norm between the analytical evaluation and the finite difference approximation. Since the difference scheme is second order, we expect the error to behave like $\mathcal{O}(h^2)$, where $h$ is the stencil width. That is, we should observe that $$\log(||\mathcal{D}(\bs{F}) - \hat{\mathcal{D}}(\bs{F})||) \approx 2\log(h) + \beta,$$ where $\beta$ is the order constant, and $\hat{\mathcal{D}(F)}$ is the finite difference approximation. The same relationship holds for $\mathcal{D}^2(F)$ and other derivatives as well. On a $\log-\log$ scale, this means the slope of the error lines should be around 2. Indeed, we do observe this relationship in the regime of asymptotic convergence, before round-off error dominates truncation error for the finite difference scheme.
 
 \begin{figure}[H]
 	\centering
@@ -636,24 +672,25 @@ We verify the correctness of our formulae for the first and second derivatives o
 \end{figure}
 
 The plot also illustrates the utility of having available to us the analytical derivative formulae. In particular, we note that the solution variables to any of the proposed iterations involve nodes interior to $\Tau^2$, and the zero of the objective function is only some $\varepsilon$ perturbation away from the initial points obtained by \texttt{JEVD} or complex eigenvalue decomposition. If this $\varepsilon$ is smaller than 1e-6 for any component of the solution, which I've empirically observed is the case, finite difference schemes are not appropriate for approximating the vector Hessian or gradient of the objective.
-
 \begin{remark}
 	For this sort of simple ``reverse" verification test, we assume that we don't know if our analytical formulae are correct, and that a \emph{verified} finite difference implementation is available. Then, we are essentially re-verifying the finite difference implementation, which on success, certifies correctness of the analytical formulae.
 \end{remark}
-At this point, we can parse out what we mean by applying the inverse of the vector Hessian of $\bs{F}:\bb{R}^{3N}\to \bb{R}^M$ to the vector gradient in \eqref{eq:newtsysvec}. We know that $$\mathcal{D}^2(\bs{F}(\bs{z})) \in \bb{R}^{M\times 3N\times 3N},\quad \mathcal{D}(\bs{F}(\bs{z})) \in\bb{R}^{M\times 3N}.$$ Then, we take the following natural interpretation\footnote{For a function $\bs{u}:\bb{R}^N \to \bb{R}^M$, we note the distinction between $\mathcal{D}(\bs{u}(\bs{z}))$ and $\nabla(\bs{u}(\bs{z}))$. The former is an element of $L(\bb{R}^N,\bb{R}^M)$, equivalently viewed as a set of $M$ elements of $L(\bb{R}^N,\bb{R})$, or $M$ row vectors in $\bb{R}^N$ (left argument of dot product). The latter evaluated at a point is as an element of $L(\bb{R}^M,\bb{R}^N)$, equivalently viewed as a set of $M$ elements of $L(\bb{R},\bb{R}^N)$, or $M$ column vectors in $\bb{R}^N$ (right argument of dot product). TLDR; $[\mathcal{D}(\bs u)]^T = \nabla(\bs{u})$}
-\begin{align*}
-[\mathcal{D}^2(\bs{F}(\bs{z}))]^{-1} &:= 
-\begin{bmatrix}
-	[\mathcal{D}^2(F_1(\bs{z}))]^{-1}& \cdots &[\mathcal{D}^2(F_M(\bs{z}))]^{-1}
-\end{bmatrix}\\
-\nabla(\bs{F}(\bs{z})) &:=
-\begin{bmatrix}
-	\mathcal{D}(F_1(\bs{z}))^T\\ 
-	\vdots \\
-	\mathcal{D}(F_M(\bs{z}))^T
-\end{bmatrix}\\
-\Rightarrow [\mathcal{D}^2(\bs{F}(\bs{z}))]^{-1}\mathcal{D}(\bs{F}(\bs{z})) &:= \sum_{j=1}^M \mathcal{D}^2(F_j(\bs{z}))^{-1}\nabla(F_j(\bs{z})) \in \bb{R}^{3N\times 1},\quad \text{(as required)}
-\end{align*}
+
+\color{red} TODO: Derive the derivative and promotion operators for the general case of $d > 2$.
+%At this point, we can parse out what we mean by applying the inverse of the vector Hessian of $\bs{F}:\bb{R}^{3N}\to \bb{R}^M$ to the vector gradient in \eqref{eq:newtsysvec}. We know that $$\mathcal{D}^2(\bs{F}(\bs{z})) \in \bb{R}^{M\times 3N\times 3N},\quad \mathcal{D}(\bs{F}(\bs{z})) \in\bb{R}^{M\times 3N}.$$ Then, we take the following natural interpretation\footnote{For a function $\bs{u}:\bb{R}^N \to \bb{R}^M$, we note the distinction between $\mathcal{D}(\bs{u}(\bs{z}))$ and $\nabla(\bs{u}(\bs{z}))$. The former is an element of $L(\bb{R}^N,\bb{R}^M)$, equivalently viewed as a set of $M$ elements of $L(\bb{R}^N,\bb{R})$, or $M$ row vectors in $\bb{R}^N$ (left argument of dot product). The latter evaluated at a point is as an element of $L(\bb{R}^M,\bb{R}^N)$, equivalently viewed as a set of $M$ elements of $L(\bb{R},\bb{R}^N)$, or $M$ column vectors in $\bb{R}^N$ (right argument of dot product). TLDR; $[\mathcal{D}(\bs u)]^T = \nabla(\bs{u})$}
+%\begin{align*}
+%[\mathcal{D}^2(\bs{F}(\bs{z}))]^{-1} &:= 
+%\begin{bmatrix}
+%	[\mathcal{D}^2(F_1(\bs{z}))]^{-1}& \cdots &[\mathcal{D}^2(F_M(\bs{z}))]^{-1}
+%\end{bmatrix}\\
+%\nabla(\bs{F}(\bs{z})) &:=
+%\begin{bmatrix}
+%	\mathcal{D}(F_1(\bs{z}))^T\\ 
+%	\vdots \\
+%	\mathcal{D}(F_M(\bs{z}))^T
+%\end{bmatrix}\\
+%\Rightarrow [\mathcal{D}^2(\bs{F}(\bs{z}))]^{-1}\mathcal{D}(\bs{F}(\bs{z})) &:= \sum_{j=1}^M \mathcal{D}^2(F_j(\bs{z}))^{-1}\nabla(F_j(\bs{z})) \in \bb{R}^{3N\times 1},\quad \text{(as required)}
+%\end{align*}
 
 %\bibliographystyle{siamplain}
 %\bibliography{references}
