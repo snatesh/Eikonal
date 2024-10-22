@@ -1,11 +1,12 @@
 clear all; close all; clc;
 
-% primal dual algorithm for the full quadrature problem.
+% primal dual algorithm for the quadrature problem with only
+% weights as free variables.
 
 % jacobi poly params
 a = 0.5; b = 0.5; c = 0.5;
 % source and target poly total degree (+1)
-n = 10; m = 13; d = 2;
+n = 25; m = 30; d = 2;
 fname = strcat('triquadLeg_',num2str(n-1),'_',num2str(m-1),'.mat');
 % jacobi matrices
 [Jn1,Jn2,A1,A2,B1,B2,Hn] = jMatON_tri(n,a,b,c);
@@ -21,35 +22,32 @@ Yk = imag(X0); Xk = real(X0);
 Vm = jPoly_tri(Xk,Yk,Hm,m-1,a,b,c);
 Vm_pinv = pinv(Vm');
 Wk = Vm_pinv(:,1);
-Wk = abs(Wk);
-[ieqc,G]= fieqc(Xk,Yk,Wk,n);
 
-lambdak = -5./ieqc;
-nuk = 0
+lambdak = 1./Wk;
+nuk = 0;
 
 maxiter = 1000;
-mu = 20; epsfeas = 1e-13; epsgap = 1e-13;
+mu = 10; epsfeas = 1e-13; epsgap = 1e-13;
 alpha = 0.01; beta = 0.5;
 disp(fobj(Xk,Yk,abs(Wk),n,m,a,b,c))
-
 for j = 1:maxiter
     % determine t
-    [ieqc,~]= fieqc(Xk,Yk,Wk,n);
-    etagap = -ieqc'*lambdak;
+    etagap = -Wk'*lambdak;
     t = mu*N/etagap;
     % compute primal-dual search direction
-    kkt = rt(Xk,Yk,Wk,lambdak,nuk,t,n,m,a,b,c);
-    rpri = kkt(end);
-    rdual = kkt(1:(d+1)*N);
-    pk = norm(fobj(Xk,Yk,Wk,n,m,a,b,c));
-    disp([pk,norm(rpri),norm(rdual)])
-    dkkt = drt(Xk,Yk,Wk,lambdak,nuk,t,n,m,a,b,c);
-    dZLN = dkkt\-kkt;
-    dx = dZLN(1:N);
-    dy = dZLN(N+1:2*N);
-    dw = dZLN(2*N+1:3*N);
-    dlambda = dZLN(3*N+1:3*N+(d+2)*N); 
-    dnu = dZLN(end);
+    rdual = 2*Vm*Fobj(Xk,Yk,Wk,n,m,a,b,c)-lambdak+nuk*ones(N,1);
+    rcent = diag(lambdak)*Wk-(1/t)*ones(N,1);
+    rpri = ones(1,N)*Wk-1;
+    kkt = [rdual;rcent;rpri];
+    disp([j,fobj(Xk,Yk,Wk,n,m,a,b,c),norm(rpri),norm(rcent),norm(rdual)])
+
+    Dkkt = [2*(Vm)*(Vm'), -eye(N), ones(N,1);...
+            diag(lambdak), diag(Wk), zeros(N,1);...
+            ones(1,N), zeros(1,N), 0];
+    dY = Dkkt\-[rdual;rcent;rpri];
+    dw = dY(1:N); 
+    dlambda = dY(N+1:2*N); 
+    dnu = dY(2*N+1:end);
     % backtracking line search
     if isempty(lambdak(dlambda<0))
         smax = 1;
@@ -60,41 +58,32 @@ for j = 1:maxiter
         smax = 1;
     end
     s = 0.99*smax;
-    xp = Xk + s*dx;
-    yp = Yk + s*dy;
     wp = Wk + s*dw;
     lambdap = lambdak + s*dlambda;
     nup = nuk + s*dnu;
     for ibt = 1:maxiter
-
-        kktp = rt(xp,yp,wp,lambdap,nup,t,n,m,a,b,c);
-
-        if (norm(kktp) > (1-alpha*s)*norm(kkt))
+        rdualp = 2*Vm*Fobj(Xk,Yk,wp,n,m,a,b,c)-lambdap + nup*ones(N,1);
+        rcentp = diag(lambdap)*wp-(1/t)*ones(N,1);
+        rprip = ones(1,N)*wp-1;
+        kktp = [rdualp;rcentp;rprip];   
+        if (norm(kktp) >= (1-alpha*s)*norm(kkt))
             s = beta*s;
-            xp = Xk + s*dx;
-            yp = Yk + s*dy;
             wp = Wk + s*dw;
             lambdap = lambdak + s*dlambda;
             nup = nuk + s*dnu;
         else
-            Xk = xp;
-            Yk = yp;
             Wk = wp;
             lambdak = lambdap;
             nuk = nup;
             break;
         end
-        
     end
     if (norm(rpri) <= epsfeas && norm(rdual) <= epsfeas && abs(etagap) <= epsgap)
         break
     end
-    pk1 = norm(fobj(Xk,Yk,Wk,n,m,a,b,c));
-    if (norm(dZLN) < 1e-15)
-        break;
-    end
 end
 
+%%
 Vm = jPoly_tri(Xk,Yk,Hm,m-1,a,b,c);
 ftest = @(X,Y) sin(X.^2+Y.^2);%.*exp(cos(Y));
 disp([Wk'*ftest(Xk,Yk),sum(abs(Wk)), cond(Vm)]);
@@ -125,77 +114,19 @@ f = norm(Fobj(X,Y,W,n,m,a,b,c))^2;
 
 end
 
-function [eqc, A] = feqc(X,Y,W,n)
-
-dim = 2;
-N = n*(n+1)/2;
-A = zeros(1,(dim+1)*N);
-A(dim*N+1:(dim+1)*N) = 1;
-eqc = A*[X;Y;W] - 1;
-
-end
-
-function [ieqc,G] = fieqc(X,Y,W,n)
-
-dim = 2;
-N = n*(n+1)/2;
-G = zeros((dim+2)*N,(dim+1)*N);
-one = ones((dim+1)*N,1);
-G(1:(dim+1)*N,1:(dim+1)*N) = -diag(one);
-zeroOne = [zeros((dim+1)*N,1); ones(N,1)];
-I = eye(N);
-for j = 1:dim
-    G((dim+1)*N+1:(dim+2)*N,N*(j-1)+1:N*j) = I;
-end
-ieqc = G*[X;Y;W] - zeroOne;
-
-end
-
-function kkt = rt(X,Y,W,lambda,nu,t,n,m,a,b,c)
-
-dim = 2;
-N = n*(n+1)/2;
-[eqc, A] = feqc(X,Y,W,n);
-[ieqc, G] = fieqc(X,Y,W,n);
-df = dfobj(X,Y,W,n,m,a,b,c);
-kkt = [df' + G'*lambda + A'*nu;...
-       -diag(lambda)*ieqc - (1/t)*ones((dim+2)*N,1);...
-      eqc];
-
-end
-
-function dkkt = drt(X,Y,W,lambda,nu,t,n,m,a,b,c)
-
-dim = 2;
-N = n*(n+1)/2;
-[~, A] = feqc(X,Y,W,n);
-[ieqc, G] = fieqc(X,Y,W,n);
-
-d2f = hessfobj(X,Y,W,n,m,a,b,c);
-
-dkkt = [d2f', G', A';...
-        -diag(lambda)*G, -diag(ieqc), zeros((dim+2)*N,1);...
-        A, zeros(1,(dim+2)*N), 0];
-
-end
-
-function dF = dFobj(X,Y,W,n,m,a,b,c)
+% objective gradient eq. 3.16
+function dF = gradFobj_W(X,Y,W,n,m,a,b,c)
 
 H_abc = structure_factors_tri(m+1,a,b,c);
-H_a1bc1 = structure_factors_tri(m+1,a+1,b,c+1);
-H_ab1c1 = structure_factors_tri(m+1,a,b+1,c+1);
-Dx = D1_tri(a,b,c,H_abc,H_a1bc1,0);
-Dy = D1_tri(a,b,c,H_abc,H_ab1c1,1);
 V_abc = jPoly_tri(X,Y,H_abc,m-1,a,b,c);
-V_a1bc1 = jPoly_tri(X,Y,H_a1bc1,m-1,a+1,b,c+1);
-V_ab1c1 = jPoly_tri(X,Y,H_ab1c1,m-1,a,b+1,c+1);
-dF = [Dx'*(V_a1bc1'.*W') Dy'*(V_ab1c1'.*W') V_abc'];
+dF = V_abc';
 
 end
 
-function df = dfobj(X,Y,W,n,m,a,b,c)
 
-df = 2*Fobj(X,Y,W,n,m,a,b,c)'*dFobj(X,Y,W,n,m,a,b,c);
+function df = gradfobj_W(X,Y,W,n,m,a,b,c)
+
+df = 2*Fobj(X,Y,W,n,m,a,b,c)'*gradFobj_W(X,Y,W,n,m,a,b,c);
 
 end
 
@@ -252,6 +183,29 @@ end
 
 end
 
+function Hf = hessFobjFD(X,Y,W,n,m,a,b,c,h)
+
+N = n*(n+1)/2;
+M = m*(m+1)/2;
+Hf = zeros(M,3*N,3*N);
+Z = [X;Y;W];
+
+for ii = 1:(3*N)
+  % df(z+h)
+  Z(ii) = Z(ii)+h;
+  x = Z(1:N); y = Z(N+1:2*N); w = Z(2*N+1:3*N);
+  dfkph = gradFobj(x,y,w,n,m,a,b,c);
+  % df(z-h)
+  Z(ii) = Z(ii)-2*h;
+  x = Z(1:N); y = Z(N+1:2*N); w = Z(2*N+1:3*N);
+  dfkmh = gradFobj(x,y,w,n,m,a,b,c);
+  ddf = (dfkph-dfkmh)/(2.0*h);
+  Hf(:,:,ii) = ddf;
+  % restore Z
+  Z(ii) = Z(ii)+h;
+end
+
+end
 
 function hf = hessfobj(X,Y,W,n,m,a,b,c)
  
@@ -259,7 +213,7 @@ N = n*(n+1)/2;
 M = m*(m+1)/2;
 Z = [X;Y;W];
 F = Fobj(X,Y,W,n,m,a,b,c);
-DF = dFobj(X,Y,W,n,m,a,b,c);
+DF = gradFobj(X,Y,W,n,m,a,b,c);
 D2F = hessFobj(X,Y,W,n,m,a,b,c);
 hf = zeros(3*N,3*N);
 for j = 1:M
@@ -268,7 +222,26 @@ for j = 1:M
 end
 hf = hf + DF'*DF;
 hf = 2*hf;
-
 end
 
+function hf = hessfobjFD(X,Y,W,n,m,a,b,c,h)
 
+N = n*(n+1)/2;
+hf = zeros(3*N,3*N);
+Z = [X;Y;W];
+for ii = 1:3*N
+  % f(z+h)
+  Z(ii) = Z(ii)+h;
+  x = Z(1:N); y = Z(N+1:2*N); w = Z(2*N+1:3*N);
+  fkph = gradfobj(x,y,w,n,m,a,b,c)';
+  % f(z-h)
+  Z(ii) = Z(ii)-2*h;
+  x = Z(1:N); y = Z(N+1:2*N); w = Z(2*N+1:3*N);
+  fkmh = gradfobj(x,y,w,n,m,a,b,c)';
+  % FD approx to gradF
+  hf(:,ii) = (fkph-fkmh)/(2.0*h);
+  % restore Z
+  Z(ii) = Z(ii)+h;
+end
+
+end
