@@ -6,7 +6,7 @@ clear all; close all; clc;
 % jacobi poly params
 a = 0.5; b = 0.5; c = 0.5;
 % source and target poly total degree (+1)
-n = 20; m = 25; d = 2;
+n = 25; m = 30; d = 2;
 fname = strcat('triquadLeg_',num2str(n-1),'_',num2str(m-1),'.mat');
 % jacobi matrices
 [Jn1,Jn2,A1,A2,B1,B2,Hn] = jMatON_tri(n,a,b,c);
@@ -23,14 +23,13 @@ Vm = jPoly_tri(Xk,Yk,Hm,m-1,a,b,c);
 Vm_pinv = pinv(Vm');
 Wk = Vm_pinv(:,1);
 
-
 lambdak = 1./Wk;
 nuk = 0;
 
 maxiter = 1000;
-mu = 10; epsfeas = 1e-14; epsgap = 1e-14;
+mu = 10; epsfeas = 1e-13; epsgap = 1e-13;
 alpha = 0.01; beta = 0.5;
-
+disp(fobj(Xk,Yk,abs(Wk),n,m,a,b,c))
 for j = 1:maxiter
     % determine t
     etagap = -Wk'*lambdak;
@@ -42,7 +41,7 @@ for j = 1:maxiter
     kkt = [rdual;rcent;rpri];
     disp([j,fobj(Xk,Yk,Wk,n,m,a,b,c),norm(rpri),norm(rcent),norm(rdual)])
 
-    Dkkt = [2*Vm*Vm', -eye(N), ones(N,1);...
+    Dkkt = [2*(Vm)*(Vm'), -eye(N), ones(N,1);...
             diag(lambdak), diag(Wk), zeros(N,1);...
             ones(1,N), zeros(1,N), 0];
     dY = Dkkt\-[rdual;rcent;rpri];
@@ -87,13 +86,14 @@ end
 %%
 Vm = jPoly_tri(Xk,Yk,Hm,m-1,a,b,c);
 ftest = @(X,Y) sin(X.^2+Y.^2);%.*exp(cos(Y));
-disp([pk,Wk'*ftest(Xk,Yk),sum(abs(Wk)), cond(Vm)])
-
+disp([Wk'*ftest(Xk,Yk),sum(abs(Wk)), cond(Vm)]);
+disp(Fobj(Xk,Yk,Wk,n,m,a,b,c));
 tri = [0 1 0 0 0 1];
 figure(1);
 X0 = eig(Jn1+1j*Jn2);
 plot(X0,'b.');
 plot(Xk,Yk,'ro');
+Zk = [Xk;Yk;Wk];
 save(fname,'Zk','n','m','N','M');
 
 
