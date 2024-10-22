@@ -66,9 +66,9 @@ end
 % (typically around h ~ 1e-6 to 1e-7)
 % err ~ O(h^2) => log||df-df_FD|| ~ 2log(h)
 loglog(hs,errsdF,'bs-','linewidth',5,'Displayname','$\mathcal{D}(\bf{F})$'); hold on;
-loglog(hs,errsdf,'cs-','linewidth',5,'Displayname','$\mathcal{D}(\bf{f})$');
+loglog(hs,errsdf,'cs-','linewidth',5,'Displayname','$\mathcal{D}(f)$');
 loglog(hs,errshF,'rs-','linewidth',5,'Displayname','$\mathcal{D}^2(\bf{F})$')
-loglog(hs,errshf,'ms-','linewidth',5,'Displayname','$\mathcal{D}^2(\bf{f})$')
+loglog(hs,errshf,'ms-','linewidth',5,'Displayname','$\mathcal{D}^2(f)$')
 loglog(hs,hs.^2,'k--','linewidth',5,'Displayname','$\mathcal{O}(h^2)$');
 legend('location','best')
 xlabel('$h$');

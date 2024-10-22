@@ -510,7 +510,7 @@ The optimization problem we would like to solve, stated in canonical form, is
 	\end{split}
 \end{equation}
 where $A \in \bb{R}^{1\times (d+1)N}$, $\bs{f}:\bb{R}^{(d+1)N} \to \bb{R}^{(d+2)N} := \begin{bmatrix} f_1(\bs{z}) \\ \cdots \\ f_{(d+2)N}(\bs{z})\end{bmatrix}$ are given by
-\begin{equation}
+\begin{equation}\label{eq:optcnstr}
 	\begin{split}
 	A &= 
 	\begin{bmatrix}
@@ -528,7 +528,7 @@ where $A \in \bb{R}^{1\times (d+1)N}$, $\bs{f}:\bb{R}^{(d+1)N} \to \bb{R}^{(d+2)
 \end{equation}
 and $f$ is given by \eqref{eq:newtobjscalar}. The zero entries in the constraint matrix $G$ are denoted by $\times$, and each $I_1,\cdots,I_d$ is an $N\times N$ identity matrix. Specifically, each block row of the constraint equation $\bs{f}(\bs{z})$ corresponds, respectively, to the following inequality constraints for  $j = 1 \cdots N$:\\
 \begin{itemize} 
- \item[(i)] $X_{1j} \geq 0,\cdots,X_{dj} \geq 0, W_j \geq 0$, which restricts the solution to the positive $(d+1)$-orthant (including positive weights).
+ \item[(i)] $X_{1j} \geq 0,\cdots,X_{dj} \geq 0, W_j \geq 0$, which restricts the solution to the non-negativea $(d+1)$-orthant (including positive weights).
  \item[(ii)] $|\bs{X}_j|_1 \leq 1$, which is the $L_1$-norm definition of the simplex.
 \end{itemize}
 \vspace{8pt}
@@ -537,7 +537,7 @@ The single equality constraint is encoded in $h$, which when parsed out reads as
 \item[(iii)] $\sum_{j=1}^N W_j = 1$, enforcing unit weight sum.
 \end{itemize}
 \vspace{8pt}
-Let $L:\bb{R}^{(d+1)N}\times \bb{R}^{(d+2)N}\times \bb{R}\to \bb{R}$ denote the \emph{Lagrangian} of the \emph{primal objective} \eqref{eq:newtopt}. With $\bs{\lambda}\in \bb{R}^{(d+2)N}$, and $\nu\in \bb{R}$, it is given by 
+Let $L:\bb{R}^{(d+1)N}\times \bb{R}^{(d+2)N}\times \bb{R}\to \bb{R}$ denote the \emph{Lagrangian} of the \emph{primal objective} \eqref{eq:newtopt}. With \emph{dual variables} $\bs{\lambda}\in \bb{R}^{(d+2)N}$, and $\nu\in \bb{R}$, it is given by 
 \begin{equation}\label{eq:objlag}
 L(\bs{z},\lambda,\nu) = f(\bs{z}) + \bs{\lambda}^T\bs{f} + \nu A\bs{z}.
 \end{equation}
@@ -576,27 +576,105 @@ This leads to the following conditions characterizing the solution to any optimi
 If an optimal primal dual pair is found, $\bs{z}^\star$ is not necessarily a zero of $\bs{F}(\bs{z})$. We have only satisfied the necessary KKT conditions. However, we may be closer to an actual root and will have maintained interior nodes and positive weights. We can use this new estimate $\bs{z}^\star$ as an initial point in a Gauss-Newton iteration that may relax $\bs{F}(\bs{z})$ to zero quadratically. 
 \end{remark}
 
-We will solve \eqref{eq:newtopt} (when it is solvable) using an interior-point method. Specifically, we employ a two-stage barrier method. In the phase I stage, a strictly feasible point is computed. Then, in the phase II stage, a log barrier is used to reformulate the constrained problem into an unconstrained problem, with the feasible point from phase I serving as the initial point in a Newton iteration. Note, we only aim to solve the KKT conditions \eqref{eq:kktpost}. We detail the formulation and solution method in the next section.
+We will solve \eqref{eq:newtopt} (when it is solvable) using a primal-dual interior-point method. Specifically, we employ a two-stage primal-dual barrier method. In the phase I stage, a strictly feasible point is computed. Then, in the phase II stage, a log barrier is used to reformulate the constrained problem into an unconstrained problem, with the feasible point from phase I serving as the initial point in a Newton iteration. Note, we only aim to solve the KKT conditions \eqref{eq:kktpost}. We detail the formulation and solution method in the following sections.
 
-\subsubsection{Two-stage barrier method}
-First, we classify the activity of our constraint functions. If the inequality constraint $f_i(\bs{z}) = 0$, then $f_i$ is considered \emph{active} at $\bs{z}$. If $f_i(\bs{z}) < 0$, then $f_i$ is \emph{inactive}. Equality constraints are considered active at all feasible points. For our problem \eqref{eq:newtopt}, we find an initial point $\bs{z}^0$  through approximate joint diagonalization of the Jacobi matrices for the Jacobi polynomials on the simplex. Vioreanu and Rokhlin show (\color{red} perhaps I can show it's also true for JEVD, but this is not trivial.\color{black}) that the matched eigenvalues are \emph{interior} to $\Tau^d$. However, initializing the weights as the first column of the pseudo-inverse of the interpolation matrix does not guarantee positivity of each weight, of that they sum to unity (but is close). Recalling our partitioning of the solution variable $\bs{z}$ defined in \eqref{eq:zpart}, we have the following constraint activity characterization:
+\subsubsection{Barrier method and constraint activity}
+First, we classify the activity of our constraint functions. If the inequality constraint $f_i(\bs{z}) = 0$, then $f_i$ is considered \emph{active} at $\bs{z}$. If $f_i(\bs{z}) < 0$, then $f_i$ is \emph{inactive}. Equality constraints are considered active at all feasible points. For our problem \eqref{eq:newtopt}, we find an initial point $\bs{z}^0$  through approximate joint diagonalization of the Jacobi matrices for the Jacobi polynomials on the simplex. Vioreanu and Rokhlin show (\color{red} perhaps I can show it's also true for JEVD, but this is not trivial.\color{black}) that the matched eigenvalues are \emph{interior} to $\Tau^d$. However, initializing the weights as the first column of the pseudo-inverse of the interpolation matrix does not guarantee positivity of each weight, or that they sum to unity (but is close). Recalling our partitioning of the solution variable $\bs{z}$ defined in \eqref{eq:zpart}, we have the following constraint activity characterization:
 \vspace{8pt}
 \begin{itemize}
 	\item $f_i(\bs{z}^0)$ is \emph{inactive} for $i=1,\cdots,dN$ and for $i=(d+1)N+1,\cdots,(d+2)N$.
 	\item $f_i(\bs{z}^0)$ is \emph{active} only for $i = dN+1,\cdots,(d+1)N$
 \end{itemize}
 \vspace{8pt}
-This motivates the partitioning of the optimization problem itself. We treat the feasible partition of $\bs{z}^0$ as fixed, and solve the following optimization problem over the the infeasible partition, with only the active constraints applied:
+This motivates the partitioning of the optimization problem itself. We treat the feasible partition of $\bs{z}^0$ as fixed, and solve the following optimization problem over the the infeasible partition with only the active constraints applied:
 
 \begin{equation}\label{eq:optW}
 \begin{split}
-	\min_{\bs{W} \in \bb{R}^{N}}& f(\bs{X}_1^0,\cdots,\bs{X}_d^0,\bs{W}) \quad\text{such that} \\
-	f_i(\bs{X}_1^0,\cdots,\bs{X}_d^0,\bs{W}) &\leq 0,\quad i = dN+1,\cdots,(d+1)N\\
-	h_1(\bs{X}_1^0,\cdots,\bs{X}_d^0,\bs{W}) &= A\begin{bmatrix}\bs{X}_1^0\\ \vdots \\ \bs{X}_d^0 \\ \bs{W} \end{bmatrix} -1 = 0
+	\min_{\bs{W} \in \bb{R}^{N}}& f^w(\bs{W}),\quad f^w(\bs{W}):=f(\bs{X}_1^0,\cdots,\bs{X}_d^0,\bs{W})\\ &\text{such that} \\
+	\bs{f}^w(\bs{W}) &\preceq 0,\quad \bs{f}^w(\bs{W}) := \begin{bmatrix} f_{dN+1}(\bs{X}_1^0,\cdots,\bs{X}_d^0,\bs{W})\\ \vdots \\ f_{(d+1)N}(\bs{X}_1^0,\cdots,\bs{X}_d^0,\bs{W})
+	\end{bmatrix} = -I_{N\times N} \bs{W} \\
+	h^w_1(\bs{W}) &= \bs{1}_{1\times N}^T\bs{W} - 1 = 0,
 \end{split}
 \end{equation}
-This problem can be reformulated into an equality constrained problem (with the log barrier penalizing inequality constraints), and solved with an infeasible start Newton method. This reduces the problem size by a factor of $1/(d+1)$. Then, we can solve the original problem by minimizing over both partitions of $\bs{z}^0$ using a single phase log barrier method (as we will have a strictly feasible point). The partition corresponding to $\bs{W}$ is replaced initially with the solution from the partitioned problem. \color{blue} It might be the case that we don't have to solve another optimization problem after phase I! We won't know until we try. \color{black}
-
+where $f,f_i$ are given in \eqref{eq:optcnstr}. This problem can be reformulated into an equality constrained problem (with the log barrier penalizing inequality constraints), and solved with an infeasible start Newton method. This reduces the problem size by a factor of $1/(d+1)$. Then, we can solve the original problem by minimizing over both partitions of $\bs{z}^0$ using a single phase log barrier method (as we will have a strictly feasible point). The partition corresponding to $\bs{W}$ is replaced initially with the solution from the partitioned problem. \color{blue} It might be the case that we don't have to solve another optimization problem after phase I! We won't know until we try. \color{black}
+\\\\
+In the barrier method, we start by rewriting \eqref{eq:optWindicator} in a form which incorporates the inequality constraints directly into the objective, as in
+\begin{equation}\label{eq:optWindicator}
+	\begin{split}
+		&\min_{\bs{W} \in \bb{R}^{N}} f^w(\bs{W}) + \sum_{i=1}^{dN}I_{-}(f_i^w(\bs{W}))\\ 
+		&\text{subject to } \quad
+		h^w_1(\bs{W}) = \bs{1}_{1\times N}^T\bs{W} - 1 = 0,
+	\end{split}
+\end{equation}
+where $I_{-}: \bb{R} \to \bb{R}$ is the indicator function for the non-positive reals;
+\begin{equation}\label{eq:optindicator}
+	I_{-}(x) = \begin{cases} 0,\quad & x \leq 0 \\
+							 \infty,\quad & x > 0
+				\end{cases}.
+\end{equation}
+While \eqref{eq:optWindicator} has no inequality constraints, the objective is not differentiable. As such, we must approximate the indicator function with a sequence of differentiable functions converging to it in the pointwise limit:
+\begin{equation}
+	\tilde{I}_{-}(x) = -(1/t)\log(-x),\quad t > 0,\quad x \in \bb{R}_\star^-.
+\end{equation}
+Note, we use the convention that $\tilde{I}_{-}(x>0) =\infty$. Observe that $\tilde{I}_{-}(x)\to \infty$ as $x\to 0^-$. As $t \to \infty$ with $x < 0$, $\tilde{I}_{-}(x) \to 0$. The problem is now approximated with a differentiable objective:
+\begin{equation}\label{eq:optWbarrier}
+	\begin{split}
+		\min_{\bs{W} \in \bb{R}^{N}} &tf^w(\bs{W}) + \phi(\bs{W})\\ 
+		\text{subject to } \quad
+		&h^w_1(\bs{W}) = \bs{1}_{1\times N}^T\bs{W} - 1 = 0,
+	\end{split}
+\end{equation}
+for $t>0$, where the log barrier function $\phi$ is given by 
+\begin{equation}\label{eq:logbarrier}
+	\phi(\bs{W}) = -\sum_{i=1}^{dN}\log(-f_i^w(\bs{W})).
+\end{equation}
+We can solve \eqref{eq:optWbarrier} for increasing values of $t$ using the solution from each previous value of $t$ as the initialization for the problem with the next $t$ value. This generates a sequence $\bs{z}^\star(t)$, known as the \emph{central path}, which converges to the optimal point (if the problem is solvable) $\bs{z}^\star$ as $t\to \infty$. To each approximate problem, we can associated the modified KKT conditions, written in vector form as 
+\begin{equation}\label{eq:optWbarrierKKT}
+	\bs{r}_t(\bs{W},\bs{\lambda},\nu) = \begin{bmatrix}
+		\nabla f^w(\bs{W}) + [\mathcal{D}(\bs{f}^w(\bs{W}))]^T\bs{\lambda} + \nu \bs{1}_{N\times 1}\\
+		-\texttt{diag}(\bs{\lambda})\bs{f}^w(\bs{W}) - (1/t)\bs{1}_{N\times 1}\\
+		\bs{1}_{1\times N}\bs{W} - 1 
+			\end{bmatrix}= \begin{bmatrix} \bs{r}_\text{dual} \\ \bs{r}_{\text{cent}} \\ \bs{r}_{\text{pri}}\end{bmatrix} = 0.
+\end{equation}
+The first block row is the \emph{dual residual}. The second is the \emph{centrality residual} (corresponding to the residual of the deformed KKT condition $-\lambda_i f_i(\bs{W}) = 1/t$), and the last block row is the \emph{primal residual}. Let $$\bs{y} = (\bs{W},\bs{\lambda},\nu)$$ We can determine the Newton step for solving the KKT system \eqref{eq:optWbarrierKKT} by linearizing it about $\bs{y}$;  
+\begin{equation}\label{eq:optWbarrierKKTlin}
+	\begin{split}
+\bs{r}_t(\bs{y}+\Delta \bs{y}) &\approx \bs{r}_t(\bs{y}) + \mathcal{D}(\bs{r}_t(\bs{y}))\Delta\bs{y} = 0 \\
+\Rightarrow \Delta \bs{y} &= -\mathcal{D}(\bs{r}_t(\bs{y}))^{-1}\bs{r}_t(\bs{y}).
+	\end{split}
+\end{equation}
+Parsing this out, we have the following system to solve for the \emph{primal dual} search direction $\Delta \bs{y}$:
+\begin{equation}\label{eq:optWbarrierNewt}
+\begin{bmatrix}
+	\nabla^2 f^w(\bs{W}) + \bs{\lambda}^T \nabla^2 \bs{f}^w(\bs{W}) & [\mathcal{D}(\bs{f}^w(\bs{W}))]^T & \bs{1}_{N\times 1} \\
+	-\texttt{diag}(\bs{\lambda})\mathcal{D}(\bs{f}^w(\bs{W})) & -\texttt{diag}(\bs{f}^w(\bs{W})) & 0 \\
+	\bs{1}_{1\times N} & 0 & 0
+\end{bmatrix} \begin{bmatrix} \Delta \bs{W} \\ \Delta \bs{\lambda} \\ \Delta \nu \end{bmatrix} = -\begin{bmatrix} 
+\bs{r}_\text{dual} \\ 
+\bs{r}_{\text{cent}} \\ 
+\bs{r}_{\text{pri}}\end{bmatrix}.
+\end{equation}
+The above system couples the primal and dual search directions through both the coefficient matrix and the residuals. In Section \ref{sec:objderivs}, we give formulae for the derivatives of the objective function \eqref{eq:newtobj}. For clarity, we provide the relevant components here as well\footnote{For a function $\bs{u}:\bb{R}^N \to \bb{R}^M$, we note the distinction between $\mathcal{D}(\bs{u}(\bs{z}))$ and $\nabla(\bs{u}(\bs{z}))$. The former is an element of $L(\bb{R}^N,\bb{R}^M)$, equivalently viewed as a set of $M$ elements of $L(\bb{R}^N,\bb{R})$, or $M$ row vectors in $\bb{R}^N$ (left argument of dot product). The latter evaluated at a point is as an element of $L(\bb{R}^M,\bb{R}^N)$, equivalently viewed as a set of $M$ elements of $L(\bb{R},\bb{R}^N)$, or $M$ column vectors in $\bb{R}^N$ (right argument of dot product). TLDR; $[\mathcal{D}(\bs u)]^T = \nabla(\bs{u})$}:
+\begin{align*}
+	\mathcal{D}(f^w(\bs{W})) &= 2\bs{F}(\bs{X}_1^0,\cdots,\bs{X}_d^0,\bs{W})^T\bs{P}(\bs{X}_1^0,\cdots,\bs{X}_d^0) \in \bb{R}^{1\times N}, \\
+	\mathcal{D}^2(f^w(\bs{W})) &= 2\bs{P}(\bs{X}_1^0,\cdots,\bs{X}_d^0)^T\bs{P}(\bs{X}_1^0,\cdots,\bs{X}_d^0) \in \bb{R}^{N\times N},\\
+	\mathcal{D}(\bs{f}^w(\bs{W})) &= -I_{N\times N}, \\
+	\mathcal{D}^2(\bs{f}^w(\bs{W})) &= 0.
+\end{align*}
+Thus, the simplified system we have to solve for the primal dual search direction $\Delta \bs{y}$ is given by
+\begin{equation}
+\begin{split}
+&\begin{bmatrix}
+	 2\bs{P}(\bs{X}_1^0,\cdots,\bs{X}_d^0)^T\bs{P}(\bs{X}_1^0,\cdots,\bs{X}_d^0)& -I_{N\times N}& \bs{1}_{N\times 1} \\
+	\texttt{diag}(\bs{\lambda}) & \texttt{diag}(\bs{W}) & 0 \\
+	\bs{1}_{1\times N} & 0 & 0
+\end{bmatrix} \begin{bmatrix} \Delta \bs{W} \\ \Delta \bs{\lambda} \\ \Delta \nu \end{bmatrix} \\
+= &-\begin{bmatrix} 
+	2\bs{P}(\bs{X}_1^0,\cdots,\bs{X}_d^0)^T\bs{F}(\bs{X}_1^0,\cdots,\bs{X}_d^0,\bs{W}) -I_{N\times N}\bs{\lambda} + \nu \bs{1}_{N\times 1} \\ 
+	\diag(\bs{\lambda})\bs{W} - (1/t)\bs{1}_{N\times 1} \\ 
+	\bs{1}_{1\times N}\bs{W}-1\end{bmatrix}.
+\end{split}
+\end{equation}
 \subsubsection{Derivatives of the objective functions}\label{sec:objderivs}
 We can use the machinery developed in Section \ref{sec:jacobibasis} to compute derivatives of \eqref{eq:newtobj}. Given that these tools are only at our disposal for $d \leq 2$, we proceed for now with $d=2$ and $\bs{x} \in \Tau^2$. We view each component of the objective as a function $F_j : \bb{R}^{3N} \to \bb{R}$, and note that $\bs{P}$ is defined in the $(a,b,c)$ Jacobi basis. Applying the derivative operators defined in \eqref{eq:jactrideriv}, we have at a point $(\bs{X},\bs{Y},\bs{W})$, 
 \begin{align*}
@@ -644,23 +722,23 @@ In this case, the Hessian matrix of $\bs{f}$ is a mapping $\mathcal{D}^2(\bs{f})
 The vector Hessian of $\bs{F}$ appears in \eqref{eq:hessf}, and we can make sense of its tensor structure by reviewing the mixed partial formulae given at the beginning of this section. In particular, 
 we have
 \begin{align}
-\partial_{\bs{X}\bs{X}}(\bs{F}_j(\bs{X},\bs{Y},\bs{W})) &=
+\partial_{\bs{X}\bs{X}}(F_j(\bs{X},\bs{Y},\bs{W})) &=
 I_{N\times N} \odot \Bigg(\bs{1}_N^T \otimes \Big(\bs{W}\odot  \bs{P}^{xx}(\bs{X},\bs{Y})^T \mathcal{D}_{xx}\bs{e}_j\Big)\Bigg),\\
-\partial_{\bs{Y}\bs{X}}(\bs{F}_j(\bs{X},\bs{Y},\bs{W})) &=
+\partial_{\bs{Y}\bs{X}}(F_j(\bs{X},\bs{Y},\bs{W})) &=
 I_{N\times N} \odot \Bigg(\bs{1}_N^T \otimes \Big(\bs{W}\odot  \bs{P}^{yx}(\bs{X},\bs{Y})^T \mathcal{D}_{yx}\bs{e}_j\Big)\Bigg),\\
-\partial_{\bs{W}\bs{X}}(\bs{F}_j(\bs{X},\bs{Y},\bs{W})) &=
+\partial_{\bs{W}\bs{X}}(F_j(\bs{X},\bs{Y},\bs{W})) &=
 I_{N\times N} \odot \Bigg(\bs{1}_N^T \otimes \Big( \bs{P}^{x}(\bs{X},\bs{Y})^T \mathcal{D}_{x}\bs{e}_j\Big)\Bigg),\\
-\partial_{\bs{X}\bs{Y}}(\bs{F}_j(\bs{X},\bs{Y},\bs{W})) &=
+\partial_{\bs{X}\bs{Y}}(F_j(\bs{X},\bs{Y},\bs{W})) &=
 I_{N\times N} \odot \Bigg(\bs{1}_N^T \otimes \Big(\bs{W}\odot  \bs{P}^{xy}(\bs{X},\bs{Y})^T \mathcal{D}_{xy}\bs{e}_j\Big)\Bigg),\\
-\partial_{\bs{Y}\bs{Y}}(\bs{F}_j(\bs{X},\bs{Y},\bs{W})) &=
+\partial_{\bs{Y}\bs{Y}}(F_j(\bs{X},\bs{Y},\bs{W})) &=
 I_{N\times N} \odot \Bigg(\bs{1}_N^T \otimes \Big(\bs{W}\odot  \bs{P}^{yy}(\bs{X},\bs{Y})^T \mathcal{D}_{yy}\bs{e}_j\Big)\Bigg),\\
-\partial_{\bs{W}\bs{Y}}(\bs{F}_j(\bs{X},\bs{Y},\bs{W})) &=
+\partial_{\bs{W}\bs{Y}}(F_j(\bs{X},\bs{Y},\bs{W})) &=
 I_{N\times N} \odot \Bigg(\bs{1}_N^T \otimes \Big( \bs{P}^{y}(\bs{X},\bs{Y})^T \mathcal{D}_{y}\bs{e}_j\Big)\Bigg),\\
-\partial_{\bs{X}\bs{W}}(\bs{F}_j(\bs{X},\bs{Y},\bs{W})) &=
+\partial_{\bs{X}\bs{W}}(F_j(\bs{X},\bs{Y},\bs{W})) &=
 I_{N\times N} \odot \Bigg(\bs{1}_N^T \otimes \Big( \bs{P}^{x}(\bs{X},\bs{Y})^T \mathcal{D}_{x}\bs{e}_j\Big)\Bigg),\\
-\partial_{\bs{Y}\bs{W}}(\bs{F}_j(\bs{X},\bs{Y},\bs{W})) &=
+\partial_{\bs{Y}\bs{W}}(F_j(\bs{X},\bs{Y},\bs{W})) &=
 I_{N\times N} \odot \Bigg(\bs{1}_N^T \otimes \Big( \bs{P}^{y}(\bs{X},\bs{Y})^T \mathcal{D}_{y}\bs{e}_j\Big)\Bigg),\\
-\partial_{\bs{W}\bs{W}}(\bs{F}_j(\bs{X},\bs{Y},\bs{W})) &=
+\partial_{\bs{W}\bs{W}}(F_j(\bs{X},\bs{Y},\bs{W})) &=
 0_{N\times N},
 \end{align}
 where $\cdot \otimes \cdot$ symbolizes the Kronecker product, and $\cdot \odot \cdot $ is component-wise multiplication along the columns of the argument to the right\footnote{Viewing $\bs{W}$ as a column of size $N$, we compute the component-wise product with columns of the matrix on the right. It would be more correct to define a function $\texttt{repmat}(W,k)$, which takes a vector $W \in \bb{R}^N$ and repeats it $k$ times, producing a matrix in $\bb{R}^{N\times k}$ with each of the $k$ columns a copy of $W$. However, for $N\neq M$, the ambiguity in matching sizes of the arguments to $\odot$ is eliminated.}.
