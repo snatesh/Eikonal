@@ -5,7 +5,7 @@ clear all; close all; clc;
 % jacobi poly params
 a = 0.5; b = 0.5; c = 0.5;
 % source and target poly total degree (+1)
-n = 10; m = 12; d = 2;
+n = 30; m = 30; d = 2;
 fname = strcat('triquadLeg_',num2str(n-1),'_',num2str(m-1),'.mat');
 % jacobi matrices
 [Jn1,Jn2,A1,A2,B1,B2,Hn] = jMatON_tri(n,a,b,c);
@@ -25,6 +25,9 @@ Wk1 = Vm_pinv(:,1);
 Q = Vm*Vm';
 Wk = Q\ones(N,1);
 
+
+
+%%
 t0 = 0; t1 = 0;
 for rep = 1:100
 tic;
