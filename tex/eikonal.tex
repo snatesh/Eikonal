@@ -434,7 +434,7 @@ where $\langle \cdot \rangle$ is the weighted $L^2$ inner product. The matrix re
 \end{equation}
 with $\mathcal{J}_{n,i} \in \bb{R}^{N\times N}$ symmetric. By definition, we see that the Jacobi matrices satisfy
 \begin{equation}\label{eq:jni}
-	x_i\bs{P} = \mathcal{J}_{n,i}\bs{P}+ \begin{bmatrix} \bf{0}_{(N-n) \times 1} \\ A_{n-1,i}\bb{P}_n\end{bmatrix},\quad i=1,2.
+	x_i\bs{P} = \mathcal{J}_{n,i}\bs{P}+ \begin{bmatrix} \bs{0}_{(N-r_{n-1}^d) \times 1} \\ A_{n-1,i}\bb{P}_n\end{bmatrix},\quad i=1,\cdots,d.
 \end{equation}
 We hope for a way to generalize the univariate Golub-Welsch algorithm for determining Gaussian quadrature from orthogonal polynomials on the line to the multi-variate case on the simplex. We say that $\Lambda = (\lambda_1,\cdots, \lambda_d)$ is a  \emph{joint eigenvalue} of $J_{n,1},\cdots,J_{n,d}$ if there is a vector $\xi \neq 0$ such that $J_{n,i}\xi = \lambda_i \xi$ for $i=1,\cdots,d$. The vector $\xi$ is the \emph{joint eigenvector}. If there are $N$ distinct joint eigenvalues, then the weights and abscissa for the Gaussian quadrature are as in 1D - the nodes are the joint eigenvalues, and the weights are the square of the first component of the corresponding joint eigenvector. However, Theorem 3.7.5 of Dunkl-Xu states that a necessary and sufficient condition for this to occur is the following commutativity relation
 \begin{equation}
@@ -483,7 +483,7 @@ where
 \end{equation}
 Now, letting 
 \begin{equation}\label{eq:zpart}
-\bs{z} = (\bs{X}_1,\cdots,\bs{X}_d,\bs{W}) \in \bb{R}^{(d+1)N},
+\bs{z} = (\tilde{\bs{z}},\bs{W}) \in \bb{R}^{(d+1)N},
 \end{equation} we can use the Gauss-Newton iteration (where $A^+$ is the Moore-Penrose pseudoinverse)
 \begin{equation}\label{eq:gauss-newt}
 	\bs{z}^{k+1} = \bs{z}^k - \alpha_k[\nabla( \bs{F}(\bs{z}^k))]^+\bs{F}(\bs{z}^k),
@@ -492,7 +492,7 @@ to find roots of \eqref{eq:newtobj}, where $\alpha \in (0,1)$. As we show in Sec
 \begin{equation}\label{eq:newtsysvec}
 	\bs{z}^{k+1} = \bs{z}^k - \alpha [\mathcal{D}^2(\bs{F}(\bs{z^k}))]^{-1}\nabla(\bs{F}(\bs{z}^k)).
 \end{equation}
-\color{red} This iteration does not work well, as the Hessian for each component of the objective is not well conditioned, i.e. near singular. Using the convex problem is a better approach. \color{blue} However, the Gauss-Newton iteration gives rapid convergence towards the solution, albeit with violation of the constraints. It might be wise to use Gauss-Newton to further initialize the guess for the solution, before passing it to iteration \eqref{eq:newtsys}. \color{black} We also consider the Newton iteration for the equivalent problem of finding roots of the convex function $f:\bb{R}^{(d+1)N}\to \bb{R}$ defined by
+\color{red} This iteration does not work well, as the Hessian for each component of the objective is not well conditioned, i.e. near singular. Using the convex problem is a better approach. \color{blue} However, the Gauss-Newton iteration gives rapid convergence towards the solution, albeit with violation of the constraints. It might be wise to use Gauss-Newton to further initialize the guess for the solution, before passing it to iteration \eqref{eq:newtsys}. \color{black} We also consider the Newton iteration for the equivalent problem of finding roots of the function $f:\bb{R}^{(d+1)N}\to \bb{R}$ defined by
 \begin{equation}\label{eq:newtobjscalar}
 	f(\bs{z}) := ||\bs{F}(\bs{z})||_2^2,
 \end{equation}	
@@ -500,13 +500,13 @@ with iteration
 \begin{equation}\label{eq:newtsys}
 	\bs{z}^{k+1} = \bs{z}^k - \alpha [\mathcal{D}^2(f(\bs{z}^k))]^{-1}\nabla(f(\bs{z}^k))
 \end{equation}
-The choice of initial point $\bs{z}^0 = (\bs{X}_1^0,\cdots,\bs{X}_d^0,\bs{W}_0)$ and control of the step length $\alpha_k$ are vital for its convergence. Moreover, we'd like to incorporate inequality constraints on $\bs{z}^k$ to enforce that quadrature nodes are interior to $\Tau^2$. Positivity of weights is also desirable, though not absolutely necessary for stability when the absolute value of each weight is not large. By casting the problem of finding roots of \eqref{eq:newtobj}, \eqref{eq:newtobjscalar} into a minimization problem , we can use techniques from constrained optimization to find acceptable quadratures.
+The choice of initial point $\bs{z}^0 = (\tilde{\bs{z}}^0,\bs{W}_0)$ and control of the step length $\alpha_k$ are vital for its convergence. Moreover, we'd like to incorporate inequality constraints on $\bs{z}^k$ to enforce that quadrature nodes are interior to $\Tau^2$. Positivity of weights is also desirable, though not absolutely necessary for stability when the absolute value of each weight is not large. By casting the problem of finding roots of \eqref{eq:newtobj}, \eqref{eq:newtobjscalar} into a minimization problem , we can use techniques from constrained optimization to find acceptable quadratures.
 \\\\
-First, we make a few observations about the objective function \eqref{eq:newtobjscalar}. Expanding out the norm in terms of the partitioning of the variable $\bs{z}$ defined in \eqref{eq:zpart}, and letting $$\bs{\tilde{z}} = (\bs{X}_1,\cdots,\bs{X}_d),$$ we have
+First, we make a few observations about the objective function \eqref{eq:newtobjscalar}. Expanding out the norm in terms of the partitioning of the variable $\bs{z}$ defined in \eqref{eq:zpart}, we have
 \begin{align}\label{eq:newtobjscalarexpand}
-	f(\bs{z}) = 2\Big(\bs{W}^T\bs{P}(\bs{\tilde{z}})^T\bs{P}(\tilde{\bs{z}})\bs{W} - \bs{1}_{N\times 1}^T\bs{W} + \frac{1}{2}\Big).
+	f(\bs{z}) = \bs{W}^T\bs{P}(\bs{\tilde{z}})^T\bs{P}(\tilde{\bs{z}})\bs{W} - 2( \bs{1}_{N\times 1}^T\bs{W}) + 1.
 \end{align}
-Since $M > N$, and each of the $M$ polynomials is independent, $\bs{P}(\tilde{\bs{z}})$ has full column rank for any $\tilde{\bs{z}} \in \bb{R}^{dN}$. This implies that $\bs{P}(\tilde{\bs{z}})^T\bs{P}(\tilde{\bs{z}})$ is positive definite, and  \eqref{eq:newtobjscalarexpand} is a quadratic, strongly convex function in $\bs{W}$. The optimal $\bs{W}$ is easily determined given the necessary and sufficient optimality condition for strongly convex functions; namely, $\nabla_{\bs{W}} f(\bs{z}) = 0$. Hence,
+Since $M > N$, and each of the $M$ polynomials is independent, $\bs{P}(\tilde{\bs{z}})$ has full column rank for any $\tilde{\bs{z}} \in \bb{R}^{dN}$ with distinct points. This implies that $\bs{P}(\tilde{\bs{z}})^T\bs{P}(\tilde{\bs{z}})$ is positive definite, and  \eqref{eq:newtobjscalarexpand} is a quadratic, strongly convex function in $\bs{W}$. The optimal $\bs{W}$ is easily determined given the necessary and sufficient optimality condition for strongly convex functions; namely, $\nabla_{\bs{W}} f(\bs{z}) = 0$. Hence,
 \begin{align}
 \nabla_{\bs{W}}f(\bs{z}) &= \bs{P}(\tilde{\bs{z}})^T\bs{P}(\tilde{\bs{z}}) \bs{W} - \bs{1}_{N\times 1} = 0 \nonumber \\
  \Rightarrow \bs{W} &= [\bs{P}(\tilde{\bs{z}})^T(\bs{P}(\tilde{\bs{z}}))]^{-1}\bs{1}_{N\times 1} \label{eq:optW}.
@@ -541,11 +541,12 @@ and $f$ is given by \eqref{eq:newtobjscalar}. The zero entries in the constraint
 \end{itemize}
 \vspace{8pt}
 Now, we can optimize over specific partitions of the variable $\bs{z}$ independently, and formulate an equivalent problem. With $\tilde{\bs{z}}$ as in \eqref{eq:tildez}, let
-\begin{equation}
-	\begin{split}
-	\tilde{f}(\tilde{\bs{z}}) &= \inf\{f(\tilde{\bs{z}},\bs{W})\s | \s \bs{W} \in \bb{R}^N \} \\ &= f(\tilde{\bs{z}},[\bs{P}(\tilde{\bs{z}})^T\bs{P}(\tilde{\bs{z}})]^{-1}\bs{1}_{N\times 1}),
-	\end{split}
-\end{equation}
+\begin{align}
+	\tilde{f}(\tilde{\bs{z}}) &= \inf\{f(\tilde{\bs{z}},\bs{W})\s | \s \bs{W} \in \bb{R}^N \} \nonumber \\ &= f(\tilde{\bs{z}},[\bs{P}(\tilde{\bs{z}})^T\bs{P}(\tilde{\bs{z}})]^{-1}\bs{1}_{N\times 1}) \nonumber \\
+		&= \bs{1}_{1\times N}[\bs{P}(\tilde{\bs{z}})^T\bs{P}(\tilde{\bs{z}})]^{-1}\bs{1}_{N\times 1} -2(\bs{1}_{1\times N}[\bs{P}(\tilde{\bs{z}})^T\bs{P}(\tilde{\bs{z}})]^{-1}\bs{1}_{N\times 1})+ 1 \nonumber \\
+		&= -\bs{1}_{1\times N}[\bs{P}(\tilde{\bs{z}})^T\bs{P}(\tilde{\bs{z}})]^{-1}\bs{1}_{N\times 1} + 1 \\
+		&= \log[\exp[-\bs{1}_{1\times N}[\bs{P}(\tilde{\bs{z}})^T\bs{P}(\tilde{\bs{z}})]^{-1}\bs{1}_{N\times 1}]]+1\\
+\end{align}
 where we inserted the optimal $\bs{W}$ found in \eqref{eq:optW}. The problem \eqref{eq:newtoptnew} is then equivalent to
 \begin{equation}\label{eq:newtoptreduced}
 	\begin{split}
@@ -568,7 +569,7 @@ where $\tilde{\bs{f}}:\bb{R}^{dN} \to \bb{R}^{(d+1)N} := \begin{bmatrix} \tilde{
 		\in \bb{R}^{(d+1)N \times dN},
 	\end{split}
 \end{equation}
-
+\color{blue} For some reason, \texttt{logdet} and \texttt{trace} identities are coming to mind as useful for solving this problem - totally vague as of now. At the very least, we can compute derivatives of $\tilde{f}(\tilde{\bs{z}})$. Let $A(\tilde{\bs{z}}) = \bs{P}(\tilde{\bs{z}})^T\bs{P}(\tilde{\bs{z}})$. Then, $\mathcal{D}(A^{-1})|_{\tilde{\bs{z}}} = -A(\tilde{\bs{z}})^{-1} \mathcal{D}(A(\tilde{\bs{z}})) A(\tilde{\bs{z}})^{-1}$. This can be seen by taking the derivative of $I = A(\tilde{\bs{z}})A(\tilde{\bs{z}})^{-1}$, which is 0, and solving for the desired term. \color{black}
 \subsubsection{Roots via minimization (OLD)}
 The optimization problem we would like to solve, stated in canonical form, is 
 \begin{equation}\label{eq:newtopt}
