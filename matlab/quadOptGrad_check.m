@@ -32,6 +32,7 @@ M = nchoosek(m-1+d,m-1);
 X0 = eig(Jn1+1j*Jn2);
 Y = imag(X0); X = real(X0);
 Vm = jPoly_tri(X,Y,Hm,m-1,a,b,c);
+
 Vm_pinv = pinv(Vm');
 W = Vm_pinv(:,1);
 % analytical gradient 

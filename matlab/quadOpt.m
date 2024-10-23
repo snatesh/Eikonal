@@ -26,7 +26,7 @@ T = delaunay(Xk,Yk);
 Fk = Fobj(Xk,Yk,Wk,n,m,a,b,c);
 trisurf(T,Xk,Yk,Fk(1:N))
 
-%%
+
 tol = 1e-14; rho = 0.9; gam = 1e-4; h = 1e-8;
 pk = tol+1; Zk = [Xk;Yk;Wk];
 iter = 0; maxiter = 10000; go = true;
@@ -80,13 +80,13 @@ while pk>tol && iter < maxiter && go
     break;
   end
   if (go)
-  Xk = Xk1; 
-  Yk = Yk1; 
-  Wk = Wk1; 
-  Zk = [Xk;Yk;Wk];
-  Fk = Fk1; 
-  pk = pk1;
-  disp([pk,alph])
+      Xk = Xk1;
+      Yk = Yk1;
+      Wk = Wk1;
+      Zk = [Xk;Yk;Wk];
+      Fk = Fk1;
+      pk = pk1;
+      disp([pk,alph])
   end
 end
 

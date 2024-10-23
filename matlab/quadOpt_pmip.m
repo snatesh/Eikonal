@@ -5,7 +5,7 @@ clear all; close all; clc;
 % jacobi poly params
 a = 0.5; b = 0.5; c = 0.5;
 % source and target poly total degree (+1)
-n = 10; m = 13; d = 2;
+n = 30; m = 30; d = 2;
 fname = strcat('triquadLeg_',num2str(n-1),'_',num2str(m-1),'.mat');
 % jacobi matrices
 [Jn1,Jn2,A1,A2,B1,B2,Hn] = jMatON_tri(n,a,b,c);
@@ -20,8 +20,12 @@ X0 = eig(Jn1+1j*Jn2);
 Yk = imag(X0); Xk = real(X0);
 Vm = jPoly_tri(Xk,Yk,Hm,m-1,a,b,c);
 Vm_pinv = pinv(Vm');
-Wk = Vm_pinv(:,1);
-Wk = abs(Wk);
+Wk1 = Vm_pinv(:,1);
+Q = Vm*Vm';
+Wk = Q\ones(N,1);
+
+
+%%
 [ieqc,G]= fieqc(Xk,Yk,Wk,n);
 
 lambdak = -5./ieqc;
@@ -56,14 +60,15 @@ for j = 1:maxiter
     else
         smax = min(1,min(-lambdak(dlambda<0)./dlambda(dlambda<0)));
     end
-    if (smax < 1e-16)
+    if (smax < 1e-6)
         smax = 1;
     end
     s = 0.99*smax;
     xp = Xk + s*dx;
     yp = Yk + s*dy;
     wp = Wk + s*dw;
-    lambdap = lambdak + s*dlambda;
+    lambdap = lambdak + s*dlambda;Wk = abs(Wk);
+
     nup = nuk + s*dnu;
     for ibt = 1:maxiter
 
