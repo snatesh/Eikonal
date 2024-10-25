@@ -494,7 +494,7 @@ to find roots of \eqref{eq:newtobj}, where $\alpha \in (0,1)$. As we show in Sec
 \end{equation}
 \color{red} This iteration does not work well, as the Hessian for each component of the objective is not well conditioned, i.e. near singular. Using the convex problem is a better approach. \color{blue} However, the Gauss-Newton iteration gives rapid convergence towards the solution, albeit with violation of the constraints. It might be wise to use Gauss-Newton to further initialize the guess for the solution, before passing it to iteration \eqref{eq:newtsys}. \color{black} We also consider the Newton iteration for the equivalent problem of finding roots of the function $f:\bb{R}^{(d+1)N}\to \bb{R}$ defined by
 \begin{equation}\label{eq:newtobjscalar}
-	f(\bs{z}) := ||\bs{F}(\bs{z})||_2^2,
+	f(\bs{z}) := \frac{1}{2}||\bs{F}(\bs{z})||_2^2,
 \end{equation}	
 with iteration
 \begin{equation}\label{eq:newtsys}
@@ -504,13 +504,18 @@ The choice of initial point $\bs{z}^0 = (\tilde{\bs{z}}^0,\bs{W}_0)$ and control
 \\\\
 First, we make a few observations about the objective function \eqref{eq:newtobjscalar}. Expanding out the norm in terms of the partitioning of the variable $\bs{z}$ defined in \eqref{eq:zpart}, we have
 \begin{align}\label{eq:newtobjscalarexpand}
-	f(\bs{z}) = \bs{W}^T\bs{P}(\bs{\tilde{z}})^T\bs{P}(\tilde{\bs{z}})\bs{W} - 2( \bs{1}_{N\times 1}^T\bs{W}) + 1.
+	f(\bs{z}) = \frac{1}{2}\bs{W}^T\bs{P}(\bs{\tilde{z}})^T\bs{P}(\tilde{\bs{z}})\bs{W} - ( \bs{1}_{N\times 1}^T\bs{W}) + \frac{1}{2}m.
 \end{align}
 Since $M > N$, and each of the $M$ polynomials is independent, $\bs{P}(\tilde{\bs{z}})$ has full column rank for any $\tilde{\bs{z}} \in \bb{R}^{dN}$ with distinct points. This implies that $\bs{P}(\tilde{\bs{z}})^T\bs{P}(\tilde{\bs{z}})$ is positive definite, and  \eqref{eq:newtobjscalarexpand} is a quadratic, strongly convex function in $\bs{W}$. The optimal $\bs{W}$ is easily determined given the necessary and sufficient optimality condition for strongly convex functions; namely, $\nabla_{\bs{W}} f(\bs{z}) = 0$. Hence,
 \begin{align}
 \nabla_{\bs{W}}f(\bs{z}) &= \bs{P}(\tilde{\bs{z}})^T\bs{P}(\tilde{\bs{z}}) \bs{W} - \bs{1}_{N\times 1} = 0 \nonumber \\
  \Rightarrow \bs{W} &= [\bs{P}(\tilde{\bs{z}})^T(\bs{P}(\tilde{\bs{z}}))]^{-1}\bs{1}_{N\times 1} \label{eq:optW}.
 \end{align}
+Inserting \eqref{eq:optW} into \eqref{eq:newtobj} gives 
+\begin{align*}
+	\bs{\tilde{F}}(\tilde{\bs{z}})^T &= \bs{1}_{1\times N}[\bs{P}(\tilde{\bs{z}})^T\bs{P}(\tilde{\bs{z}})]^{-1}\bs{P}(\tilde{\bs{z}})^T - \bs{e}_1^T \\
+\Rightarrow \bs{F}(\tilde{\bs{z}}) &= \bs{P}(\tilde{\bs{z}})^\dagger \bs{1}_{N\times 1} - \bs{e}_1
+\end{align*}
  \color{red} The condition number of $\bs{P}(\tilde{\bs{z}})^T\bs{P}(\tilde{\bs{z}})$ grows as the polynomial order increases. Hence, we will need some kind of preconditioning before computing the weights. In particular, the pre-conditioning can be a derivative-free optimization on the condition number of $\bs{P}^T(\tilde{\bs{z}})$ for a fixed $W$, ensuring the value of $f(\bs{z})$ does not exceed its initial value. I've already implemented this with NLOPT, and it works well. \color{black}.
 \subsubsection{Roots via minimization}
 The optimization problem we would like to solve, stated in canonical form, is 
@@ -540,11 +545,11 @@ and $f$ is given by \eqref{eq:newtobjscalar}. The zero entries in the constraint
 	\item[(ii)] $|\bs{X}_j|_1 \leq 1$, which is the $L_1$-norm definition of the simplex $\mathcal{T}^d$, and means that no abscissa points should be outside of it.
 \end{itemize}
 \vspace{8pt}
-Now, we can optimize over specific partitions of the variable $\bs{z}$ independently, and formulate an equivalent problem. With $\tilde{\bs{z}}$ as in \eqref{eq:tildez}, let
+Now, we can optimize over specific partitions of the variable $\bs{z}$ independently, and formulate an equivalent problem. With $\tilde{\bs{z}}$ as in \eqref{eq:tildez}, define $\tilde{f} : \bb{R}^{dN}\to \bb{R}$  by
 \begin{align}
 	\tilde{f}(\tilde{\bs{z}}) &= \inf\{f(\tilde{\bs{z}},\bs{W})\s | \s \bs{W} \in \bb{R}^N \} \nonumber \\ &= f(\tilde{\bs{z}},[\bs{P}(\tilde{\bs{z}})^T\bs{P}(\tilde{\bs{z}})]^{-1}\bs{1}_{N\times 1}) \nonumber \\
-		&= \bs{1}_{1\times N}[\bs{P}(\tilde{\bs{z}})^T\bs{P}(\tilde{\bs{z}})]^{-1}\bs{1}_{N\times 1} -2(\bs{1}_{1\times N}[\bs{P}(\tilde{\bs{z}})^T\bs{P}(\tilde{\bs{z}})]^{-1}\bs{1}_{N\times 1})+ 1 \nonumber \\
-		&= -\bs{1}_{1\times N}[\bs{P}(\tilde{\bs{z}})^T\bs{P}(\tilde{\bs{z}})]^{-1}\bs{1}_{N\times 1} + 1
+		&= \frac{1}{2}(\bs{1}_{1\times N}[\bs{P}(\tilde{\bs{z}})^T\bs{P}(\tilde{\bs{z}})]^{-1}\bs{1}_{N\times 1} -2(\bs{1}_{1\times N}[\bs{P}(\tilde{\bs{z}})^T\bs{P}(\tilde{\bs{z}})]^{-1}\bs{1}_{N\times 1})+ 1) \nonumber \\
+		&= -\frac{1}{2}(\bs{1}_{1\times N}[\bs{P}(\tilde{\bs{z}})^T\bs{P}(\tilde{\bs{z}})]^{-1}\bs{1}_{N\times 1} + 1)
 		%&= \log[\exp[-\bs{1}_{1\times N}[\bs{P}(\tilde{\bs{z}})^T\bs{P}(\tilde{\bs{z}})]^{-1}\bs{1}_{N\times 1}]]+1\\
 \end{align}
 where we inserted the optimal $\bs{W}$ found in \eqref{eq:optW}. The problem \eqref{eq:newtoptnew} is then equivalent to
@@ -575,7 +580,7 @@ Let $L:\bb{R}^{dN}\times \bb{R}^{(d+1)N} \to \bb{R}$ denote the \emph{Lagrangian
 \begin{equation}\label{eq:objlagnew}
 	L(\tilde{\bs{z}},\lambda) = \tilde{f}(\tilde{\bs{z}}) + \bs{\lambda}^T\tilde{\bs{f}}(\tilde{\bs{z}}).
 \end{equation}
-The \emph{Lagrange dual function} of \eqref{eq:objlag} is defined as the minimum value of the Lagrangian over $\bs{z}$: 
+The \emph{Lagrange dual function} of \eqref{eq:objlagnew} is defined as the minimum value of the Lagrangian over $\bs{z}$: 
 \begin{equation}\label{eq:objlagdualnew}
 	g(\bs{\lambda}) = \inf_{\tilde{\bs{z}}\in\bb{R}^{(dN}}L(\tilde{\bs{z}},\bs{\lambda}).
 \end{equation} 
@@ -609,7 +614,71 @@ This leads to the following conditions characterizing the solution to any optimi
 	If an optimal primal dual pair is found, $\bs{z}^\star$ is not necessarily a zero of $\bs{F}(\bs{z})$. We have only satisfied the necessary KKT conditions. However, we may be closer to an actual root and will have maintained interior nodes and positive weights. We can use this new estimate $\bs{z}^\star$ as an initial point in a Gauss-Newton iteration that may relax $\bs{F}(\bs{z})$ to zero quadratically. 
 \end{remark}
 
+We will recast \eqref{eq:newtoptnew} into a fully unconstrained problem using the barrier method, as described in the next section.
 
+\subsubsection{Barrier method}
+In the barrier method, we start by rewriting \eqref{eq:newtoptnew} in a form which incorporates the inequality constraints directly into the objective, as in
+\begin{equation}\label{eq:optZindicatornew}
+		\min_{\tilde{\bs{z}} \in \bb{R}^{dN}} \tilde{f}(\tilde{\bs{z}}) + \sum_{i=1}^{(d+1)N}I_{-}(\tilde{f}_i(\tilde{\bs{z}}))
+\end{equation}
+where $I_{-}: \bb{R} \to \bb{R}$ is the indicator function for the non-positive reals;
+\begin{equation}\label{eq:optindicatornew}
+	I_{-}(x) = \begin{cases} 0,\quad & x \leq 0 \\
+		\infty,\quad & x > 0
+	\end{cases}.
+\end{equation}
+While \eqref{eq:optZindicatornew} has no constraints, the objective is not differentiable. As such, we must approximate the indicator function with a sequence of differentiable functions converging to it in the pointwise limit:
+\begin{equation}
+	\tilde{I}_{-}(x) = -(1/t)\log(-x),\quad t > 0,\quad x \in \bb{R}_\star^-.
+\end{equation}
+Note, we use the convention that $\tilde{I}_{-}(x>0) =\infty$. Observe that $\tilde{I}_{-}(x)\to \infty$ as $x\to 0^-$. As $t \to \infty$ with $x < 0$, $\tilde{I}_{-}(x) \to 0$. The problem is now approximated with a differentiable objective:
+\begin{equation}\label{eq:optZbarriernew}
+	\begin{split}
+		\min_{\tilde{\bs{z}} \in \bb{R}^{dN}} &t\tilde{f}(\tilde{\bs{z}}) + \phi(\tilde{\bs{z}})
+	\end{split}
+\end{equation}
+for $t>0$, where the log barrier function $\phi$ is given by 
+\begin{equation}\label{eq:logbarriernew}
+	\phi(\tilde{\bs{z}}) = -\sum_{i=1}^{(d+1)N}\log(-\tilde{f}_i(\tilde{\bs{z}})).
+\end{equation}
+We can solve \eqref{eq:optZbarriernew} for increasing values of $t$, and use the solution from each previous value of $t$ as the initialization for the problem with the next $t$ value. This generates a sequence $\tilde{\bs{z}}^\star(t)$, known as the \emph{central path}, which converges to the optimal point $\tilde{\bs{z}}^\star$ as $t\to \infty$  (if the problem is solvable). To each approximate problem for a given $t$, we can associate the Newton system to solve for the decrement $\Delta \tilde{\bs{z}}$:
+\begin{equation}
+	(t\nabla^2 \tilde{f}(\tilde{\bs{z}}) + \nabla^2 \phi(\tilde{\bs{z}}))\Delta \tilde{\bs{z}} = -t\nabla \tilde{f}(\tilde{\bs{z}}) + \nabla \phi(\tilde{\bs{z}})
+\end{equation}
+We provide the relevant derivatives below: 
+\begin{align*}
+2\mathcal{D}(\tilde{f}(\tilde{\bs{z}})) &= \mathcal{D}\big(\bs{1}_{1\times N}[\bs{P}(\tilde{\bs{z}})^T\bs{P}(\tilde{\bs{z}})]^{-1}\bs{1}_{N\times 1}\big)\\
+&= \bs{1}_{N\times 1}\bs{1}_{1\times N} \Big(\big(\bs{P}(\tilde{\bs{z}})^T\bs{P}(\tilde{\bs{z}}) \big)^{-1}\big(\mathcal{D}(\bs{P}(\tilde{\bs{z}}))^T\bs{P}(\tilde{\bs{z}}) + \bs{P}(\tilde{\bs{z}})^T\mathcal{D}(\bs{P}(\tilde{\bs{z}})) \big)\big(\bs{P}(\tilde{\bs{z}})^T\bs{P}(\tilde{\bs{z}})\big)^{-1} \Big)\\
+A(\tilde{\bs{z}}) &=  \bs{P}(\tilde{\bs{z}})^T\bs{P}(\tilde{\bs{z}}) \\&= 
+	\begin{bmatrix}P_1(x_{11},\cdots,x_{d1}) & \cdots & P_M(x_{11},\cdots,x_{d1}) \\
+	\vdots & \ddots & \vdots \\
+	P_1(x_{1N},\cdots,x_{dN}) & \cdots & P_M(x_{1N},\cdots,x_{dN})
+	\end{bmatrix}
+	\begin{bmatrix}
+	P_1(x_{11},\cdots,x_{d1}) & \cdots & P_1(x_{1N},\cdots,x_{dN}) \\
+	\vdots & \ddots & \vdots \\
+	P_M(x_{11},\cdots,x_{d1}) & \cdots & P_M(x_{1N},\cdots,x_{dN})
+	\end{bmatrix}  \\ &= 
+	\begin{bmatrix}
+	\sum_{j=1}^N P_j(x_{11},\cdots,x_{d1})P_j(x_{11},\cdots,x_{d1}) & \cdots & \sum_{j=1}^N P_j(x_{11},\cdots,x_{d1})P_j(x_{1N},\cdots,x_{dN}) \\
+	\vdots & \ddots & \vdots \\
+	\sum_{j=1}^N P_j(x_{1N},\cdots,x_{dN})P_j(x_{11},\cdots,x_{d1}) & \cdots & \sum_{j=1}^N P_j(x_{1N},\cdots,x_{dN})P_j(x_{1N},\cdots,x_{dN}) 
+	\end{bmatrix} \\
+[A(\tilde{\bs{z}})]_{ij} &=  \\
+ \partial_{x_{ik}}(\bs{P}(\tilde{\bs{z}})^T\bs{P}(\tilde{\bs{z}})) &= 	\begin{bmatrix}
+	\sum_{j=1}^N \partial_{x_{ik}}[P_j(x_{11},\cdots,x_{d1})P_j(x_{11},\cdots,x_{d1})] & \cdots & \sum_{j=1}^N \partial_{x_{ik}}[P_j(x_{11},\cdots,x_{d1})P_j(x_{1N},\cdots,x_{dN})] \\
+	\vdots & \ddots & \vdots \\
+	\sum_{j=1}^N \partial_{x_{ik}}[P_j(x_{1N},\cdots,x_{dN})P_j(x_{11},\cdots,x_{d1})]& \cdots & \sum_{j=1}^N \partial_{x_{ik}}[P_j(x_{1N},\cdots,x_{dN})P_j(x_{1N},\cdots,x_{dN})]
+\end{bmatrix} \\ 
+&= \begin{bmatrix}
+	0 & \cdots & 0 & \sum_{j=1}^N [P_j(x_{11},\cdots,x_{d1})\partial_{x_{ik}} P_j(x_{1k},\cdots,x_{dk})] & 0 & \cdots & 0\\
+	\vdots & \ddots & \vdots & \vdots & \vdots & \ddots & \vdots \\
+	0 & \cdots & 0 & \sum_{j=1}^N [P_j(x_{1N},\cdots,x_{dN}) \partial_{x_{ik}}P_j(x_{1k},\cdots,x_{dk})] & 0 & \cdots & 0
+\end{bmatrix} \\
+ \mathcal{D}\Big(\bs{P}(\tilde{\bs{z}})^T\bs{P}(\tilde{\bs{z}})\Big) &= 2\bs{P}(\tilde{\bs{z}})^T\mathcal{D}(\bs{P}(\tilde{\bs{z}})) = 2\bs{P}(\tilde{\bs{z}})^T \begin{bmatrix}
+	\mathcal{D}_x^T(\bs{P}(\tilde{\bs{z}})) & \mathcal{D}_y^T(\bs{P}(\tilde{\bs{z}})) \end{bmatrix}\in \bb{R}^{N\times 2N} 
+\end{align*}
+%%We will solve \eqref{eq:newtoptnew} (when it is solvable) using a primal-dual interior-point method. Specifically, we employ a primal-dual barrier method. The initial iterate $\bs{z}^0$ satisfies the inequality constraints in the abscissa partition, but the weights may not initially satisfy positivity, or sum to unity. For the primal-dual method, we need all inequality constraints to be inactive initially. Hence, we can either use an infeasible start newton method, or just pass the absolute value of the initial weights. Either way, we aim only to solve the KKT equations, and the optimal solution is not necessarily a root of \eqref{eq:newtobj}.
 %\subsubsection{Roots via minimization (OLD)}
 %The optimization problem we would like to solve, stated in canonical form, is 
 %\begin{equation}\label{eq:newtopt}
@@ -687,73 +756,73 @@ This leads to the following conditions characterizing the solution to any optimi
 %\begin{remark}
 %If an optimal primal dual pair is found, $\bs{z}^\star$ is not necessarily a zero of $\bs{F}(\bs{z})$. We have only satisfied the necessary KKT conditions. However, we may be closer to an actual root and will have maintained interior nodes and positive weights. We can use this new estimate $\bs{z}^\star$ as an initial point in a Gauss-Newton iteration that may relax $\bs{F}(\bs{z})$ to zero quadratically. 
 %\end{remark}
-We will solve \eqref{eq:newtopt} (when it is solvable) using a primal-dual interior-point method. Specifically, we employ a primal-dual barrier method. The initial iterate $\bs{z}^0$ satisfies the inequality constraints in the abscissa partition, but the weights may not initially satisfy positivity, or sum to unity. For the primal-dual method, we need all inequality constraints to be inactive initially. Hence, we can either use an infeasible start newton method, or just pass the absolute value of the initial weights. Either way, we aim only to solve the KKT equations, and the optimal solution is not necessarily a root of \eqref{eq:newtobj}.
-\subsubsection{Primal-dual barrier method}
-In the barrier method, we start by rewriting \eqref{eq:newtopt} in a form which incorporates the inequality constraints directly into the objective, as in
-\begin{equation}\label{eq:optZindicator}
-	\begin{split}
-		&\min_{\bs{z} \in \bb{R}^{(d+1)N}} f(\bs{z}) + \sum_{i=1}^{(d+2)N}I_{-}(f_i(\bs{z}))\\ 
-		&\text{subject to } \quad
-		h_1(\bs{z}) = A\bs{z} - 1 = 0,
-	\end{split}
-\end{equation}
-where $I_{-}: \bb{R} \to \bb{R}$ is the indicator function for the non-positive reals;
-\begin{equation}\label{eq:optindicator}
-	I_{-}(x) = \begin{cases} 0,\quad & x \leq 0 \\
-		\infty,\quad & x > 0
-	\end{cases}.
-\end{equation}
-While \eqref{eq:optZindicator} has no inequality constraints, the objective is not differentiable. As such, we must approximate the indicator function with a sequence of differentiable functions converging to it in the pointwise limit:
-\begin{equation}
-	\tilde{I}_{-}(x) = -(1/t)\log(-x),\quad t > 0,\quad x \in \bb{R}_\star^-.
-\end{equation}
-Note, we use the convention that $\tilde{I}_{-}(x>0) =\infty$. Observe that $\tilde{I}_{-}(x)\to \infty$ as $x\to 0^-$. As $t \to \infty$ with $x < 0$, $\tilde{I}_{-}(x) \to 0$. The problem is now approximated with a differentiable objective:
-\begin{equation}\label{eq:optZbarrier}
-	\begin{split}
-		\min_{\bs{z} \in \bb{R}^{(d+1)N}} &tf(\bs{z}) + \phi(\bs{z})\\ 
-		\text{subject to } \quad
-		&h_1(\bs{z}) = A\bs{z} - 1 = 0,
-	\end{split}
-\end{equation}
-for $t>0$, where the log barrier function $\phi$ is given by 
-\begin{equation}\label{eq:logbarrier}
-	\phi(\bs{z}) = -\sum_{i=1}^{(d+2)N}\log(-f_i(\bs{z})).
-\end{equation}
-We can solve \eqref{eq:optZbarrier} for increasing values of $t$, and use the solution from each previous value of $t$ as the initialization for the problem with the next $t$ value. This generates a sequence $\bs{z}^\star(t)$, known as the \emph{central path}, which converges to the optimal point $\bs{z}^\star$ as $t\to \infty$  (if the problem is solvable). To each approximate problem, we can associated the modified KKT conditions, written in vector form as 
-\begin{equation}\label{eq:optZbarrierKKT}
-	\bs{r}_t(\bs{z},\bs{\lambda},\nu) = \begin{bmatrix}
-		\nabla f(\bs{z}) + [\mathcal{D}(\bs{f}(\bs{z}))]^T\bs{\lambda} + A^T\nu\\
-		-\texttt{diag}(\bs{\lambda})\bs{f}(\bs{z}) - (1/t)\bs{1}_{(d+2)N\times 1}\\
-		A\bs{z} - 1 
-	\end{bmatrix}= \begin{bmatrix} \bs{r}_\text{dual} \\ \bs{r}_{\text{cent}} \\ \bs{r}_{\text{pri}}\end{bmatrix} = 0.
-\end{equation}
-The first block row is the \emph{dual residual}. The second is the \emph{centrality residual} (corresponding to the residual of the deformed KKT condition $-\lambda_i f_i(\bs{z}) = 1/t$), and the last block row is the \emph{primal residual}. Let $$\bs{y} = (\bs{z},\bs{\lambda},\nu).$$ We can determine the Newton step for solving the KKT system \eqref{eq:optZbarrierKKT} by finding its linearization about $\bs{y}$;  
-\begin{equation}\label{eq:optZbarrierKKTlin}
-	\begin{split}
-		\bs{r}_t(\bs{y}+\Delta \bs{y}) &\approx \bs{r}_t(\bs{y}) + \mathcal{D}(\bs{r}_t(\bs{y}))\Delta\bs{y} = 0 \\
-		\Rightarrow \Delta \bs{y} &= -\mathcal{D}(\bs{r}_t(\bs{y}))^{-1}\bs{r}_t(\bs{y}).
-	\end{split}
-\end{equation}
-Parsing this out, we have the following system to solve for the \emph{primal dual} search direction $\Delta \bs{y}$:
-\begin{equation}\label{eq:optZbarrierNewt}
-	\begin{bmatrix}
-		\nabla^2 f(\bs{z}) + \bs{\lambda}^T \nabla^2 \bs{f}(\bs{z}) & [\mathcal{D}(\bs{f}(\bs{z}))]^T & A^T \\
-		-\texttt{diag}(\bs{\lambda})\mathcal{D}(\bs{f}(\bs{z})) & -\texttt{diag}(\bs{f}(\bs{z})) & 0 \\
-		A & 0 & 0
-	\end{bmatrix} \begin{bmatrix} \Delta \bs{z} \\ \Delta \bs{\lambda} \\ \Delta \nu \end{bmatrix} = -\begin{bmatrix} 
-		\bs{r}_\text{dual} \\ 
-		\bs{r}_{\text{cent}} \\ 
-		\bs{r}_{\text{pri}}\end{bmatrix}.
-\end{equation}
-The above system couples the primal and dual search directions through both the coefficient matrix and the residuals. In Section \ref{sec:objderivs}, we give formulae for the derivatives of the objective function \eqref{eq:newtobj}. For clarity, we provide the relevant components here as well\footnote{For a function $\bs{u}:\bb{R}^N \to \bb{R}^M$, we note the distinction between $\mathcal{D}(\bs{u}(\bs{z}))$ and $\nabla(\bs{u}(\bs{z}))$. The former is an element of $L(\bb{R}^N,\bb{R}^M)$, equivalently viewed as a set of $M$ elements of $L(\bb{R}^N,\bb{R})$, or $M$ row vectors in $\bb{R}^N$ (left argument of dot product). The latter evaluated at a point is as an element of $L(\bb{R}^M,\bb{R}^N)$, equivalently viewed as a set of $M$ elements of $L(\bb{R},\bb{R}^N)$, or $M$ column vectors in $\bb{R}^N$ (right argument of dot product). TLDR; $[\mathcal{D}(\bs u)]^T = \nabla(\bs{u})$}. Recalling our partitioning of the solution variable $\bs{z}$ defined in \eqref{eq:zpart},we have
-\begin{align*}
-	\mathcal{D}(f(\bs{z})) &= 2\bs{F}(\bs{z})^T \mathcal{D}(\bs{F}(\bs{z})) \in \bb{R}^{1\times dN}, \\
-	\mathcal{D}^2(f(\bs{z})) &=
-	2\Bigg(\sum_{j=1}^{(d+2)N} F_j(\bs{z})[\mathcal{D}^2(F_j(\bs{z}))] + \Big([\mathcal{D}(\bs{F}(\bs{z}))]|\Big)^T \mathcal{D}(\bs{F}(\bs{z}))\Bigg) \in \bb{R}^{dN\times dN} \\
-	\mathcal{D}(\bs{f}(\bs{z})) &= G, \\
-	\mathcal{D}^2(\bs{f}(\bs{z})) &= 0.
-\end{align*}
-The components of $\mathcal{D}(\bs{F}(\bs{z}))$ are given in \eqref{eq:Fobjderiv}, and those of $\mathcal{D}^2(F_j(\bs{z}))$ are stated in \eqref{eq:hessFfirstpart}-\eqref{eq:hessFlastpart}. 
+
+%\subsubsection{Primal-dual barrier method}
+%In the barrier method, we start by rewriting \eqref{eq:newtopt} in a form which incorporates the inequality constraints directly into the objective, as in
+%\begin{equation}\label{eq:optZindicator}
+%	\begin{split}
+%		&\min_{\bs{z} \in \bb{R}^{(d+1)N}} f(\bs{z}) + \sum_{i=1}^{(d+2)N}I_{-}(f_i(\bs{z}))\\ 
+%		&\text{subject to } \quad
+%		h_1(\bs{z}) = A\bs{z} - 1 = 0,
+%	\end{split}
+%\end{equation}
+%where $I_{-}: \bb{R} \to \bb{R}$ is the indicator function for the non-positive reals;
+%\begin{equation}\label{eq:optindicator}
+%	I_{-}(x) = \begin{cases} 0,\quad & x \leq 0 \\
+%		\infty,\quad & x > 0
+%	\end{cases}.
+%\end{equation}
+%While \eqref{eq:optZindicator} has no inequality constraints, the objective is not differentiable. As such, we must approximate the indicator function with a sequence of differentiable functions converging to it in the pointwise limit:
+%\begin{equation}
+%	\tilde{I}_{-}(x) = -(1/t)\log(-x),\quad t > 0,\quad x \in \bb{R}_\star^-.
+%\end{equation}
+%Note, we use the convention that $\tilde{I}_{-}(x>0) =\infty$. Observe that $\tilde{I}_{-}(x)\to \infty$ as $x\to 0^-$. As $t \to \infty$ with $x < 0$, $\tilde{I}_{-}(x) \to 0$. The problem is now approximated with a differentiable objective:
+%\begin{equation}\label{eq:optZbarrier}
+%	\begin{split}
+%		\min_{\bs{z} \in \bb{R}^{(d+1)N}} &tf(\bs{z}) + \phi(\bs{z})\\ 
+%		\text{subject to } \quad
+%		&h_1(\bs{z}) = A\bs{z} - 1 = 0,
+%	\end{split}
+%\end{equation}
+%for $t>0$, where the log barrier function $\phi$ is given by 
+%\begin{equation}\label{eq:logbarrier}
+%	\phi(\bs{z}) = -\sum_{i=1}^{(d+2)N}\log(-f_i(\bs{z})).
+%\end{equation}
+%We can solve \eqref{eq:optZbarrier} for increasing values of $t$, and use the solution from each previous value of $t$ as the initialization for the problem with the next $t$ value. This generates a sequence $\bs{z}^\star(t)$, known as the \emph{central path}, which converges to the optimal point $\bs{z}^\star$ as $t\to \infty$  (if the problem is solvable). To each approximate problem, we can associated the modified KKT conditions, written in vector form as 
+%\begin{equation}\label{eq:optZbarrierKKT}
+%	\bs{r}_t(\bs{z},\bs{\lambda},\nu) = \begin{bmatrix}
+%		\nabla f(\bs{z}) + [\mathcal{D}(\bs{f}(\bs{z}))]^T\bs{\lambda} + A^T\nu\\
+%		-\texttt{diag}(\bs{\lambda})\bs{f}(\bs{z}) - (1/t)\bs{1}_{(d+2)N\times 1}\\
+%		A\bs{z} - 1 
+%	\end{bmatrix}= \begin{bmatrix} \bs{r}_\text{dual} \\ \bs{r}_{\text{cent}} \\ \bs{r}_{\text{pri}}\end{bmatrix} = 0.
+%\end{equation}
+%The first block row is the \emph{dual residual}. The second is the \emph{centrality residual} (corresponding to the residual of the deformed KKT condition $-\lambda_i f_i(\bs{z}) = 1/t$), and the last block row is the \emph{primal residual}. Let $$\bs{y} = (\bs{z},\bs{\lambda},\nu).$$ We can determine the Newton step for solving the KKT system \eqref{eq:optZbarrierKKT} by finding its linearization about $\bs{y}$;  
+%\begin{equation}\label{eq:optZbarrierKKTlin}
+%	\begin{split}
+%		\bs{r}_t(\bs{y}+\Delta \bs{y}) &\approx \bs{r}_t(\bs{y}) + \mathcal{D}(\bs{r}_t(\bs{y}))\Delta\bs{y} = 0 \\
+%		\Rightarrow \Delta \bs{y} &= -\mathcal{D}(\bs{r}_t(\bs{y}))^{-1}\bs{r}_t(\bs{y}).
+%	\end{split}
+%\end{equation}
+%Parsing this out, we have the following system to solve for the \emph{primal dual} search direction $\Delta \bs{y}$:
+%\begin{equation}\label{eq:optZbarrierNewt}
+%	\begin{bmatrix}
+%		\nabla^2 f(\bs{z}) + \bs{\lambda}^T \nabla^2 \bs{f}(\bs{z}) & [\mathcal{D}(\bs{f}(\bs{z}))]^T & A^T \\
+%		-\texttt{diag}(\bs{\lambda})\mathcal{D}(\bs{f}(\bs{z})) & -\texttt{diag}(\bs{f}(\bs{z})) & 0 \\
+%		A & 0 & 0
+%	\end{bmatrix} \begin{bmatrix} \Delta \bs{z} \\ \Delta \bs{\lambda} \\ \Delta \nu \end{bmatrix} = -\begin{bmatrix} 
+%		\bs{r}_\text{dual} \\ 
+%		\bs{r}_{\text{cent}} \\ 
+%		\bs{r}_{\text{pri}}\end{bmatrix}.
+%\end{equation}
+%The above system couples the primal and dual search directions through both the coefficient matrix and the residuals. In Section \ref{sec:objderivs}, we give formulae for the derivatives of the objective function \eqref{eq:newtobj}. For clarity, we provide the relevant components here as well\footnote{For a function $\bs{u}:\bb{R}^N \to \bb{R}^M$, we note the distinction between $\mathcal{D}(\bs{u}(\bs{z}))$ and $\nabla(\bs{u}(\bs{z}))$. The former is an element of $L(\bb{R}^N,\bb{R}^M)$, equivalently viewed as a set of $M$ elements of $L(\bb{R}^N,\bb{R})$, or $M$ row vectors in $\bb{R}^N$ (left argument of dot product). The latter evaluated at a point is as an element of $L(\bb{R}^M,\bb{R}^N)$, equivalently viewed as a set of $M$ elements of $L(\bb{R},\bb{R}^N)$, or $M$ column vectors in $\bb{R}^N$ (right argument of dot product). TLDR; $[\mathcal{D}(\bs u)]^T = \nabla(\bs{u})$}. Recalling our partitioning of the solution variable $\bs{z}$ defined in \eqref{eq:zpart},we have
+%\begin{align*}
+%	\mathcal{D}(f(\bs{z})) &= 2\bs{F}(\bs{z})^T \mathcal{D}(\bs{F}(\bs{z})) \in \bb{R}^{1\times dN}, \\
+%	\mathcal{D}^2(f(\bs{z})) &=
+%	2\Bigg(\sum_{j=1}^{(d+2)N} F_j(\bs{z})[\mathcal{D}^2(F_j(\bs{z}))] + \Big([\mathcal{D}(\bs{F}(\bs{z}))]|\Big)^T \mathcal{D}(\bs{F}(\bs{z}))\Bigg) \in \bb{R}^{dN\times dN} \\
+%	\mathcal{D}(\bs{f}(\bs{z})) &= G, \\
+%	\mathcal{D}^2(\bs{f}(\bs{z})) &= 0.
+%\end{align*}
+%The components of $\mathcal{D}(\bs{F}(\bs{z}))$ are given in \eqref{eq:Fobjderiv}, and those of $\mathcal{D}^2(F_j(\bs{z}))$ are stated in \eqref{eq:hessFfirstpart}-\eqref{eq:hessFlastpart}. 
 
 
 %\subsubsection{Barrier method and constraint activity for the partitioned problem}

@@ -3,27 +3,119 @@ clear all; close all; clc;
 % primal dual algorithm for the full quadrature problem.
 
 % jacobi poly params
-a = 0.5; b = 0.5; c = 0.5;
+a = 0.5; b = 0.5; c = 0.5; dim = 2;
 % source and target poly total degree (+1)
-n = 30; m = 30; d = 2;
+n = 16; m = 27; d = 2;
 fname = strcat('triquadLeg_',num2str(n-1),'_',num2str(m-1),'.mat');
 % jacobi matrices
 [Jn1,Jn2,A1,A2,B1,B2,Hn] = jMatON_tri(n,a,b,c);
 % structure factors in target basis
 Hm = structure_factors_tri(m,a,b,c);
 % number of polynomials in source basis
-N = nchoosek(n-1+d,n-1);
+N = nchoosek(n-1+d,n-1); 
 % number of polynomials in target basis
 M = nchoosek(m-1+d,m-1);
 % initial nodes and weights for Newton iter
 X0 = eig(Jn1+1j*Jn2);
 Yk = imag(X0); Xk = real(X0);
 Vm = jPoly_tri(Xk,Yk,Hm,m-1,a,b,c);
-Vm1 = jPoly_tri(Xk+1e-8,Yk+1e-8,Hm,m-1,a,b,c);
 Vm_pinv = pinv(Vm');
 Wk1 = Vm_pinv(:,1);
 Q = Vm*Vm';
 Wk = Q\ones(N,1);
+fobj(Xk,Yk,Wk1,n,m,a,b,c)
+ftobj(Xk,Yk,n,m,a,b,c)
+norm(Fobj(Xk,Yk,Wk1,n,m,a,b,c))
+norm(Ftobj(Xk,Yk,n,m,a,b,c))
+
+fun = @(X) ftobj(X(1:N),X(N+1:2*N),n,m,a,b,c);
+%fun = @(X) fobj(X(1:N),X(N+1:2*N),X(2*N+1:3*N),n,m,a,b,c);
+X0 = [Xk;Yk];
+%X0 = [Xk;Yk;Wk];
+[ieq,G,bvec] = ftieqc(Xk,Yk,n);
+
+options = ...
+  optimoptions('fmincon',...
+               'Display','iter',...
+               'Algorithm','sqp',...
+               'FiniteDifferenceType','central',...
+               'FiniteDifferenceStepSize',1e-6,...
+               'MaxFunctionEvaluations',1e10,...
+               'MaxIterations',1e10,...
+               'ConstraintTolerance',1e-14,...
+               'OptimalityTolerance',1e-14,...
+               'StepTolerance', 1e-14, ...
+               'UseParallel', false)
+[X,fval] = fmincon(fun,X0,G,bvec,[],[],[],[],[],options);
+%%
+Xk = X(1:N); Yk = X(N+1:2*N); 
+Vm = jPoly_tri(Xk,Yk,Hm,m-1,a,b,c);
+Vm_pinv = pinv(Vm');
+Wk = Vm_pinv(:,1);
+ftest = @(X,Y) sin(X.^2+Y.^2);%.*exp(cos(Y));
+disp([Wk'*ftest(Xk,Yk),sum(Wk), cond(Vm)]);
+tri = [0 1 0 0 0 1];
+figure(1);
+X0 = eig(Jn1+1j*Jn2);
+plot(X0,'b.');
+plot(Xk,Yk,'ro');
+Zk = [Xk;Yk;Wk];
+save(fname,'Zk','n','m','N','M');
+
+%%
+usewolfe = false;
+tol = 1e-14; rho = 0.9; gam = 1e-8; h = 1e-3;
+pk = tol+1; Zk = [Xk;Yk];
+iter = 0; maxiter = 10000; go = true;
+while pk>tol && iter < maxiter && go
+  iter = iter + 1;
+  Fk = Ftobj(Xk,Yk,n,m,a,b,c);
+  % compute gradient
+  gradFk = gradFtobjFD(Xk,Yk,n,m,a,b,c,h);
+  dZk = -gradFk\Fk;
+  % linesearch with wolfe conditions
+  alph = 0.00001;
+  Zk1 = Zk+alph*dZk;
+  Xk1 = Zk1(1:N);
+  Yk1 = Zk1(N+1:2*N);
+  Fk1 = Ftobj(Xk1,Yk1,n,m,a,b,c);
+  pk1 = norm(Fk1); iter_i = 0;
+  if (usewolfe)
+    while (pk1>norm(Fk+gam*alph*gradFk*dZk) && iter_i < maxiter && alph>eps)
+      alph = rho*alph;
+      Zk1 = Zk+alph*dZk;
+      Xk1 = Zk1(1:N);
+      Yk1 = Zk1(N+1:2*N);
+      Fk1 = Ftobj(Xk1,Yk1,n,m,a,b,c);
+      pk1 = norm(Fk1);
+      iter_i = iter_i+1;
+      disp([pk1,alph])
+    end
+  end
+
+  for j = 1:N
+    if (Xk1(j) < 0 || Xk1(j) > 1 || ...
+        Yk1(j) < 0 || Yk1(j) > 1 || ...
+        Yk1(j) > 1-Xk1(j))
+      go = false;
+      break;
+    end
+  end
+
+  %if (norm(Zk-Zk1)/norm(Zk) < 1e-14)
+  %  break;
+  %end
+  if (go)
+      Xk = Xk1;
+      Yk = Yk1;
+      Zk = [Xk;Yk];
+      Fk = Fk1;
+      pk = pk1;
+      disp([pk,alph])
+  end
+end
+
+
 
 
 
@@ -137,9 +229,51 @@ F = V_abc'*W; F(1) = F(1) - 1;
 
 end
 
+function F = Ftobj(X,Y,n,m,a,b,c)
+
+N = n*(n+1)/2;
+M = m*(m+1)/2;
+
+H_abc = structure_factors_tri(m+1,a,b,c);
+V_abc = jPoly_tri(X,Y,H_abc,m-1,a,b,c);
+one = ones(1,N);
+V_pinv = (V_abc*V_abc')\V_abc;
+
+
+F = one*V_pinv; F(1) = F(1) - 1;
+F = F';
+
+end
+
+% 2nd-order finite difference approx to eq. 3.17
+function dF = gradFtobjFD(X,Y,n,m,a,b,c,h)
+
+N = n*(n+1)/2;
+M = m*(m+1)/2;
+dF = zeros(M,2*N);
+Z = [X;Y];
+for ii = 1:2*N
+  % f(z+h)
+  Z(ii) = Z(ii)+h;
+  x = Z(1:N); y = Z(N+1:2*N);
+  fkph = Ftobj(x,y,n,m,a,b,c);
+  % f(z-h)
+  Z(ii) = Z(ii)-2*h;
+  x = Z(1:N); y = Z(N+1:2*N);
+  fkmh = Ftobj(x,y,n,m,a,b,c);
+  % FD approx to gradF
+  dF(:,ii) = (fkph-fkmh)/(2.0*h);
+  % restore Z
+  Z(ii) = Z(ii)+h;
+end
+
+end
+
+
+
 function f = fobj(X,Y,W,n,m,a,b,c)
 
-f = norm(Fobj(X,Y,W,n,m,a,b,c))^2;
+f = 0.5*norm(Fobj(X,Y,W,n,m,a,b,c))^2;
 
 end
 
@@ -150,7 +284,24 @@ H_abc = structure_factors_tri(m+1,a,b,c);
 V_abc = jPoly_tri(X,Y,H_abc,m-1,a,b,c);
 one = ones(N,1);
 Q = V_abc*V_abc';
-f = -one'*(Q\one) + 1;
+f = -0.5*(one'*(Q\one) - 1);
+
+end
+
+function [ieqc,G,b] = ftieqc(X,Y,n)
+
+dim = 2;
+N = n*(n+1)/2;
+G = zeros((dim+1)*N,dim*N);
+one = ones(dim*N,1);
+G(1:dim*N,1:dim*N) = -diag(one);
+zeroOne = [zeros(dim*N,1); ones(N,1)];
+I = eye(N);
+for j = 1:dim
+    G(dim*N+1:(dim+1)*N,N*(j-1)+1:N*j) = I;
+end
+b = zeroOne;
+ieqc = G*[X;Y] - b;
 
 end
 
