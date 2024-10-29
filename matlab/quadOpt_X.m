@@ -1,11 +1,19 @@
 clear all; close all; clc;
+list_factory = fieldnames(get(groot,'factory'));
+index_interpreter = find(contains(list_factory,'Interpreter'));
+for i = 1:length(index_interpreter)
+  default_name = strrep(list_factory{index_interpreter(i)},'factory','default');
+  set(groot, default_name,'latex');
+end
+set(groot, 'defaultLegendFontSize',30)
+set(groot, 'defaultAxesFontSize',30)
 
 % primal dual algorithm for the full quadrature problem.
 
 % jacobi poly params
 a = 0.5; b = 0.5; c = 0.5; dim = 2;
 % source and target poly total degree (+1)
-n = 16; m = 27; d = 2;
+n = 12; m = 14; d = 2;
 fname = strcat('triquadLeg_',num2str(n-1),'_',num2str(m-1),'.mat');
 % jacobi matrices
 [Jn1,Jn2,A1,A2,B1,B2,Hn] = jMatON_tri(n,a,b,c);
@@ -27,9 +35,37 @@ fobj(Xk,Yk,Wk1,n,m,a,b,c)
 ftobj(Xk,Yk,n,m,a,b,c)
 norm(Fobj(Xk,Yk,Wk1,n,m,a,b,c))
 norm(Ftobj(Xk,Yk,n,m,a,b,c))
+% 
+dU = dPTP([Xk,Yk],n,m,a,b,c);
+U = PTP([Xk,Yk],n,m,a,b,c);
+dg = dgU(U);
+dgdz = dgUdz([Xk,Yk],n,m,a,b,c);
 
-fun = @(X) ftobj(X(1:N),X(N+1:2*N),n,m,a,b,c);
+hs = [5e-2 1e-2 5e-3 1e-3 5e-4 1e-4 5e-5 1e-5 5e-6 1e-6 5e-7 1e-7];
+errsdU = zeros(size(hs));
+errsdg = zeros(size(hs));
+errsdgdz = zeros(size(hs));
+% compute FD approx to F for each h
+% and find relative error in FD approx
+for kk = 1:length(hs)
+  dU_FD = dPTP_FD([Xk,Yk],n,m,a,b,c,hs(kk));
+  dg_FD = dgU_FD(U,hs(kk));
+  dgdz_FD = dgUdz_FD([Xk,Yk],n,m,a,b,c,hs(kk));
+  errsdU(kk) = norm(dU_FD-dU,'fro')/norm(dU,'fro');
+  errsdg(kk) = norm(dg_FD-dg,'fro')/norm(dg,'fro');
+  errsdgdz(kk) = norm(dgdz_FD-dgdz,'fro')/norm(dgdz,'fro');
+end
+%%
+loglog(hs,errsdU,'r-','linewidth',5,'DisplayName','$\frac{\partial U}{\partial z_{ij}}$'); hold on;
+loglog(hs,errsdgdz,'b-','linewidth',5,'DisplayName','$\frac{\partial g(U)}{\partial z_{ij}}$');
+loglog(hs,hs.^2,'k--','linewidth',5,'DisplayName','$\mathcal{O}(h^2)$')
+legend('location','best')
+xlabel('$h$');
+ylabel('Relative 2-Norm Error')
+%%
+%fun = @(X) ftobj(X(1:N),X(N+1:2*N),n,m,a,b,c);
 %fun = @(X) fobj(X(1:N),X(N+1:2*N),X(2*N+1:3*N),n,m,a,b,c);
+fun = @(X) ftobj_Z(X,n,m,a,b,c);
 X0 = [Xk;Yk];
 %X0 = [Xk;Yk;Wk];
 [ieq,G,bvec] = ftieqc(Xk,Yk,n);
@@ -38,14 +74,13 @@ options = ...
   optimoptions('fmincon',...
                'Display','iter',...
                'Algorithm','sqp',...
-               'FiniteDifferenceType','central',...
-               'FiniteDifferenceStepSize',1e-6,...
+               'SpecifyObjectiveGradient',true,...
                'MaxFunctionEvaluations',1e10,...
                'MaxIterations',1e10,...
-               'ConstraintTolerance',1e-14,...
+               'ConstraintTolerance',1e-16,...
                'OptimalityTolerance',1e-14,...
-               'StepTolerance', 1e-14, ...
-               'UseParallel', false)
+               'StepTolerance', 1e-16, ...
+               'UseParallel', true)
 [X,fval] = fmincon(fun,X0,G,bvec,[],[],[],[],[],options);
 %%
 Xk = X(1:N); Yk = X(N+1:2*N); 
@@ -60,7 +95,7 @@ X0 = eig(Jn1+1j*Jn2);
 plot(X0,'b.');
 plot(Xk,Yk,'ro');
 Zk = [Xk;Yk;Wk];
-save(fname,'Zk','n','m','N','M');
+%save(fname,'Zk','n','m','N','M');
 
 %%
 usewolfe = false;
@@ -277,7 +312,7 @@ f = 0.5*norm(Fobj(X,Y,W,n,m,a,b,c))^2;
 
 end
 
-function f = ftobj(X,Y,n,m,a,b,c)
+function [f, df] = ftobj(X,Y,n,m,a,b,c)
 
 N = n*(n+1)/2;
 H_abc = structure_factors_tri(m+1,a,b,c);
@@ -285,6 +320,14 @@ V_abc = jPoly_tri(X,Y,H_abc,m-1,a,b,c);
 one = ones(N,1);
 Q = V_abc*V_abc';
 f = -0.5*(one'*(Q\one) - 1);
+df = 0.5*reshape(dgUdz([X,Y],n,m,a,b,c),N*2,1);
+
+end
+
+function [f, df] = ftobj_Z(Z,n,m,a,b,c)
+
+N = n*(n+1)/2;
+[f, df] = ftobj(Z(1:N),Z(N+1:2*N),n,m,a,b,c);
 
 end
 
@@ -351,8 +394,7 @@ N = n*(n+1)/2;
 [~, A] = feqc(X,Y,W,n);
 [ieqc, G] = fieqc(X,Y,W,n);
 
-d2f = hessfobj(X,Y,W,n,m,a,b,c);
-
+d2f = hessfobj(X,Y,W,n,m,a,b,c);                    
 dkkt = [d2f', G', A';...
         -diag(lambda)*G, -diag(ieqc), zeros((dim+2)*N,1);...
         A, zeros(1,(dim+2)*N), 0];
@@ -378,6 +420,156 @@ function df = dfobj(X,Y,W,n,m,a,b,c)
 df = 2*Fobj(X,Y,W,n,m,a,b,c)'*dFobj(X,Y,W,n,m,a,b,c);
 
 end
+
+
+function dU = dPTP(Z,n,m,a,b,c)
+
+N = n*(n+1)/2;
+M = m*(m+1)/2;
+dim = 2;
+X = Z(:,1); Y = Z(:,2);
+H_abc = structure_factors_tri(m+1,a,b,c);
+H_a1bc1 = structure_factors_tri(m+1,a+1,b,c+1);
+H_ab1c1 = structure_factors_tri(m+1,a,b+1,c+1);
+
+Dx = D1_tri(a,b,c,H_abc,H_a1bc1,0);
+Dy = D1_tri(a,b,c,H_abc,H_ab1c1,1);
+D = cell(2); D{1} = Dx; D{2} = Dy;
+
+V_abc = jPoly_tri(X,Y,H_abc,m-1,a,b,c);
+V_a1bc1 = jPoly_tri(X,Y,H_a1bc1,m-1,a+1,b,c+1);
+V_ab1c1 = jPoly_tri(X,Y,H_ab1c1,m-1,a,b+1,c+1);
+V = cell(2); V{1} = V_a1bc1; V{2} = V_ab1c1;
+
+dU = zeros(N,dim,N,N);
+for i = 1:N
+    for j = 1:dim
+        for k = 1:N
+            for l = 1:N
+                if (i ~= l && i ~= k)
+                    dukldzij = 0;
+                elseif (i == l && i ~=k)
+                    dukldzij = V_abc(k,:)*(V{j}(l,:)*D{j})';
+                elseif (i ~= l && i == k)
+                    dukldzij = V_abc(l,:)*(V{j}(k,:)*D{j})';
+                elseif (i == l && i == k)
+                    dukldzij = 2*V_abc(k,:)*(V{j}(k,:)*D{j})';
+                end
+                dU(i,j,k,l) = dukldzij;
+            end
+        end
+    end
+end
+       
+end
+
+function U = PTP(Z,n,m,a,b,c)
+
+X = Z(:,1); Y = Z(:,2);
+H_abc = structure_factors_tri(m+1,a,b,c);
+V_abc = jPoly_tri(X,Y,H_abc,m-1,a,b,c);
+U = V_abc*V_abc';
+
+end
+
+function dU = dPTP_FD(Z,n,m,a,b,c,h)
+
+N = n*(n+1)/2;
+M = m*(m+1)/2;
+dim = 2;
+dU = zeros(N,dim,N,N);
+for i = 1:N
+    for j = 1:dim
+        % uph
+        Z(i,j) = Z(i,j) + h;
+        uph = PTP(Z,n,m,a,b,c);
+        % umh
+        Z(i,j) = Z(i,j) - 2*h;
+        umh = PTP(Z,n,m,a,b,c);
+        % FD approx to dukl/dzij
+        dU(i,j,:,:) = (uph-umh)/(2.0*h);
+        % restore Z
+        Z(i,j) = Z(i,j) + h;
+    end
+end
+       
+end
+
+function gU = g(U)
+
+[N,~] = size(U);
+one = ones(N,1);
+gU = -one'*(U\one);
+
+end
+
+function dg = dgU(U)
+
+[N,~] = size(U);
+one = ones(N,1);
+UTinvOne = -(U')\one;
+dg = UTinvOne*UTinvOne';
+
+end
+
+function dg = dgU_FD(U,h)
+
+[N,~] = size(U);
+dg = zeros(N,N);
+for i = 1:N
+    for j = 1:N
+        % gph
+        U(i,j) = U(i,j) + h;
+        gph = g(U);
+        % gmh
+        U(i,j) = U(i,j) - 2*h;
+        gmh = g(U);
+        % FD approx to dgU/dUij
+        dg(i,j) = (gph-gmh)/(2.0*h);
+        % restore U
+        U(i,j) = U(i,j) + h;
+    end
+end
+
+end
+
+function dgdz = dgUdz(Z,n,m,a,b,c)
+
+[N,dim] = size(Z);
+dgdz = zeros(size(Z));
+U = PTP(Z,n,m,a,b,c);
+dg = dgU(U); 
+dU = dPTP(Z,n,m,a,b,c);
+for i = 1:N
+    for j = 1:dim
+        du = reshape(dU(i,j,:,:),N,N);
+        dgdz(i,j) = trace(dg'*du);
+    end
+end
+
+end
+
+function dgdz = dgUdz_FD(Z,n,m,a,b,c,h)
+
+[N,dim] = size(Z);
+dgdz = zeros(size(Z));
+for i = 1:N
+    for j = 1:dim
+        % guph
+        Z(i,j) = Z(i,j) + h;
+        guph = g(PTP(Z,n,m,a,b,c));
+        % gumh
+        Z(i,j) = Z(i,j) - 2*h;
+        gumh = g(PTP(Z,n,m,a,b,c));
+        % FD approx to dgdzij
+        dgdz(i,j) = (guph-gumh)/(2.0*h);
+        % restore Z
+        Z(i,j) = Z(i,j)+h;
+    end
+end
+
+end
+
 
 function Hf = hessFobj(X,Y,W,n,m,a,b,c)
 
