@@ -690,14 +690,10 @@ Altogether, we have
 		2\bs{P}(z_{k1},\ldots,z_{kd})^T\Big(\mathcal{D}_j^T\bs{P}^j(z_{k1},\ldots,z_{kd})\Big), \quad &(i=l)\wedge(i=k)
 	\end{cases}
 \end{align*}
-For the second derivatives, define $V:\bb{R}^{N\times d}\to \bb{R}^{N\times N}$, $h : \bb{R}^{N\times N} \to \bb{R}^{N\times N}$ and $H : \bb{R}^{N\times d} \to \bb{R}^{N\times N}$ by
+For the second derivatives, define $V:\bb{R}^{N\times d}\to \bb{R}^{N\times N}$ and $h : \bb{R}^{N\times N} \to \bb{R}^{N\times N}$ by
 \begin{align*}
-	h(V) &= V\bs{1}_{N\times 1}\bs{1}_{N\times 1}^TV,\quad V = U^{-1} = [\bs{P}(\tilde{\bs{z}})^T\bs{P}(\tilde{\bs{z}})]^{-1}, \quad H(\tilde{\bs{z}}) = h(V)\frac{\partial U}{\partial z_{ij}}
+	h(V) &= V\bs{1}_{N\times 1}\bs{1}_{N\times 1}^TV,\quad V = U^{-1} = [\bs{P}(\tilde{\bs{z}})^T\bs{P}(\tilde{\bs{z}})]^{-1}
 \end{align*}
-We want to find
-\begin{equation}
-	\frac{\partial\text{Tr}[H(\tilde{\bs{z}})]}{\partial \tilde{\bs{z}}} = 
-\end{equation}
 The differential trace identity gives
 \begin{align*}
  \partial \text{Tr}[h(V)\partial U] &= \text{Tr}[\partial h(V) \partial U + h(V)\partial^2 U]
@@ -708,7 +704,7 @@ So,
 \end{align*}
 Now, as before for $g$, we find for $h$ through the chain rule identity that
 \begin{equation}
-\frac{\partial h(V)}{\partial z_{st}} = \text{Tr}\Big[\Big(\frac{\partial h(V)}{\partial V}\Big)^T \frac{\partial V}{\partial z_{st}}\Big]
+\frac{\partial h(V)_{kl}}{\partial z_{st}} = \text{Tr}\Big[\Big(\frac{\partial h(V)_{kl}}{\partial V}\Big)^T \frac{\partial V}{\partial z_{st}}\Big]
 \end{equation}
 Since $V = V^T$, we know that
 \begin{align}
@@ -718,6 +714,33 @@ We can also compute
 \begin{equation}
 	\frac{\partial V}{\partial z_{st}} = \frac{\partial (U^{-1})}{\partial z_{st}} = -U^{-1} \frac{\partial U}{\partial z_{st}}U^{-1}
 \end{equation}
+We handle the Hessian of $U$ below:
+\begin{align*}
+\frac{\partial U_{kl}}{\partial z_{ij}} &= \sum_{q=0}^{M-1} P_q(z_{k1},\ldots,z_{kd})\partial_{z_{ij}}P_q(z_{l1},\ldots,z_{ld}) + P_q(z_{l1},\ldots,z_{ld})\partial_{z_{ij}}P_q(z_{k1},\ldots,z_{kd}) \\
+\frac{\partial^2 U_{kl}}{\partial z_{st} \partial z_{ij}} &= \sum_{q=0}^{M-1}P_q(z_{k1},\ldots,z_{kd})\partial_{z_{st}}\partial_{z_{ij}}P_q(z_{l1},\ldots,z_{ld}) + \partial_{z_{ij}}P_q(z_{l1},\ldots,z_{ld})\partial_{z_{st}}P_q(z_{k1},\ldots,z_{kd})\\
+&+ \sum_{q=0}^{M-1} P_q(z_{l1},\ldots,z_{ld})\partial_{z_{st}}\partial_{z_{ij}}P_q(z_{k1},\ldots,z_{kd}) + \partial_{z_{ij}}P_q(z_{k1},\ldots,z_{kd})\partial_{z_{st}}P_q(z_{l1},\ldots,z_{ld})\\
+&= \sum_{q=0}^{M-1}P_q(z_{k1},\ldots,z_{kd})\partial_{z_{st}}(\partial_{z_{ij}}P_q(z_{l1},\ldots,z_{ld})\delta_{il}) + (\partial_{z_{ij}}P_q(z_{l1},\ldots,z_{ld})\delta_{il})(\partial_{z_{st}}P_q(z_{k1},\ldots,z_{kd})\delta_{sk})\\
+&+ \sum_{q=0}^{M-1} P_q(z_{l1},\ldots,z_{ld})\partial_{z_{st}}(\partial_{z_{ij}}P_q(z_{k1},\ldots,z_{kd})\delta_{ik}) + (\partial_{z_{ij}}P_q(z_{k1},\ldots,z_{kd})\delta_{ik})(\partial_{z_{st}}P_q(z_{l1},\ldots,z_{ld})\delta_{sl})\\
+\Rightarrow \frac{\partial^2 U_{kl}}{\partial z_{st} \partial z_{ij}} &=
+\begin{cases}
+0,\quad &(i\neq l)\wedge(i\neq k)\\
+\sum_{q=0}^{M-1}P_q(z_{k1},\ldots,z_{kd})\partial_{z_{st}}(\partial_{z_{lj}}P_q(z_{l1},\ldots,z_{ld}))\delta_{sl}\\ + \sum_{q=0}^{M-1}\partial_{z_{lj}}P_q(z_{l1},\ldots,z_{ld})\partial_{z_{st}}P_q(z_{k1},\ldots,z_{kd})\delta_{sk},\quad & (i=l)\wedge(i\neq k) \\
+\sum_{q=0}^{M-1}P_q(z_{l1},\ldots,z_{ld})\partial_{z_{st}}(\partial_{z_{kj}}P_q(z_{k1},\ldots,z_{kd}))\delta_{sk}\\ + \sum_{q=0}^{M-1}\partial_{z_{kj}}P_q(z_{k1},\ldots,z_{kd})\partial_{z_{st}}P_q(z_{l1},\ldots,z_{ld})\delta_{sl},\quad &(i\neq l)\wedge(i=k)\\
+2\sum_{q=0}^{M-1} P_q(z_{k1},\ldots,z_{kd})\partial_{z_{st}}(\partial_{z_{kj}}P_q(z_{k1},\ldots,z_{kd}))\delta_{sk}\\
++2\sum_{q=0}^{M-1} \partial_{z_{kj}}P_q(z_{k1},\ldots,z_{kd})\partial_{z_{st}}P_q(z_{k1},\ldots,z_{kd})\delta_{sk},\quad &(i=l)\wedge(i=k)
+\end{cases}\\
+&= 
+\begin{cases}
+0,\quad & (i\neq l)\wedge(i\neq k)\\
+\sum_{q=0}^{M-1}P_q(z_{k1},\ldots,z_{kd})\partial_{z_{lt}}(\partial_{z_{lj}}P_q(z_{l1},\ldots,z_{ld})) \quad & (i=l)\wedge(i\neq k)\wedge(s=l)\\
+\sum_{q=0}^{M-1}\partial_{z_{lj}}P_q(z_{l1},\ldots,z_{ld})\partial_{z_{kt}}P_q(z_{k1},\ldots,z_{kd}) \quad & (i=l)\wedge(i\neq k)\wedge(s=k)\\
+\sum_{q=0}^{M-1}\partial_{z_{kj}}P_q(z_{k1},\ldots,z_{kd})\partial_{z_{lt}}P_q(z_{l1},\ldots,z_{ld}), \quad & (i\neq l)\wedge(i=k)\wedge(s=l)\\
+\sum_{q=0}^{M-1}P_q(z_{l1},\ldots,z_{ld})\partial_{z_{kt}}(\partial_{z_{kj}}P_q(z_{k1},\ldots,z_{kd})), \quad & (i\neq l)\wedge(i=k)\wedge(s=k)\\
+0, \quad & (i=l)\wedge(i=k)\wedge(s\neq k)\\
+2\sum_{q=0}^{M-1} P_q(z_{k1},\ldots,z_{kd})\partial_{z_{kt}}(\partial_{z_{kj}}P_q(z_{k1},\ldots,z_{kd}))\\
++2\sum_{q=0}^{M-1} \partial_{z_{kj}}P_q(z_{k1},\ldots,z_{kd})\partial_{z_{kt}}P_q(z_{k1},\ldots,z_{kd}), \quad & (i=l)\wedge(i=k)\wedge(s=k)
+\end{cases}
+\end{align*}
 We verify the correctness of our formulae for the derivatives of our objective by comparing with second-order finite difference approximations. In particular, we show in Figure \ref{fig:derivCheck} the relative error in the 2-norm between the analytical evaluation and the finite difference approximation. Since the difference scheme is second order, we expect the error to behave like $\mathcal{O}(h^2)$, where $h$ is the stencil width. That is, we should observe that $\log(||\mathcal{D}(\bs{F}) - \hat{\mathcal{D}}(\bs{F})||) \approx 2\log(h) + \beta,$ where $\beta$ is the order constant, and $\hat{\mathcal{D}(F)}$ is the finite difference approximation. On a $\log-\log$ scale, this means the slope of the error lines should be around 2. Indeed, we do observe this relationship in the regime of asymptotic convergence, before round-off error dominates truncation error for the finite difference scheme.
 \begin{figure}[H]
 	\centering
