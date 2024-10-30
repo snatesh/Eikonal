@@ -13,7 +13,7 @@ set(groot, 'defaultAxesFontSize',30)
 % jacobi poly params
 a = 0.5; b = 0.5; c = 0.5; dim = 2;
 % source and target poly total degree (+1)
-n = 12; m = 14; d = 2;
+n = 10; m = 12; d = 2;
 fname = strcat('triquadLeg_',num2str(n-1),'_',num2str(m-1),'.mat');
 % jacobi matrices
 [Jn1,Jn2,A1,A2,B1,B2,Hn] = jMatON_tri(n,a,b,c);
@@ -40,24 +40,31 @@ dU = dPTP([Xk,Yk],n,m,a,b,c);
 U = PTP([Xk,Yk],n,m,a,b,c);
 dg = dgU(U);
 dgdz = dgUdz([Xk,Yk],n,m,a,b,c);
+v = inv(U);
+dh = dhV(v);
 
-hs = [5e-2 1e-2 5e-3 1e-3 5e-4 1e-4 5e-5 1e-5 5e-6 1e-6 5e-7 1e-7];
+hs = [5e-1 4e-1 3e-1 2e-1 1e-1 5e-2 1e-2 5e-3 1e-3 5e-4 1e-4 5e-5 1e-5 5e-6 1e-6 5e-7 1e-7];
 errsdU = zeros(size(hs));
 errsdg = zeros(size(hs));
 errsdgdz = zeros(size(hs));
+errsdh = zeros(size(hs));
 % compute FD approx to F for each h
 % and find relative error in FD approx
 for kk = 1:length(hs)
   dU_FD = dPTP_FD([Xk,Yk],n,m,a,b,c,hs(kk));
   dg_FD = dgU_FD(U,hs(kk));
+  dh_FD = pagetranspose(dhV_FD(v,hs(kk)));
   dgdz_FD = dgUdz_FD([Xk,Yk],n,m,a,b,c,hs(kk));
   errsdU(kk) = norm(dU_FD-dU,'fro')/norm(dU,'fro');
   errsdg(kk) = norm(dg_FD-dg,'fro')/norm(dg,'fro');
   errsdgdz(kk) = norm(dgdz_FD-dgdz,'fro')/norm(dgdz,'fro');
+  errsdh(kk) = norm(dh_FD-dh,'fro')/norm(dh,'fro');
 end
-%%
+
 loglog(hs,errsdU,'r-','linewidth',5,'DisplayName','$\frac{\partial U}{\partial z_{ij}}$'); hold on;
 loglog(hs,errsdgdz,'b-','linewidth',5,'DisplayName','$\frac{\partial g(U)}{\partial z_{ij}}$');
+loglog(hs,errsdg,'m-','linewidth',5,'DisplayName','$\frac{\partial g(U)}{\partial U}$')
+loglog(hs,errsdh,'c-','linewidth',5,'DisplayName','$\frac{\partial h(V)}{\partial V}$')
 loglog(hs,hs.^2,'k--','linewidth',5,'DisplayName','$\mathcal{O}(h^2)$')
 legend('location','best')
 xlabel('$h$');
@@ -99,7 +106,7 @@ Zk = [Xk;Yk;Wk];
 
 %%
 usewolfe = false;
-tol = 1e-14; rho = 0.9; gam = 1e-8; h = 1e-3;
+tol = 1e-14; rho = 0.9; gam = 1e-8; %h = 1e-3;
 pk = tol+1; Zk = [Xk;Yk];
 iter = 0; maxiter = 10000; go = true;
 while pk>tol && iter < maxiter && go
@@ -507,7 +514,7 @@ function dg = dgU(U)
 
 [N,~] = size(U);
 one = ones(N,1);
-UTinvOne = -(U')\one;
+UTinvOne = (U')\one;
 dg = UTinvOne*UTinvOne';
 
 end
@@ -530,6 +537,87 @@ for i = 1:N
         U(i,j) = U(i,j) + h;
     end
 end
+
+end
+
+function hV = h(V)
+
+[N,~] = size(V);
+one = ones(N,1);
+Vone = V*one;
+hV = Vone*Vone';
+
+end
+
+function dh = dhV(V)
+
+[N,~] = size(V);
+one = ones(N,1);
+dh = zeros(N,N,N,N);
+VoneoneT = (V*one)*one';
+oneoneTV = VoneoneT';
+for i = 1:N
+    for j = 1:N
+        for k = 1:N
+            for l = 1:N
+                if (l ~= j && k ~= j)
+                    dhkldvij = 0;
+                elseif (l == j && k ~= j)
+                    dhkldvij = VoneoneT(k,i);
+                elseif (l ~= j && k == j)
+                    dhkldvij = oneoneTV(i,l);
+                elseif (l == j && k == j)
+                    dhkldvij = VoneoneT(k,i) + oneoneTV(i,l);
+                end
+                dh(i,j,k,l) = dhkldvij;
+            end
+        end
+    end
+end
+
+end
+
+function dh = dhV_FD(V,hs)
+
+[N,~] = size(V);
+dh = zeros(N,N,N,N);
+for i = 1:N
+    for j = 1:N
+        % hph
+        V(i,j) = V(i,j) + hs;
+        hph = h(V);
+        % hmh
+        V(i,j) = V(i,j) - 2*hs;
+        hmh = h(V);
+        % FD approx to dhV/dVij
+        dhFD = (hph-hmh)/(2.0*hs);
+        % restore V
+        V(i,j) = V(i,j) + hs;
+        dh(i,j,:,:) = dhFD;
+    end
+end
+
+
+end
+
+function vZ = V(Z,n,m,a,b,c)
+
+U = PTP(Z,n,m,a,b,c);
+vZ = inv(U);
+
+end
+
+function dV = dvZ(Z,n,m,a,b,c)
+
+dU = dPTP(Z,n,m,a,b,c);
+invU = V(Z,n,m,a,b,c);
+dV = -invU*dU*invU;
+
+end
+
+function dV = dvZ_FD(Z,n,m,a,b,c)
+
+
 
 end
 
