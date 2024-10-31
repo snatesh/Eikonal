@@ -44,6 +44,8 @@ v = inv(U);
 dh = dhV(v);
 dV = dvZ([Xk,Yk],n,m,a,b,c);
 dhdz = dhVdz([Xk,Yk],n,m,a,b,c);
+d2U = d2PTP([Xk,Yk],n,m,a,b,c);
+d2gdz2 = d2gUdz2([Xk,Yk],n,m,a,b,c);
 
 hs = [5e-1 4e-1 3e-1 2e-1 1e-1 5e-2 1e-2 5e-3 1e-3 5e-4 1e-4 5e-5 1e-5 5e-6 1e-6 5e-7 1e-7];
 errsdU = zeros(size(hs));
@@ -52,30 +54,37 @@ errsdgdz = zeros(size(hs));
 errsdh = zeros(size(hs));
 errsdV = zeros(size(hs));
 errsdhdz = zeros(size(hs));
+errsd2U = zeros(size(hs));
+errsd2gdz2 = zeros(size(hs));
 % compute FD approx to F for each h
 % and find relative error in FD approx
 for kk = 1:length(hs)
   dU_FD = dPTP_FD([Xk,Yk],n,m,a,b,c,hs(kk));
+  %d2U_FD = d2PTP_FD([Xk,Yk],n,m,a,b,c,hs(kk));
   dg_FD = dgU_FD(U,hs(kk));
   dh_FD = pagetranspose(dhV_FD(v,hs(kk)));
   dV_FD = dvZ_FD([Xk,Yk],n,m,a,b,c,hs(kk));
   dgdz_FD = dgUdz_FD([Xk,Yk],n,m,a,b,c,hs(kk));
   dhdz_FD = dhVdz_FD([Xk,Yk],n,m,a,b,c,hs(kk));
+  d2gdz2_FD = d2gUdz2_FD([Xk,Yk],n,m,a,b,c,hs(kk));
   errsdU(kk) = norm(dU_FD-dU,'fro')/norm(dU,'fro');
   errsdg(kk) = norm(dg_FD-dg,'fro')/norm(dg,'fro');
   errsdgdz(kk) = norm(dgdz_FD-dgdz,'fro')/norm(dgdz,'fro');
   errsdh(kk) = norm(dh_FD-dh,'fro')/norm(dh,'fro');
   errsdV(kk) = norm(dV_FD-dV,'fro')/norm(dV,'fro');
   errsdhdz(kk) = norm(dhdz_FD-dhdz,'fro')/norm(dhdz,'fro');
+  errsd2gdz2(kk) = norm(d2gdz2_FD-d2gdz2,'fro')/norm(d2gdz2,'fro')
+  %errsd2U(kk) = norm(d2U_FD-d2U,'fro')/norm(d2U,'fro');
 end
-
+%%
 loglog(hs,errsdU,'r-','linewidth',5,'DisplayName','$\frac{\partial U}{\partial z_{ij}}$'); hold on;
 loglog(hs,errsdgdz,'b-','linewidth',5,'DisplayName','$\frac{\partial g(U)}{\partial z_{ij}}$');
-loglog(hs,errsdg,'m-','linewidth',5,'DisplayName','$\frac{\partial g(U)}{\partial U}$')
-loglog(hs,errsdh,'c-','linewidth',5,'DisplayName','$\frac{\partial h(V)}{\partial V}$')
-loglog(hs,errsdhdz,'y-','linewidth',5,'DisplayName','$\frac{\partial h(V)}{\partial z_{ij}}$')
-loglog(hs,errsdV,'g-','linewidth',5,'DisplayName','$\frac{\partial V}{\partial z_{ij}}$')
-loglog(hs,hs.^2,'k--','linewidth',5,'DisplayName','$\mathcal{O}(h^2)$')
+%loglog(hs,errsdg,'m-','linewidth',5,'DisplayName','$\frac{\partial g(U)}{\partial U}$')
+%loglog(hs,errsdh,'c-','linewidth',5,'DisplayName','$\frac{\partial h(V)}{\partial V}$')
+loglog(hs,errsdhdz,'c-','linewidth',5,'DisplayName','$\frac{\partial h(V)}{\partial z_{ij}}$')
+%loglog(hs,errsdV,'g-','linewidth',5,'DisplayName','$\frac{\partial V}{\partial z_{ij}}$')
+%loglog(hs,errsd2gdz2,'rs-','linewidth',5,'DisplayName','$\frac{\partial^2 g}{\partial z_{st} \partial z_{ij}}$')
+%loglog(hs,hs.^2,'k--','linewidth',5,'DisplayName','$\mathcal{O}(h^2)$')
 legend('location','best')
 xlabel('$h$');
 ylabel('Relative 2-Norm Error')
@@ -480,6 +489,81 @@ end
        
 end
 
+function d2U = d2PTP(Z,n,m,a,b,c)
+
+N = n*(n+1)/2;
+M = m*(m+1)/2;
+dim = 2;
+X = Z(:,1); Y = Z(:,2);
+
+H_abc = structure_factors_tri(m+1,a,b,c);
+H_a1bc1 = structure_factors_tri(m+1,a+1,b,c+1);
+H_ab1c1 = structure_factors_tri(m+1,a,b+1,c+1);
+H_a2bc2 = structure_factors_tri(m+1,a+2,b,c+2);
+H_ab2c2 = structure_factors_tri(m+1,a,b+2,c+2);
+H_a1b1c2 = structure_factors_tri(m+1,a+1,b+1,c+2);
+
+Dx = D1_tri(a,b,c,H_abc,H_a1bc1,0);
+Dy = D1_tri(a,b,c,H_abc,H_ab1c1,1);
+Dxx = D1_tri(a+1,b,c+1,H_a1bc1,H_a2bc2,0) * Dx;
+Dyy = D1_tri(a,b+1,c+1,H_ab1c1,H_ab2c2,1) * Dy;
+
+Dxy = D1_tri(a,b+1,c+1,H_ab1c1,H_a1b1c2,0) * Dy;
+Dyx = D1_tri(a+1,b,c+1,H_a1bc1,H_a1b1c2,1) * Dx;
+
+P = jPoly_tri(X,Y,H_abc,m-1,a,b,c);
+Px = jPoly_tri(X,Y,H_a1bc1,m-1,a+1,b,c+1);
+Py = jPoly_tri(X,Y,H_ab1c1,m-1,a,b+1,c+1);
+Pxx = jPoly_tri(X,Y,H_a2bc2,m-1,a+2,b,c+2);
+Pyy = jPoly_tri(X,Y,H_ab2c2,m-1,a,b+2,c+2);
+Pxy = jPoly_tri(X,Y,H_a1b1c2,m-1,a+1,b+1,c+2);
+Pyx = Pxy;
+
+D = cell(2); DD = cell(2,2);
+V = cell(2); VV = cell(2,2);
+D{1} = Dx; D{2} = Dy;
+V{1} = Px; V{2} = Py; 
+DD{1,1} = Dxx; DD{1,2} = Dyx;
+DD{2,1} = Dxy; DD{2,2} = Dyy;
+VV{1,1} = Pxx; VV{1,2} = Pyx;
+VV{2,1} = Pxy; VV{2,2} = Pyy;
+
+d2U = zeros(N,dim,N,dim,N,N);
+for s = 1:N
+    for t = 1:dim
+        for i = 1:N
+            for j = 1:dim
+                for k = 1:N
+                    for l = 1:N
+                        if (i ~= l && i ~= k)
+                            d2u = 0;
+                        elseif (i == l && i ~= k && s == l)
+                            d2u = P(k,:)*(DD{t,j}'*(VV{t,j}(l,:))');
+                        elseif (i == l && i ~= k && s == k)
+                            d2u = (D{j}'*(V{j}(l,:))')'*(D{t}'*(V{t}(k,:))');
+                        elseif (i ~= l && i == k && s == l)
+                            d2u = (D{j}'*(V{j}(k,:))')'*(D{t}'*(V{t}(l,:))');
+                        elseif (i ~= l && i == k && s == k)
+                            d2u = P(l,:)*(DD{t,j}'*(VV{t,j}(k,:))');
+                        elseif (i == l && i == k && s == k)
+                            d2u = 2*P(k,:)*(DD{t,j}'*(VV{t,j}(k,:))') +...
+                                2*((D{j}'*(V{j}(k,:))')'*(D{t}'*(V{t}(k,:))'));
+                        elseif (i == l && i == k && s ~= k)
+                            d2u = 0;       
+                       end
+                        d2U(s,t,i,j,k,l) = d2u;
+                    end
+                end
+                %spy(reshape(d2U(s,t,i,j,:,:),N,N)); pause(0.01);
+            end
+        end
+    end
+end
+
+
+end
+
+
 function U = PTP(Z,n,m,a,b,c)
 
 X = Z(:,1); Y = Z(:,2);
@@ -510,6 +594,35 @@ for i = 1:N
     end
 end
        
+end
+
+function d2U = d2PTP_FD(Z,n,m,a,b,c,h)
+
+N = n*(n+1)/2;
+dim = 2;
+d2U = zeros(N,dim,N,dim,N,N);
+for s = 1:N
+    for t = 1:dim
+        % duph
+        Z(s,t) = Z(s,t) + h;
+        duph = dPTP(Z,n,m,a,b,c);
+        % dumh
+        Z(s,t) = Z(s,t) - 2*h;
+        dumh = dPTP(Z,n,m,a,b,c);
+        % FD approx to d2ukl/dzstdzij
+        d2U(s,t,:,:,:,:) = (duph-dumh)/(2.0*h);
+        % restore Z
+        Z(s,t) = Z(s,t) + h;
+        % for i = 1:N
+        %     for j = 1:dim
+        %         spy(reshape(d2U(s,t,i,j,:,:),N,N)); pause(0.01);
+        %     end
+        % end
+
+    end
+    
+end
+
 end
 
 function gU = g(U)
@@ -687,6 +800,49 @@ for i = 1:N
         dgdz(i,j) = (guph-gumh)/(2.0*h);
         % restore Z
         Z(i,j) = Z(i,j)+h;
+    end
+end
+
+end
+
+function d2gdz2 = d2gUdz2_FD(Z,n,m,a,b,c,h)
+
+[N,dim] = size(Z);
+d2gdz2 = zeros(N,dim,N,dim);
+for s = 1:N
+    for t = 1:dim
+        % dgdzph
+        Z(s,t) = Z(s,t) + h;
+        dgdzph = dgUdz(Z,n,m,a,b,c);
+        % dgdzmh
+        Z(s,t) = Z(s,t) - 2*h;
+        dgdzmh = dgUdz(Z,n,m,a,b,c);
+        % FD approx to dgdzij
+        d2gdz2(s,t,:,:) = (dgdzph-dgdzmh)/(2.0*h);
+        % restore Z
+        Z(s,t) = Z(s,t)+h;
+    end
+end
+
+end
+
+function d2gdz2 = d2gUdz2(Z,n,m,a,b,c)
+[N,dim] = size(Z);
+d2gdz2 = zeros(N,dim,N,dim);
+dU = dPTP(Z,n,m,a,b,c);
+d2U = d2PTP(Z,n,m,a,b,c);
+dhdz = dhVdz(Z,n,m,a,b,c);
+hV = h(V(Z,n,m,a,b,c));
+for s = 1:N
+    for t = 1:dim
+        for i = 1:N
+            for j = 1:dim
+                dh = reshape(dhdz(s,t,:,:),N,N);
+                du = reshape(dU(s,t,:,:),N,N);
+                d2u = reshape(d2U(s,t,i,j,:,:),N,N);
+                d2gdz2(s,t,i,j) = trace(dh*du + hV*d2u);
+            end
+        end
     end
 end
 

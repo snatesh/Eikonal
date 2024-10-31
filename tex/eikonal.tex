@@ -714,6 +714,7 @@ We can also compute
 \begin{equation}
 	\frac{\partial V}{\partial z_{st}} = \frac{\partial (U^{-1})}{\partial z_{st}} = -U^{-1} \frac{\partial U}{\partial z_{st}}U^{-1}
 \end{equation}
+\newpage
 We handle the Hessian of $U$ below:
 \begin{align*}
 \frac{\partial U_{kl}}{\partial z_{ij}} &= \sum_{q=0}^{M-1} P_q(z_{k1},\ldots,z_{kd})\partial_{z_{ij}}P_q(z_{l1},\ldots,z_{ld}) + P_q(z_{l1},\ldots,z_{ld})\partial_{z_{ij}}P_q(z_{k1},\ldots,z_{kd}) \\
@@ -739,6 +740,28 @@ We handle the Hessian of $U$ below:
 0, \quad & (i=l)\wedge(i=k)\wedge(s\neq k)\\
 2\sum_{q=0}^{M-1} P_q(z_{k1},\ldots,z_{kd})\partial_{z_{kt}}(\partial_{z_{kj}}P_q(z_{k1},\ldots,z_{kd}))\\
 +2\sum_{q=0}^{M-1} \partial_{z_{kj}}P_q(z_{k1},\ldots,z_{kd})\partial_{z_{kt}}P_q(z_{k1},\ldots,z_{kd}), \quad & (i=l)\wedge(i=k)\wedge(s=k)
+\end{cases}\\
+&=
+\begin{cases}
+	0,\quad & (i\neq l)\wedge(i\neq k)\\
+	\sum_{q=0}^{M-1}P_q(z_{k1},\ldots,z_{kd})\big(\bs{P}^{tj}(z_{l1},\ldots,z_{ld})^T\mathcal{D}_{tj} \bs{e}_q\big) \quad & (i=l)\wedge(i\neq k)\wedge(s=l)\\
+	\sum_{q=0}^{M-1}\big(\bs{P}^j(z_{l1},\ldots,z_{ld})^T\mathcal{D}_j\bs{e}_q\big)\big(\bs{P}^t(z_{k1},\ldots,z_{kd})^T\mathcal{D}_t\bs{e}_q\big) \quad & (i=l)\wedge(i\neq k)\wedge(s=k)\\
+	\sum_{q=0}^{M-1}\big(\bs{P}^j(z_{k1},\ldots,z_{kd})^T\mathcal{D}_j\bs{e}_q\big)\big(\bs{P}^t(z_{l1},\ldots,z_{ld})^T\mathcal{D}_t\bs{e}_q\big), \quad & (i\neq l)\wedge(i=k)\wedge(s=l)\\
+	\sum_{q=0}^{M-1}P_q(z_{l1},\ldots,z_{ld})\big(\bs{P}^{tj}(z_{k1},\ldots,z_{kd})^T\mathcal{D}_{tj}\bs{e}_q\big), \quad & (i\neq l)\wedge(i=k)\wedge(s=k)\\
+	0, \quad & (i=l)\wedge(i=k)\wedge(s\neq k)\\
+	2\sum_{q=0}^{M-1} P_q(z_{k1},\ldots,z_{kd})\big(\bs{P}^{tj}(z_{k1},\ldots,z_{kd})^T\mathcal{D}_{tj}\bs{e}_q\big)\\
+	+2\sum_{q=0}^{M-1} \big(\bs{P}^j(z_{k1},\ldots,z_{kd})^T\mathcal{D}_j\bs{e}_q\big)\big(\bs{P}^t(z_{k1},\ldots,z_{kd})\mathcal{D}_t\bs{e}_q\big), \quad & (i=l)\wedge(i=k)\wedge(s=k)
+\end{cases}\\
+&=
+\begin{cases}
+0,\quad & (i\neq l)\wedge(i\neq k)\\
+\bs{P}(z_{k1},\ldots,z_{kd})^T\big(\mathcal{D}_{tj}^T\bs{P}^{tj}(z_{l1},\ldots,z_{ld})\big)\quad & (i=l)\wedge(i\neq k)\wedge(s=l)\\
+\big(\mathcal{D}_j^T\bs{P}^j(z_{l1},\ldots,z_{ld})\big)^T\big(\mathcal{D}_t^T\bs{P}^t(z_{k1},\ldots,z_{kd})\big) \quad & (i=l)\wedge(i\neq k)\wedge(s=k)\\
+\big(\mathcal{D}_j^T\bs{P}^j(z_{k1},\ldots,z_{kd})\big)^T\big(\mathcal{D}_t^T\bs{P}^t(z_{l1},\ldots,z_{ld})\big), \quad & (i\neq l)\wedge(i=k)\wedge(s=l)\\
+\bs{P}(z_{l1},\ldots,z_{ld})^T\big(\mathcal{D}_{tj}^T\bs{P}^{tj}(z_{k1},\ldots,z_{kd})\big), \quad & (i\neq l)\wedge(i=k)\wedge(s=k)\\
+2\bs{P}(z_{k1},\ldots,z_{kd})^T\big(\mathcal{D}_{tj}^T\bs{P}^{tj}(z_{k1},\ldots,z_{kd})\big)\\
++2\big(\mathcal{D}_j^T\bs{P}^j(z_{k1},\ldots,z_{kd})\big)^T\big(\mathcal{D}_t^T\bs{P}^t(z_{k1},\ldots,z_{kd})\big), \quad & (i=l)\wedge(i=k)\wedge(s=k)	\\
+0, \quad & (i=l)\wedge(i=k)\wedge(s\neq k)
 \end{cases}
 \end{align*}
 We verify the correctness of our formulae for the derivatives of our objective by comparing with second-order finite difference approximations. In particular, we show in Figure \ref{fig:derivCheck} the relative error in the 2-norm between the analytical evaluation and the finite difference approximation. Since the difference scheme is second order, we expect the error to behave like $\mathcal{O}(h^2)$, where $h$ is the stencil width. That is, we should observe that $\log(||\mathcal{D}(\bs{F}) - \hat{\mathcal{D}}(\bs{F})||) \approx 2\log(h) + \beta,$ where $\beta$ is the order constant, and $\hat{\mathcal{D}(F)}$ is the finite difference approximation. On a $\log-\log$ scale, this means the slope of the error lines should be around 2. Indeed, we do observe this relationship in the regime of asymptotic convergence, before round-off error dominates truncation error for the finite difference scheme.
@@ -752,7 +775,7 @@ We verify the correctness of our formulae for the derivatives of our objective b
 	For this sort of simple ``reverse" verification test, we assume that we don't know if our analytical formulae are correct, and that a \emph{verified} finite difference implementation is available. Then, we are essentially re-verifying the finite difference implementation, which on success, certifies correctness of the analytical formulae.
 \end{remark}
 
-The next step is incorporating the derivative formula into a quasi-Newton method using BFGS updates to an inititial approximation of the Hessian (for which we can use Identity, or a finite difference approx using the first derivative). This will be applied to the fully unconstrained objective with log-barrier. The second derivatives are problematic to derive analytically.
+The next step is incorporating the derivative formula into a quasi-Newton method using BFGS updates to an inititial approximation of the Hessian (for which we can use Identity, or a finite difference approx using the first derivative). This will be applied to the fully unconstrained objective with log-barrier. The second derivatives are problematic to derive analytically, though I am still attempting to do so.
 
 %For second derivatives, let $$ h(U) = \frac{\partial g(U)}{\partial z_{ij}}.$$ Then, $$\frac{\partial h(U)}{\partial z_{st}} = \text{Tr}\Big[\Big(\frac{\partial h(U)}{\partial U} \Big)^T \frac{\partial U}{\partial z_{st}} \Big].$$ For $F(\bs{X})$ a differentiable function of the elements of $\bs{X}$, and $f(\cdot)$ the scalar derivative of $F(\cdot)$, we have the identity
 %\begin{equation}
@@ -1028,31 +1051,31 @@ The next step is incorporating the derivative formula into a quasi-Newton method
 %\end{equation}
 %\subsubsection{Derivatives of the objective functions}\label{sec:objderivs}
 %We can use the machinery developed in Section \ref{sec:jacobibasis} to compute derivatives of \eqref{eq:newtobj}. Given that these tools are only at our disposal for $d \leq 2$, we proceed for now with $d=2$ and $\bs{x} \in \Tau^2$. We view each component of the objective as a function $F_j : \bb{R}^{3N} \to \bb{R}$, and note that $\bs{P}$ is defined in the $(a,b,c)$ Jacobi basis. Applying the derivative operators defined in \eqref{eq:jactrideriv}, we have at a point $(\bs{X},\bs{Y},\bs{W})$, 
-%\begin{align*}
-%	&F_j(\bs{X},\bs{Y},\bs{W}) = \bs{e}_j^T \bs{P}(\bs{X},\bs{Y})\bs{W} - \delta_{1j} 
-%	= \sum_{i=1}^N P_j(x_i,y_i)w_i - \delta_{1j}, \\
-%	&\frac{\partial F_j}{\partial x_k} =  w_k \bs{P}^x(x_k,y_k)^T\mathcal{D}_x \bs{e}_j,\quad
-%	\frac{\partial F_j}{\partial y_k} = w_k \bs{P}^y(x_k,y_k)^T\mathcal{D}_y \bs{e}_j,\quad
-%	\frac{\partial F_j}{\partial w_k} = \bs{P}(x_k,y_k)^T \bs{e}_j,\\
-%	&\frac{\partial^2 F_j}{\partial x_l \partial x_k} = w_k \bs{P}^{xx}(x_k,y_k)^T\mathcal{D}_{xx}\bs{e}_j \delta_{lk},\quad
-%	\frac{\partial^2 F_j}{\partial x_l \partial y_k} = w_k \bs{P}^{xy}(x_k,y_k)^T\mathcal{D}_{xy}\bs{e}_j \delta_{lk},\quad
-%	\frac{\partial^2 F_j}{\partial x_l \partial w_k} = \bs{P}^x(x_k,y_k)^T\mathcal{D}_x\bs{e}_j\delta_{lk},\\
-%	&\frac{\partial^2 F_j}{\partial y_l \partial x_k} = w_k \bs{P}^{yx}(x_k,y_k)^T\mathcal{D}_{yx}\bs{e}_j \delta_{lk},\quad 	\frac{\partial^2 F_j}{\partial y_l \partial y_k} = w_k \bs{P}^{yy}(x_k,y_k)^T\mathcal{D}_{yy}\bs{e}_j \delta_{lk},\quad 
-%	\frac{\partial^2 F_j}{\partial y_l \partial w_k} =  \bs{P}^{y}(x_k,y_k)^T\mathcal{D}_{y}\bs{e}_j \delta_{lk},\\
-%	&\frac{\partial^2 F_j}{\partial w_l \partial x_k} =  \bs{P}^{x}(x_k,y_k)^T\mathcal{D}_{x}\bs{e}_j \delta_{lk},\quad 
-%	\frac{\partial^2 F_j}{\partial w_l \partial y_k} = \bs{P}^{y}(x_k,y_k)^T \mathcal{D}_y\bs{e}_j\delta_{lk},\quad \frac{\partial^2 F_j}{\partial w_l \partial w_k} = 0\cdot \delta_{lk},
-%\end{align*}
-%where 
-%\begin{align*}
-%\mathcal{D}_x &= \mathcal{D}_{x,(a,b,c)}^{a+1,b,c+1},\quad \bs{P}^x = \bs{P}^{(a+1,b,c+1)},\quad
-%\mathcal{D}_y = \mathcal{D}_{x,(a,b,c)}^{a,b+1,c+1},\quad \bs{P}^y = \bs{P}^{(a,b+1,c+1)}\\
-%\mathcal{D}_{xx} &= \mathcal{D}_{x,(a+1,b,c+1)}^{(a+2,b,c+2)}\mathcal{D}_{x,(a,b,c)}^{(a+1,b,c+1)},\quad \bs{P}^{xx} = \bs{P}^{(a+2,b,c+2)},\\
-%\mathcal{D}_{yy} &= 
-%\mathcal{D}_{y,(a,b+1,c+1)}^{(a,b+2,c+2)}\mathcal{D}_{y,(a,b,c)}^{(a,b+1,c+1)}, \quad \bs{P}^{yy} = \bs{P}^{(a,b+2,c+2)}\\
-%\mathcal{D}_{xy} &= \mathcal{D}_{x,(a,b+1,c+1)}^{(a+1,b+1,c+2)}\mathcal{D}_{y,(a,b,c)}^{(a,b+1,c+1)},\quad \bs{P}^{xy} = \bs{P}^{(a+1,b+1,c+2)},\\
-%\mathcal{D}_{yx} &=
-%\mathcal{D}_{y,(a+1,b,c+1)}^{(a+1,b+1,c+2)}\mathcal{D}_{x,(a,b,c)}^{(a+1,b,c+1)},\quad \bs{P}^{yx} = \bs{P}^{xy}
-%\end{align*}
+\begin{align*}
+	&F_j(\bs{X},\bs{Y},\bs{W}) = \bs{e}_j^T \bs{P}(\bs{X},\bs{Y})\bs{W} - \delta_{1j} 
+	= \sum_{i=1}^N P_j(x_i,y_i)w_i - \delta_{1j}, \\
+	&\frac{\partial F_j}{\partial x_k} =  w_k \bs{P}^x(x_k,y_k)^T\mathcal{D}_x \bs{e}_j,\quad
+	\frac{\partial F_j}{\partial y_k} = w_k \bs{P}^y(x_k,y_k)^T\mathcal{D}_y \bs{e}_j,\quad
+	\frac{\partial F_j}{\partial w_k} = \bs{P}(x_k,y_k)^T \bs{e}_j,\\
+	&\frac{\partial^2 F_j}{\partial x_l \partial x_k} = w_k \bs{P}^{xx}(x_k,y_k)^T\mathcal{D}_{xx}\bs{e}_j \delta_{lk},\quad
+	\frac{\partial^2 F_j}{\partial x_l \partial y_k} = w_k \bs{P}^{xy}(x_k,y_k)^T\mathcal{D}_{xy}\bs{e}_j \delta_{lk},\quad
+	\frac{\partial^2 F_j}{\partial x_l \partial w_k} = \bs{P}^x(x_k,y_k)^T\mathcal{D}_x\bs{e}_j\delta_{lk},\\
+	&\frac{\partial^2 F_j}{\partial y_l \partial x_k} = w_k \bs{P}^{yx}(x_k,y_k)^T\mathcal{D}_{yx}\bs{e}_j \delta_{lk},\quad 	\frac{\partial^2 F_j}{\partial y_l \partial y_k} = w_k \bs{P}^{yy}(x_k,y_k)^T\mathcal{D}_{yy}\bs{e}_j \delta_{lk},\quad 
+	\frac{\partial^2 F_j}{\partial y_l \partial w_k} =  \bs{P}^{y}(x_k,y_k)^T\mathcal{D}_{y}\bs{e}_j \delta_{lk},\\
+	&\frac{\partial^2 F_j}{\partial w_l \partial x_k} =  \bs{P}^{x}(x_k,y_k)^T\mathcal{D}_{x}\bs{e}_j \delta_{lk},\quad 
+	\frac{\partial^2 F_j}{\partial w_l \partial y_k} = \bs{P}^{y}(x_k,y_k)^T \mathcal{D}_y\bs{e}_j\delta_{lk},\quad \frac{\partial^2 F_j}{\partial w_l \partial w_k} = 0\cdot \delta_{lk},
+\end{align*}
+where 
+\begin{align*}
+\mathcal{D}_x &= \mathcal{D}_{x,(a,b,c)}^{a+1,b,c+1},\quad \bs{P}^x = \bs{P}^{(a+1,b,c+1)},\quad
+\mathcal{D}_y = \mathcal{D}_{x,(a,b,c)}^{a,b+1,c+1},\quad \bs{P}^y = \bs{P}^{(a,b+1,c+1)}\\
+\mathcal{D}_{xx} &= \mathcal{D}_{x,(a+1,b,c+1)}^{(a+2,b,c+2)}\mathcal{D}_{x,(a,b,c)}^{(a+1,b,c+1)},\quad \bs{P}^{xx} = \bs{P}^{(a+2,b,c+2)},\\
+\mathcal{D}_{yy} &= 
+\mathcal{D}_{y,(a,b+1,c+1)}^{(a,b+2,c+2)}\mathcal{D}_{y,(a,b,c)}^{(a,b+1,c+1)}, \quad \bs{P}^{yy} = \bs{P}^{(a,b+2,c+2)}\\
+\mathcal{D}_{xy} &= \mathcal{D}_{x,(a,b+1,c+1)}^{(a+1,b+1,c+2)}\mathcal{D}_{y,(a,b,c)}^{(a,b+1,c+1)},\quad \bs{P}^{xy} = \bs{P}^{(a+1,b+1,c+2)},\\
+\mathcal{D}_{yx} &=
+\mathcal{D}_{y,(a+1,b,c+1)}^{(a+1,b+1,c+2)}\mathcal{D}_{x,(a,b,c)}^{(a+1,b,c+1)},\quad \bs{P}^{yx} = \bs{P}^{xy}
+\end{align*}
 %Now, reverting to the view of the objective as $\bs{F}:\bb{R}^{3N} \to \bb{R}^M$, we can write
 %\begin{align}\label{eq:Fobjderiv}
 %[\mathcal{D}(\bs{F})]|_{(\bs{X},\bs{Y},\bs{W})} =\begin{bmatrix} \mathcal{D}_x^T \bs{P}^x(\bs{X},\bs{Y})\odot\bs{W} & \mathcal{D}_y^T \bs{P}^y(\bs{X},\bs{Y})\odot \bs{W} & \bs{P}(\bs{X},\bs{Y})\end{bmatrix} \in \bb{R}^{M\times 3N},
