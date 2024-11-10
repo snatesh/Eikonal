@@ -6,6 +6,7 @@
 \usepackage{algorithm}
 \usepackage{mathrsfs}  
 \usepackage{geometry}
+\newgeometry{left=0.5cm,right=0.5cm,bottom=0.5cm,top=0.5cm}
 
 \newcommand{\bs}{\boldsymbol}
 \newcommand{\eps}{\varepsilon}
@@ -506,7 +507,7 @@ The choice of initial point $\bs{z}^0 = (\tilde{\bs{z}}^0,\bs{W}_0)$ and control
 \\\\
 First, we make a few observations about the objective function \eqref{eq:newtobjscalar}. Expanding out the norm in terms of the partitioning of the variable $\bs{z}$ defined in \eqref{eq:zpart}, we have
 \begin{align}\label{eq:newtobjscalarexpand}
-	f(\bs{z}) = \frac{1}{2}\bs{W}^T\bs{P}(\bs{\tilde{z}})^T\bs{P}(\tilde{\bs{z}})\bs{W} - ( \bs{1}_{N\times 1}^T\bs{W}) + \frac{1}{2}m.
+	f(\bs{z}) = \frac{1}{2}\bs{W}^T\bs{P}(\bs{\tilde{z}})^T\bs{P}(\tilde{\bs{z}})\bs{W} - ( \bs{1}_{N\times 1}^T\bs{W}) + \frac{1}{2}.
 \end{align}
 Since $M > N$, and each of the $M$ polynomials is independent, $\bs{P}(\tilde{\bs{z}})$ has full column rank for any $\tilde{\bs{z}} \in \bb{R}^{N\times d}$ comprised of $N$ distinct points in $\Tau^d \subset \bb{R}^d$. This implies that $\bs{P}(\tilde{\bs{z}})^T\bs{P}(\tilde{\bs{z}})$ is positive definite, and  \eqref{eq:newtobjscalarexpand} is a quadratic, strongly convex function in $\bs{W}$. The optimal $\bs{W}$ is easily determined given the necessary and sufficient optimality condition for strongly convex functions; namely, $\nabla_{\bs{W}} f(\bs{z}) = 0$. Hence,
 \begin{align}
@@ -551,7 +552,7 @@ Now, we can optimize over specific partitions of the variable $\bs{z}$ independe
 \begin{align}
 	\tilde{f}(\tilde{\bs{z}}) &= \inf\{f(\begin{bmatrix}\tilde{\bs{z}}&\bs{W}\end{bmatrix})\s | \s \bs{W} \in \bb{R}^N \} \nonumber \\ &= f(\tilde{\bs{z}},[\bs{P}(\tilde{\bs{z}})^T\bs{P}(\tilde{\bs{z}})]^{-1}\bs{1}_{N\times 1}) \nonumber \\
 		&= \frac{1}{2}(\bs{1}_{1\times N}[\bs{P}(\tilde{\bs{z}})^T\bs{P}(\tilde{\bs{z}})]^{-1}\bs{1}_{N\times 1} -2(\bs{1}_{1\times N}[\bs{P}(\tilde{\bs{z}})^T\bs{P}(\tilde{\bs{z}})]^{-1}\bs{1}_{N\times 1})+ 1) \nonumber \\
-		&= -\frac{1}{2}(\bs{1}_{1\times N}[\bs{P}(\tilde{\bs{z}})^T\bs{P}(\tilde{\bs{z}})]^{-1}\bs{1}_{N\times 1} + 1)
+		&= -\frac{1}{2}(\bs{1}_{1\times N}[\bs{P}(\tilde{\bs{z}})^T\bs{P}(\tilde{\bs{z}})]^{-1}\bs{1}_{N\times 1} - 1)
 		%&= \log[\exp[-\bs{1}_{1\times N}[\bs{P}(\tilde{\bs{z}})^T\bs{P}(\tilde{\bs{z}})]^{-1}\bs{1}_{N\times 1}]]+1\\
 \end{align}
 where we inserted the optimal $\bs{W}$ found in \eqref{eq:optW}. The problem \eqref{eq:newtoptnew} is then equivalent to
@@ -576,8 +577,6 @@ where $\tilde{\bs{f}}:\bb{R}^{N\times d} \to \bb{R}^{(d+1)N} := \begin{bmatrix} 
 		\in \bb{R}^{(d+1)N \times dN},
 	\end{split}
 \end{equation}
-\color{blue} For some reason, \texttt{logdet} and \texttt{trace} identities are coming to mind as useful for solving this problem - totally vague as of now. At the very least, we can compute derivatives of $\tilde{f}(\tilde{\bs{z}})$. Let $A(\tilde{\bs{z}}) = \bs{P}(\tilde{\bs{z}})^T\bs{P}(\tilde{\bs{z}})$. Then, $\mathcal{D}(A^{-1})|_{\tilde{\bs{z}}} = -A(\tilde{\bs{z}})^{-1} \mathcal{D}(A(\tilde{\bs{z}})) A(\tilde{\bs{z}})^{-1}$. This can be seen by taking the derivative of $I = A(\tilde{\bs{z}})A(\tilde{\bs{z}})^{-1}$, which is 0, and solving for the desired term. \color{black}
-\\\\
 Let $L:\bb{R}^{dN}\times \bb{R}^{(d+1)N} \to \bb{R}$ denote the \emph{Lagrangian} of the \emph{primal objective} \eqref{eq:newtoptreduced}. With \emph{dual variables} $\bs{\lambda}\in \bb{R}^{(d+1)N}$, it is given by 
 \begin{equation}\label{eq:objlagnew}
 	L(\tilde{\bs{z}},\lambda) = \tilde{f}(\tilde{\bs{z}}) + \bs{\lambda}^T\tilde{\bs{f}}(\tilde{\bs{z}}).
@@ -619,7 +618,7 @@ This leads to the following conditions characterizing the solution to any optimi
 We will recast \eqref{eq:newtoptnew} into a fully unconstrained problem using the barrier method, as described in the next section.
 
 \subsubsection{Barrier method}
-In the barrier method, we start by rewriting \eqref{eq:newtoptnew} in a form which incorporates the inequality constraints directly into the objective, as in
+In the barrier method, we start by rewriting \eqref{eq:newtoptreduced} in a form which incorporates the inequality constraints directly into the objective, as in
 \begin{equation}\label{eq:optZindicatornew}
 		\min_{\tilde{\bs{z}} \in \bb{R}^{dN}} \tilde{f}(\tilde{\bs{z}}) + \sum_{i=1}^{(d+1)N}I_{-}(\tilde{f}_i(\tilde{\bs{z}}))
 \end{equation}
@@ -711,11 +710,11 @@ Since $V = V^T$, we know that
 \begin{align}
 	\frac{\partial h(V)}{\partial V} :&= \frac{\partial(V^T\bs{1}_{N\times 1}\bs{1}_{N\times 1}^T V)_{kl}}{\partial V_{ij}} \nonumber \\ &= \delta_{lj}(V\bs{1}_{N\times 1}\bs{1}_{N\times 1}^T)_{ki} + \delta_{kj}(\bs{1}_{N\times 1}\bs{1}_{N\times 1}^T V)_{il}.
 \end{align}
-We can also compute
+We can also compute\footnote{This can be seen by taking the derivative of $I = U(\tilde{\bs{z}})U(\tilde{\bs{z}})^{-1}$, which is 0, and solving for the desired term.}
 \begin{equation}
 	\frac{\partial V}{\partial z_{st}} = \frac{\partial (U^{-1})}{\partial z_{st}} = -U^{-1} \frac{\partial U}{\partial z_{st}}U^{-1}
 \end{equation}
-\newgeometry{left=0.5cm,right=0.5cm,bottom=2cm}
+
 \noindent
 We handle the Hessian of $U$ below:
 \begin{align*}
@@ -819,7 +818,7 @@ We handle the Hessian of $U$ below:
 %0, \quad & (i=l)\wedge(i=k)\wedge(s\neq k)
 %\end{cases}
 %\end{align*}
-We verify the correctness of our formulae for the derivatives of our objective by comparing with second-order finite difference approximations. In particular, we show in Figure \ref{fig:derivCheck} the relative error in the 2-norm between the analytical evaluation and the finite difference approximation. Since the difference scheme is second order, we expect the error to behave like $\mathcal{O}(h^2)$, where $h$ is the stencil width. That is, we should observe that $\log(||\mathcal{D}(\bs{F}) - \hat{\mathcal{D}}(\bs{F})||) \approx 2\log(h) + \beta,$ where $\beta$ is the order constant, and $\hat{\mathcal{D}(F)}$ is the finite difference approximation. On a $\log-\log$ scale, this means the slope of the error lines should be around 2. Indeed, we do observe this relationship in the regime of asymptotic convergence, before round-off error dominates truncation error for the finite difference scheme.
+We verify the correctness of our formulae for the derivatives of our objective by comparing with second-order finite difference approximations. In particular, we show in Figure \ref{fig:derivCheck} the relative error in the 2-norm between the analytical evaluation and the finite difference approximation. Since the difference scheme is second order, we expect the error to behave like $\mathcal{O}(h^2)$, where $h$ is the stencil width. That is, we should observe that $\log(||\mathcal{D}(\bs{F}) - \hat{\mathcal{D}}(\bs{F})||) \approx 2\log(h) + \beta,$ where $\beta$ is the order constant, and $\hat{\mathcal{D}(F)}$ is the finite difference approximation. On a $\log-\log$ scale, this means the slope of the error line (as a function of stencil width $h$) should be around 2. Indeed, we do observe this relationship in the regime of asymptotic convergence, before round-off error dominates truncation error for the finite difference scheme.
 \begin{figure}[H]
 	\centering
 	\includegraphics[width=1\linewidth]{./derivCheck}
@@ -829,6 +828,22 @@ We verify the correctness of our formulae for the derivatives of our objective b
 \begin{remark}
 	For this sort of simple ``reverse" verification test, we assume that we don't know if our analytical formulae are correct, and that a \emph{verified} finite difference implementation is available. Then, we are essentially re-verifying the finite difference implementation, which on success, certifies correctness of the analytical formulae.
 \end{remark}
+The derivatives of the log-barrier function \eqref{eq:logbarriernew} are given by
+\begin{equation}
+\begin{split}
+	\nabla \phi(\tilde{\bs{z}}) &= \sum_{i=1}^{(d+1)N}\frac{-1}{\tilde{f}_i(\tilde{\bs{z}})}\nabla \tilde{f}_i(\tilde{\bs{z}}) \\ 
+	&= -G^T(\bs{1}_{(d+1)N\times 1} \oslash \tilde{\bs{f}}(\tilde{\bs{z}})) \\
+	\nabla^2 \phi(\tilde{\bs{z}}) &= \sum_{i=1}^{(d+1)N}\frac{1}{\tilde{f}_i^2(\tilde{\bs{z}})}\nabla \tilde{f}_i(\tilde{\bs{z}})\nabla \tilde{f}_i(\tilde{\bs{z}})^T - \sum_{i=1}\frac{1}{\tilde{f}_i(\tilde{\bs{z}})}\nabla^2\tilde{f}_i(\tilde{\bs{z}}) \\
+	&= \sum_{i=1}^{(d+1)N}\frac{1}{\tilde{f}_i^2(\tilde{\bs{z}})}\nabla \tilde{f}_i(\tilde{\bs{z}})\nabla \tilde{f}_i(\tilde{\bs{z}})^T\\
+	&= G^T\big[(\bs{1}_{(d+1)N\times 1}\oslash \tilde{\bs{f}}(\tilde{\bs{z}}))^{\circ 2}\odot G \big]
+\end{split}
+\end{equation}
+where we eliminated the second summation in the formula for the hessian of $\phi$ using the fact that each $\tilde{f}_i$ is linear in $\tilde{\bs{z}}$. These are verified in Figure \ref{fig:derivChecklogbar}.
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=1\linewidth]{./derivCheck_logbar}
+	\caption{Relative error in the 2-norm (Frobenius for matrix valued derivatives) of the analytical derivative formulae for the log-barrier function when compared to second order finite difference approximations.} \label{fig:derivChecklogbar}
+\end{figure}
 
 %The next step is incorporating the derivative formula into a quasi-Newton method using BFGS updates to an inititial approximation of the Hessian (for which we can use Identity, or a finite difference approx using the first derivative). This will be applied to the fully unconstrained objective with log-barrier. The second derivatives are problematic to derive analytically, though I am still attempting to do so.
 
