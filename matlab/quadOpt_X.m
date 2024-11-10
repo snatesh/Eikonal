@@ -46,6 +46,7 @@ dV = dvZ([Xk,Yk],n,m,a,b,c);
 dhdz = dhVdz([Xk,Yk],n,m,a,b,c);
 d2U = d2PTP([Xk,Yk],n,m,a,b,c);
 d2gdz2 = d2gUdz2([Xk,Yk],n,m,a,b,c);
+issymmetric(h(V([Xk,Yk],n,m,a,b,c)))
 
 hs = [5e-1 4e-1 3e-1 2e-1 1e-1 5e-2 1e-2 5e-3 1e-3 5e-4 1e-4 5e-5 1e-5 5e-6 1e-6 5e-7 1e-7];
 errsdU = zeros(size(hs));
@@ -60,7 +61,7 @@ errsd2gdz2 = zeros(size(hs));
 % and find relative error in FD approx
 for kk = 1:length(hs)
   dU_FD = dPTP_FD([Xk,Yk],n,m,a,b,c,hs(kk));
-  %d2U_FD = d2PTP_FD([Xk,Yk],n,m,a,b,c,hs(kk));
+  d2U_FD = d2PTP_FD([Xk,Yk],n,m,a,b,c,hs(kk));
   dg_FD = dgU_FD(U,hs(kk));
   dh_FD = pagetranspose(dhV_FD(v,hs(kk)));
   dV_FD = dvZ_FD([Xk,Yk],n,m,a,b,c,hs(kk));
@@ -73,18 +74,19 @@ for kk = 1:length(hs)
   errsdh(kk) = norm(dh_FD-dh,'fro')/norm(dh,'fro');
   errsdV(kk) = norm(dV_FD-dV,'fro')/norm(dV,'fro');
   errsdhdz(kk) = norm(dhdz_FD-dhdz,'fro')/norm(dhdz,'fro');
-  errsd2gdz2(kk) = norm(d2gdz2_FD-d2gdz2,'fro')/norm(d2gdz2,'fro')
-  %errsd2U(kk) = norm(d2U_FD-d2U,'fro')/norm(d2U,'fro');
+  errsd2gdz2(kk) = norm(d2gdz2_FD-d2gdz2,'fro')/norm(d2gdz2,'fro');
+  errsd2U(kk) = norm(d2U_FD-d2U,'fro')/norm(d2U,'fro');
 end
 %%
-loglog(hs,errsdU,'r-','linewidth',5,'DisplayName','$\frac{\partial U}{\partial z_{ij}}$'); hold on;
-loglog(hs,errsdgdz,'b-','linewidth',5,'DisplayName','$\frac{\partial g(U)}{\partial z_{ij}}$');
+%loglog(hs,errsdU,'r-','linewidth',5,'DisplayName','$\frac{\partial U}{\partial z_{ij}}$'); hold on;
+%loglog(hs,errsd2U,'b-','linewidth',5,'DisplayName','$\frac{\partial^2 U}{\partial z_{st} \partial z_{ij}}$'); hold on;
+loglog(hs,errsdgdz,'r-','linewidth',5,'DisplayName','$\frac{\partial g(U)}{\partial z_{ij}}$'); hold on;
 %loglog(hs,errsdg,'m-','linewidth',5,'DisplayName','$\frac{\partial g(U)}{\partial U}$')
 %loglog(hs,errsdh,'c-','linewidth',5,'DisplayName','$\frac{\partial h(V)}{\partial V}$')
-loglog(hs,errsdhdz,'c-','linewidth',5,'DisplayName','$\frac{\partial h(V)}{\partial z_{ij}}$')
+%loglog(hs,errsdhdz,'c-','linewidth',5,'DisplayName','$\frac{\partial h(V)}{\partial z_{ij}}$')
 %loglog(hs,errsdV,'g-','linewidth',5,'DisplayName','$\frac{\partial V}{\partial z_{ij}}$')
-%loglog(hs,errsd2gdz2,'rs-','linewidth',5,'DisplayName','$\frac{\partial^2 g}{\partial z_{st} \partial z_{ij}}$')
-%loglog(hs,hs.^2,'k--','linewidth',5,'DisplayName','$\mathcal{O}(h^2)$')
+loglog(hs,errsd2gdz2,'b-','linewidth',5,'DisplayName','$\frac{\partial^2 g}{\partial z_{st} \partial z_{ij}}$')
+loglog(hs,hs.^2,'k--','linewidth',5,'DisplayName','$\mathcal{O}(h^2)$')
 legend('location','best')
 xlabel('$h$');
 ylabel('Relative 2-Norm Error')
@@ -537,6 +539,10 @@ for s = 1:N
                     for l = 1:N
                         if (i ~= l && i ~= k)
                             d2u = 0;
+                        elseif (s ~= l && s ~= k)
+                            d2u = 0;
+                        elseif (((i == l) && (i == k)) && (s ~=k))
+                            d2u = 0;
                         elseif (i == l && i ~= k && s == l)
                             d2u = P(k,:)*(DD{t,j}'*(VV{t,j}(l,:))');
                         elseif (i == l && i ~= k && s == k)
@@ -547,9 +553,7 @@ for s = 1:N
                             d2u = P(l,:)*(DD{t,j}'*(VV{t,j}(k,:))');
                         elseif (i == l && i == k && s == k)
                             d2u = 2*P(k,:)*(DD{t,j}'*(VV{t,j}(k,:))') +...
-                                2*((D{j}'*(V{j}(k,:))')'*(D{t}'*(V{t}(k,:))'));
-                        elseif (i == l && i == k && s ~= k)
-                            d2u = 0;       
+                                2*((D{j}'*(V{j}(k,:))')'*(D{t}'*(V{t}(k,:))'));     
                        end
                         d2U(s,t,i,j,k,l) = d2u;
                     end
@@ -838,7 +842,7 @@ for s = 1:N
         for i = 1:N
             for j = 1:dim
                 dh = reshape(dhdz(s,t,:,:),N,N);
-                du = reshape(dU(s,t,:,:),N,N);
+                du = reshape(dU(i,j,:,:),N,N);
                 d2u = reshape(d2U(s,t,i,j,:,:),N,N);
                 d2gdz2(s,t,i,j) = trace(dh*du + hV*d2u);
             end
