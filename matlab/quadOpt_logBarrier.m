@@ -168,6 +168,16 @@ N = n*(n+1)/2;
 
 end
 
+function [tfphi, dtfphi, d2tfphi] = tftobj_phi_Z(t,Z,n,m,a,b,c)
+
+[f,df,d2f] = ftobj_Z(Z,n,m,a,b,c);
+[phi,dphi,d2phi] = phi_Z(Z,n);
+tfphi = t*f + phi;
+dtfphi = t*df + dphi;
+d2tfphi = t*d2f + d2phi;
+
+end
+
 function [ieqc,G,b] = ftieqc(X,Y,n)
 
 dim = 2;
@@ -196,6 +206,8 @@ function [phi,dphi,d2phi] = phi_Z(Z,n)
 
 [ieqc,G,b] = ftieqc_Z(Z,n);
 phi = -sum(log(-ieqc));
+dphi = dphi_Z(Z,n);
+d2phi = d2phi_Z(Z,n);
 
 end
 

@@ -644,7 +644,7 @@ for $t>0$, where the log barrier function $\phi$ is given by
 \end{equation}
 We can solve \eqref{eq:optZbarriernew} for increasing values of $t$, and use the solution from each previous value of $t$ as the initialization for the problem with the next $t$ value. This generates a sequence $\tilde{\bs{z}}^\star(t)$, known as the \emph{central path}, which converges to the optimal point $\tilde{\bs{z}}^\star$ as $t\to \infty$  (if the problem is solvable). To each approximate problem for a given $t$, we can associate the Newton system to solve for the decrement $\Delta \tilde{\bs{z}}$:
 \begin{equation}
-	(t\nabla^2 \tilde{f}(\tilde{\bs{z}}) + \nabla^2 \phi(\tilde{\bs{z}}))\Delta \tilde{\bs{z}} = -t\nabla \tilde{f}(\tilde{\bs{z}}) + \nabla \phi(\tilde{\bs{z}})
+	(t\nabla^2 \tilde{f}(\tilde{\bs{z}}) + \nabla^2 \phi(\tilde{\bs{z}}))\Delta \tilde{\bs{z}} = -\big(t\nabla \tilde{f}(\tilde{\bs{z}}) + \nabla \phi(\tilde{\bs{z}})\big)
 \end{equation}
 We provide the relevant derivatives here. First, we define $U : \bb{R}^{N\times d} \to \bb{R}^{N\times N}$ and $g : \bb{R}^{N\times N} \to \bb{R}$ by
 \begin{align*}
