@@ -13,7 +13,7 @@ set(groot, 'defaultAxesFontSize',30)
 % jacobi poly params
 a = 0.5; b = 0.5; c = 0.5; dim = 2;
 % source and target poly total degree (+1)
-n = 7; m = 9; d = 2;
+n = 10; m = 12; d = 2;
 fname = strcat('triquadLeg_',num2str(n-1),'_',num2str(m-1),'.mat');
 % jacobi matrices
 [Jn1,Jn2,A1,A2,B1,B2,Hn] = jMatON_tri(n,a,b,c);
@@ -29,18 +29,33 @@ Yk = imag(X0); Xk = real(X0);
 Vm = jPoly_tri(Xk,Yk,Hm,m-1,a,b,c);
 
 % 
-dU = dPTP([Xk,Yk],n,m,a,b,c);
-U = PTP([Xk,Yk],n,m,a,b,c);
-dg = dgU(U);
-dgdz = dgUdz([Xk,Yk],n,m,a,b,c);
-v = inv(U);
-dh = dhV(v);
-dV = dvZ([Xk,Yk],n,m,a,b,c);
-dhdz = dhVdz([Xk,Yk],n,m,a,b,c);
-d2U = d2PTP([Xk,Yk],n,m,a,b,c);
-d2gdz2 = d2gUdz2([Xk,Yk],n,m,a,b,c);
+%dU = dPTP([Xk,Yk],n,m,a,b,c);
+%U = PTP([Xk,Yk],n,m,a,b,c);
+%dg = dgU(U);
+%dgdz = dgUdz([Xk,Yk],n,m,a,b,c);
+%v = inv(U);
+%dh = dhV(v);
+%dV = dvZ([Xk,Yk],n,m,a,b,c);
+%dhdz = dhVdz([Xk,Yk],n,m,a,b,c);
+%d2U = d2PTP([Xk,Yk],n,m,a,b,c);
+%d2gdz2 = d2gUdz2([Xk,Yk],n,m,a,b,c);
 
 Z = [Xk;Yk];
+%[f, ~, ~] = ftobj_Z(Z,n,m,a,b,c);
+%mu = 10; t = mu*f; 
+%Zt = barrier_run(t,mu,tol,Z,n,m,a,b,c);
+tol = 1e-5;
+[f,df,d2f] = ftobj_Z(Z,n,m,a,b,c);
+
+while (f > tol)
+    dZ = -d2f\df;
+    Z = Z + 0.0001*dZ;
+    [f,df,d2f] = ftobj_Z(Z,n,m,a,b,c);
+    disp(f);
+    plot(Z(1:N),Z(N+1:end),'o'); pause(0.01);
+end
+
+%%
 phi = phi_Z(Z,n);
 dphi = dphi_Z(Z,n);
 d2phi = d2phi_Z(Z,n);
@@ -61,6 +76,9 @@ loglog(hs,hs.^2,'k--','linewidth',5,'DisplayName', '$\mathcal{O}(h^2)$');
 legend('location','best')
 xlabel('$h$');
 ylabel('Relative 2-Norm Error')
+
+
+
 
 
 % 
@@ -164,7 +182,7 @@ end
 function [f, df, d2f] = ftobj_Z(Z,n,m,a,b,c)
 
 N = n*(n+1)/2;
-[f, df. d2f] = ftobj(Z(1:N),Z(N+1:2*N),n,m,a,b,c);
+[f, df, d2f] = ftobj(Z(1:N),Z(N+1:2*N),n,m,a,b,c);
 
 end
 
@@ -176,6 +194,26 @@ tfphi = t*f + phi;
 dtfphi = t*df + dphi;
 d2tfphi = t*d2f + d2phi;
 
+end
+
+function Zt = barrier_run(t,mu,tol,Z,n,m,a,b,c)
+
+dim = 2;
+N = n*(n+1)/2;
+M = (dim+1)*N;
+while (M/t > tol)
+    [tfphi,dtfphi,d2tfphi] = tftobj_phi_Z(t,Z,n,m,a,b,c);
+    while (tfphi > tol)
+        dZ = -d2tfphi\dtfphi;
+        Z = Z + 0.001*dZ;
+        [tfphi,dtfphi,d2tfphi] = tftobj_phi_Z(t,Z,n,m,a,b,c);
+        disp(tfphi);
+        plot(Z(1:N),Z(N+1:end),'o'); pause(0.01);
+    end
+    t = mu*t;
+    disp(tfphi);
+end
+Zt = Z;
 end
 
 function [ieqc,G,b] = ftieqc(X,Y,n)
