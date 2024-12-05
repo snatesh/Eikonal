@@ -770,6 +770,9 @@ We handle the Hessian of $U$ below:
 \end{cases}
 \end{align*}
 
+
+
+
 %\begin{align*}
 %\frac{\partial U_{kl}}{\partial z_{ij}} &= \sum_{q=0}^{M-1} P_q(z_{k1},\ldots,z_{kd})\partial_{z_{ij}}P_q(z_{l1},\ldots,z_{ld}) + P_q(z_{l1},\ldots,z_{ld})\partial_{z_{ij}}P_q(z_{k1},\ldots,z_{kd}) \\
 %\frac{\partial^2 U_{kl}}{\partial z_{st} \partial z_{ij}} &= \sum_{q=0}^{M-1}P_q(z_{k1},\ldots,z_{kd})\partial_{z_{st}}\partial_{z_{ij}}P_q(z_{l1},\ldots,z_{ld}) + \partial_{z_{ij}}P_q(z_{l1},\ldots,z_{ld})\partial_{z_{st}}P_q(z_{k1},\ldots,z_{kd})\\
@@ -1217,4 +1220,12 @@ where we eliminated the second summation in the formula for the hessian of $\phi
 
 %\bibliographystyle{siamplain}
 %\bibliography{references}
+
+\section{Image Compression via Jacobi Polynomial Expansion}{}
+An image (i.e. with file format .jpg, .png, etc.) can be thought of as an integer-valued surface (or multiple surfaces in the case of multi-channel images) on a rectangular domain. We can easily tesselate this domain with triangles equipped with the quadrature nodes derived in the previous section. The idea is to approximate the subsurfaces on each triangle with a Jacobi polynomial expansion. Areas where the image is highly varying will require more triangles or higher order expansion (i.e. $h$ vs $p$ refinement). As of now, we can compute expansion coefficients on the reference triangle. Here, we first derive a method for computing such expansions on a general triangle.
+\noindent
+For a given function $f(x,y)$, with $(x,y) \in \mathcal{T}^2$ points in a general triangle
+
+
+
 \end{document}
