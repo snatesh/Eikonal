@@ -42,31 +42,43 @@ imgsz = size(img);
 nXpix = imgsz(1); nYpix = imgsz(2);
 [Xpix,Ypix] = meshgrid(1:nXpix,1:nYpix); 
 
-nSamp = 5;
+nSamp = 10;
 [X,Y] = meshgrid(linspace(1,nXpix,nSamp), linspace(1,nYpix,nSamp));
 X = X(:); Y = Y(:);
-T = delaunay(X,Y);
+DT = delaunayTriangulation(X,Y);
+triInd = DT.pointLocation(Xpix(:),Ypix(:));
+T = DT.ConnectivityList;
 figure(1);
 triplot(T,X,Y); hold on;
 imagesc(img','AlphaData',0.5)
 nTri = length(T);
 interpolator = @(x,y) interp2(Xpix,Ypix,double(img)',x,y,'makima');
+Xpix = Xpix(:); Ypix = Ypix(:);
+Imgapprox = zeros(size(img'));
 for j = 1:nTri
 
     Xe = [X(T(j,:))';Y(T(j,:))'];
     Ixe = IncidenceMatrix(Xe);
     XYe = (Ixe * [R,S]' + Xe(:,1))';
     imginterp = interpolator(XYe(:,1),XYe(:,2));
-    cimg = V_abc' * (imginterp .* W)
-
-    % need code to find pixel points in each triangle
-    % then evaluate Vandermonde at these points
-    % use cimg to evaluate approximate pixel values
-    % to see if we're actually capturing them correctly
-
-
-    plot(XYe(:,1),XYe(:,2),'k.'); drawnow; pause(0.1);
-
+    cimg = V_abc' * (imginterp .* W);
+    % find pixels inside current triangle
+    xpix = Xpix(triInd==j);
+    ypix = Ypix(triInd==j);
+    % map those pixels to reference triangle
+    XYpix = Ixe \ [xpix'-Xe(1,1);ypix'-Xe(2,1)];
+    % evaluate vandermonde at pixels in reference
+    Vabcpix = jPoly_tri(XYpix(1,:)',XYpix(2,:)',H_abc,n-1,a,b,c);
+    % evaluate approximation to image within triangle
+    imgapprox = Vabcpix*cimg;
+    Imgapprox(triInd==j) = round(imgapprox);
+    % get actual pixel values within triangle
+    imgactual = interpolator(xpix,ypix);
+    disp(norm(round(imgapprox)-imgactual)/norm(imgactual));
+    %plot(XYe(:,1),XYe(:,2),'k.');
+    %plot(XYpix(1,:)',XYpix(2,:)','g.');
+    %drawnow; pause(0.1);
+    disp(j)
 end
 
 
