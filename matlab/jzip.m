@@ -23,88 +23,52 @@ wa1b1c1 = @(x,y) x.^(a+1-1/2).*y.^(b+1-1/2).*(1-x-y).^(c+1-1/2)*w_a1b1c1/2;
 f = @(x,y) (x+y).^10; 
 % eval test function on quadrature nodes
 Fref = f(R,S); FrefW = Fref.*W; normFref = norm(Fref);
-m = 17; n = m+1;
+m = 14; n = m+1;
 % normalization under (a,b,c), (a+1,b,c) etc.
 H_abc = structure_factors_tri(n+1,a,b,c);
 % vandermonde under (a,b,c), (a+1,b,c) etc.
 V_abc = jPoly_tri(R,S,H_abc,n-1,a,b,c);
-
-% make coeffs of fref under (a,b,c), (a+1,b,c) etc.
+% make coeffs of fref under (a,b,c)
 cfref_abc = V_abc'*FrefW;
 disp(norm(V_abc*cfref_abc-Fref)/normFref);
 
 % reference tri
 Rv = [0,1,0];
 Sv = [0,0,1];
-Xeref = [Rv;Sv];
 
-% general tri
-Xv = [2.,4.,3.];
-Yv = [1.,1.,2.];
-Xe = [Xv;Yv];
-
-Ixe = IncidenceMatrix(Xe);
-XY = Ixe * [R,S]' + Xe(:,1);
-XY = XY';
-X = XY(:,1); Y = XY(:,2);
-F = f(X,Y); FW = F.*W; normF = norm(F);
-% make coeffs of fref under (a,b,c), (a+1,b,c) etc.
-cf_abc = V_abc'*FW;
-disp(norm(V_abc*cf_abc-F)/normF);
-
-%scatter3(R,S,F); hold on;
-%scatter3(X,Y,F);
 img = imread("mathias-reding-vU9-VO-4Nk0-unsplash.jpg");
 img = rgb2gray(img);
 imgsz = size(img);
-Xpix = imgsz(1); Ypix = imgsz(2);
-Xp = 1:Xpix; Yp = 1:Ypix;
-[XX,YY] = meshgrid(Yp,Xp);
-Xv1 = [Xp(1),Xp(end),Xp(1)];
-Yv1 = [Yp(1),Yp(1),Yp(end)];
-Xv2 = [Xp(1),Xp(end),Xp(end)];
-Yv2 = [Yp(end),Yp(1),Yp(end)];
-Xe1 = [Xv1;Yv1];
-Xe2 = [Xv2;Yv2];
-plot_tri(Xv1,Yv1,'k-');
-plot_tri(Xv2,Yv2,'b-');
+nXpix = imgsz(1); nYpix = imgsz(2);
+[Xpix,Ypix] = meshgrid(1:nXpix,1:nYpix); 
 
-Ixe1 = IncidenceMatrix(Xe1);
-Ixe2 = IncidenceMatrix(Xe2);
-XY1 = (Ixe1 * [R,S]' + Xe1(:,1))';
-XY2 = (Ixe2 * [R,S]' + Xe2(:,1))';
-plot(XY1(:,1),XY1(:,2),'k.');
-plot(XY2(:,1),XY2(:,2),'b.');
-X = [XY1(:,1);XY2(:,1)];
-Y = [XY1(:,2);XY2(:,2)];
-plot(X,Y,'go')
-imginterp = interp2(Xp,Yp,double(img)',X,Y,'makima');
-cimg1 = V_abc'*(imginterp(1:N).*W);
-cimg2 = V_abc'*(imginterp(N+1:end).*W);
-hold off;
-scatter3(X,Y,imginterp,'rp'); hold on;
-scatter3(XY1(:,1),XY1(:,2),V_abc*cimg1,'ko')
-scatter3(XY2(:,1),XY2(:,2),V_abc*cimg2,'bo')
+nSamp = 5;
+[X,Y] = meshgrid(linspace(1,nXpix,nSamp), linspace(1,nYpix,nSamp));
+X = X(:); Y = Y(:);
+T = delaunay(X,Y);
+figure(1);
+triplot(T,X,Y); hold on;
+imagesc(img','AlphaData',0.5)
+nTri = length(T);
+interpolator = @(x,y) interp2(Xpix,Ypix,double(img)',x,y,'makima');
+for j = 1:nTri
 
-%%
+    Xe = [X(T(j,:))';Y(T(j,:))'];
+    Ixe = IncidenceMatrix(Xe);
+    XYe = (Ixe * [R,S]' + Xe(:,1))';
+    imginterp = interpolator(XYe(:,1),XYe(:,2));
+    cimg = V_abc' * (imginterp .* W)
 
-img = imread("mathias-reding-vU9-VO-4Nk0-unsplash.jpg");
-imgflat = double(img(:)); 
-N = length(imgflat);
-
-dctimg = dct(imgflat);
-dctimg_sort = dct(sort(imgflat));
-semilogy(abs(dctimg),'bo-'); hold on;
-semilogy(abs(dctimg_sort),'rs-');
+    % need code to find pixel points in each triangle
+    % then evaluate Vandermonde at these points
+    % use cimg to evaluate approximate pixel values
+    % to see if we're actually capturing them correctly
 
 
-%%
-plot_tri(Rv,Sv,'k-');
-plot_tri(Xv,Yv,'b-');
+    plot(XYe(:,1),XYe(:,2),'k.'); drawnow; pause(0.1);
 
+end
 
-plot(R,S,'k.');
-plot(X,Y,'b.');
 
 function Ixe = IncidenceMatrix(Xe)
 
