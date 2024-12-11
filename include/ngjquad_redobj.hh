@@ -32,7 +32,7 @@ struct optData
   double a, b, c, d;
   unsigned int N, M, n, m;
   bool run0; 
-  double minf;
+  double minf, minf1;
   unsigned int nthreads;
   unsigned int dim;
   double* Z0 = 0; 
@@ -291,7 +291,8 @@ struct ngjQuad
       free(ipiv);
     }
   }
- 
+
+  // optimize quadrature problem 
   static inline double optF_help (  unsigned int n, const double* Zk, 
                                     double* grad, void* _data  )
   {
@@ -373,6 +374,7 @@ struct ngjQuad
   
   }
  
+  // optimize quadrature problem
   static inline double optF ( unsigned int n, const double* Zk,
                               double* grad, void* _data )
   {
@@ -417,6 +419,33 @@ struct ngjQuad
     }
     return fval;
   }
+ 
+  // optimize condition number of interpolation matrix on abscissa 
+  static inline double optF1  ( unsigned int n, const double* Zk, 
+                                double* grad, void* _data  )
+  {
+    ++count1;
+    optData* data = (optData*) _data;
+    unsigned int dim = data->dim; 
+    if (dim == 2) 
+    { 
+      const double *Xk = Zk; 
+      const double *Yk = Zk + data->N;
+      data->Pm->computeV(Xk, Yk); 
+    }
+    else
+    {
+      std::cerr << "Only dim=2 supported. Exiting..\n";
+      exit(1);
+    }
+    double rcond[1];
+    cond(data->Pm->V, data->N, data->M, rcond);
+    if ( !(count1 % 100) ) 
+    { 
+      std::cout << "Eval #" << count1 << " : cond(V(Z)) = " << 1.0 / rcond[0] << std::endl; 
+    }
+    return 1.0 / rcond[0];
+  }
   
   static inline void optieqC (  unsigned int m, double* result, unsigned int n, 
                                 const double* Zk, double* grad, 
@@ -444,6 +473,35 @@ struct ngjQuad
       }
     }
   }
+  
+  static inline void optieqC1 ( unsigned int m, double* result, unsigned int n, 
+                                const double* Zk, double* grad, void* f_data)
+  {
+    optData* data = (optData*) f_data;
+    unsigned int dim = data->dim;
+    if (dim == 2)
+    {
+      unsigned int N = data->N;
+      #pragma omp simd 
+      for (unsigned int i = 0; i < m; ++i)
+      {
+        result[i] = Zk[i] + Zk[i + N] - 1.0 + 1e-8; 
+      }
+    }
+    else
+    {
+      std::cerr << "Only dim=2 is supported. Exiting..\n";
+      exit(1);
+    }
+  }
+  
+  static inline double opteqC1  ( unsigned int n, const double* Zk,
+                                  double* grad, void* _data) 
+  {
+    optData* data = (optData*) _data;
+    data->run0 = false;
+    return optF(n, Zk, nullptr, data) - data->minf;
+  }  
   
   inline void init ()
   {
@@ -568,6 +626,56 @@ struct ngjQuad
     std::cout <<"END NLOPT \n\n";
   }
   
+  inline void runX ()
+  {
+    std::cout <<"\n BEGIN NLOPT cond(V(Z))\n"; 
+    unsigned int N = optdata->N;
+    nlopt_opt opt; 
+    double *ub, *lb, *tolieq;
+    if (this->dim == 2)
+    { 
+      // x, y > 0
+      lb = (double*) calloc(2*N, sizeof(double)); 
+      // x, y < 1
+      ub = (double*) calloc(2*N, sizeof(double));
+      tolieq = (double*) calloc(2*N, sizeof(double));
+      for (unsigned int i = 0; i < 2*N; ++i) 
+      { 
+        ub[i] = 1.0 - 1e-8;
+        lb[i] = 1e-8; 
+      }
+      for (unsigned int i = 0; i < 2*N; ++i) { tolieq[i] = tolc; }
+      opt = nlopt_create(NLOPT_LN_COBYLA, 2*N); 
+      nlopt_add_inequality_mconstraint(opt, 2*N, optieqC1, optdata, tolieq);
+    }
+    else
+    {
+      std::cerr << "Only dim=2 is supported. Exiting..\n";
+      exit(1);
+    }
+  
+    nlopt_set_lower_bounds(opt, lb);
+    nlopt_set_upper_bounds(opt, ub);
+    nlopt_set_min_objective(opt, optF1, optdata);
+    nlopt_add_equality_constraint(opt, opteqC1, optdata, tolc);
+  
+    nlopt_set_xtol_rel(opt, 1e-1);
+    nlopt_set_stopval(opt, 3);
+    double minF;
+    if (nlopt_optimize(opt, optdata->Z0, &optdata->minf1) < 0) 
+    {
+      std::cerr << "NLOPT failed!" << std::endl;
+    }
+    else 
+    {
+      std::cout << "Conditioning of interpolation operator on new abscissa : " 
+                << minF << std::endl;
+    }
+    nlopt_destroy(opt);
+    free(lb); free(ub);
+    free(tolieq);
+    std::cout <<"END NLOPT \n\n";
+  }
 };
 
 

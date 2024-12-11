@@ -168,9 +168,9 @@ inline void writeQuad(ngjQuad* gjquad, unsigned int dim)
 
     for (unsigned int i = 0; i < gjquad->optdata->N; ++i)
     {
-      xfile << gjquad->optdata->Z0[i] << std::endl; 
-      yfile << gjquad->optdata->Z0[i+N] << std::endl; 
-      wfile << gjquad->optdata->W0[i] << std::endl; 
+      xfile << std::setprecision(16) << gjquad->optdata->Z0[i] << std::endl; 
+      yfile << std::setprecision(16) << gjquad->optdata->Z0[i+N] << std::endl; 
+      wfile << std::setprecision(16) << gjquad->optdata->W0[i] << std::endl; 
     }
     xfile.close();
     yfile.close();
@@ -241,6 +241,7 @@ int main(int argc, char* argv[])
   for (unsigned int i = 0; i < N; ++i) { sumw += W0[i]; } 
   std::cout << "(initial) Sum of weights : " << sumw << std::endl;
   gjquad->runXW();
+  gjquad->runX();
   sumw = 0;
   for (unsigned int i = 0; i < N; ++i) { sumw += W0[i]; } 
   std::cout << "(final ) Sum of weights : " << sumw << std::endl;
