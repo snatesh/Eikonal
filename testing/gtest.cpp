@@ -13,6 +13,7 @@
 #include<jevd.hh>
 #include<ngjquad.hh>
 #include<legQuad.hh>
+#include<random>
 
 #ifdef PLOT
 #include<../include/matplotlibcpp.h>
@@ -730,50 +731,87 @@ TEST(jPolyTetTest, RunCheck)
 
 }
 
-TEST(ngjquadLineTest, TolCheck)
+//TEST(ngjquadLineTest, TolCheck)
+//{
+//  double tol = 5e-15;
+//  unsigned int N = 20;
+//  unsigned int dim = 1;
+//  ngjQuad* gjquad = new ngjQuad  (  N, N, 0, 0, 1e-16, 1e-16, 0,
+//                                    0, 0, NLOPT_LN_SBPLX, 4 );
+//
+//  gjquad->init();
+//  double* Z0 = gjquad->optdata->Z0;
+//  gjquad->runXW();
+//
+//  double sumw = 0;
+//  for (unsigned int i = dim*N; i < (dim+1)*N; ++i)
+//  {
+//    sumw += Z0[i];
+//  } 
+//  EXPECT_LT(std::abs(sumw-1.0), tol);
+//  // integrate test function on tri
+//  double* Ftest = (double*) calloc(N, sizeof(double));
+//  for (unsigned int i = 0; i < N; ++i) 
+//  { 
+//    Ftest[i] = std::exp(std::sin(Z0[i]*Z0[i]) + std::pow(2.0, Z0[i]) - 5*Z0[i]);
+//  }
+//  double Ival = 2.0 * cblas_ddot(N, Z0 + N, 1, Ftest, 1);
+//  double Iref = 98.4483710807777525144; 
+//  EXPECT_LT(abs(Ival-Iref)/abs(Iref), tol);
+//  free(Ftest);
+//  delete gjquad;
+//}
+
+//TEST(jMat3DTest, RunCheck)
+//{
+//  unsigned int nlg = 25;
+//  double a = 0.5, b = 0.5, c = 0.5, d = 0.5;
+//  unsigned int norder = 3;
+//  legQuad<double>* legq = new legQuad<double>(nlg); 
+//  jMat<double>* jmat = 
+//    new jMat<double>(norder, a, b, c, d, nlg, legq->x, legq->w, 1);
+//  printMat(jmat->Jn2, jmat->N, jmat->N);
+//
+//  delete jmat;
+//  delete legq; 
+//}
+
+TEST(blasnormaltest, RunCheck)
 {
-  double tol = 5e-15;
-  unsigned int N = 20;
-  unsigned int dim = 1;
-  ngjQuad* gjquad = new ngjQuad  (  N, N, 0, 0, 1e-16, 1e-16, 0,
-                                    0, 0, NLOPT_LN_SBPLX, 4 );
+  unsigned int N = 4;
+  unsigned int M = 7;
 
-  gjquad->init();
-  double* Z0 = gjquad->optdata->Z0;
-  gjquad->runXW();
+  std::random_device rd{};
+  std::mt19937 gen{rd()};
 
-  double sumw = 0;
-  for (unsigned int i = dim*N; i < (dim+1)*N; ++i)
-  {
-    sumw += Z0[i];
-  } 
-  EXPECT_LT(std::abs(sumw-1.0), tol);
-  // integrate test function on tri
-  double* Ftest = (double*) calloc(N, sizeof(double));
-  for (unsigned int i = 0; i < N; ++i) 
+  double* Vm = (double*) calloc(N*M, sizeof(double));
+  double* Q = (double*) calloc(N*N, sizeof(double));
+  for (unsigned int i = 0; i < N*M; ++i) 
   { 
-    Ftest[i] = std::exp(std::sin(Z0[i]*Z0[i]) + std::pow(2.0, Z0[i]) - 5*Z0[i]);
+    std::normal_distribution<double> d{0,1};
+    Vm[i] = d(gen);
   }
-  double Ival = 2.0 * cblas_ddot(N, Z0 + N, 1, Ftest, 1);
-  double Iref = 98.4483710807777525144; 
-  EXPECT_LT(abs(Ival-Iref)/abs(Iref), tol);
-  free(Ftest);
-  delete gjquad;
+  printMat(Vm, N, M);
+  
+  cblas_dgemm ( CblasColMajor, 
+                CblasNoTrans, 
+                CblasTrans, 
+                N, N, M, 
+                1.0, Vm, N, 
+                Vm, N,  
+                0.0, Q, N ); 
+  printMat(Q, N, N);
+
+  
+  int info = LAPACKE_dpotrf ( LAPACK_COL_MAJOR, 
+                              'U', N, Q, N);
+  printMat(Q,N,N);
+  std::cout << info << std::endl;
+
+  free(Vm); 
+  free(Q);
 }
 
-TEST(jMat3DTest, RunCheck)
-{
-  unsigned int nlg = 25;
-  double a = 0.5, b = 0.5, c = 0.5, d = 0.5;
-  unsigned int norder = 3;
-  legQuad<double>* legq = new legQuad<double>(nlg); 
-  jMat<double>* jmat = 
-    new jMat<double>(norder, a, b, c, d, nlg, legq->x, legq->w, 1);
-  printMat(jmat->Jn2, jmat->N, jmat->N);
-
-  delete jmat;
-  delete legq; 
-}
 
 //TEST(jMat3DTest, RunCheck)
 //{

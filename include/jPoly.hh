@@ -273,6 +273,25 @@ class jPoly
               {
                 v[i] = 1.0 / H[kk + (n+1)*nn] * pnmk[i + Nx*(nn-kk)] * 
                        std::pow(mxp1[i],kk) * Pk[i + Nx*kk];
+                
+              }
+              // substitute limit relation for X=1
+              int oneind = -1;
+              for (unsigned int i = 0; i < Nx; ++i)
+              {
+                if (X[i] == 1)
+                {
+                  oneind = i;
+                  break;
+                }
+              }
+              if (oneind >= 0)
+              {
+                v[oneind] =  
+                  ( 1.0 / H[kk + (n+1)*nn] * tgamma(nn+kk+b+c+1) / 
+                  ( tgamma(nn-kk+1) * tgamma(nn+kk+b+c-(nn-kk)+1) ) ) *
+                  ( pochhammer<T>(kk+c+b, kk) / (pow(2.0,kk) * tgamma(kk+1)) ) *
+                  pow(2.0*Y[oneind], kk); 
               }
             }
             ind = ind + nn + 1;
@@ -297,6 +316,7 @@ class jPoly
                        std::pow(Y[i], b-0.5) *
                        std::pow(1-X[i]-Y[i], c-0.5);
               }
+
             }
             ind = ind + nn + 1;
           }

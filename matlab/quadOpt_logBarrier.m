@@ -177,6 +177,7 @@ Q = V_abc*V_abc';
 f = -0.5*(one'*(Q\one) - 1);
 df = 0.5*reshape(dgUdz([X,Y],n,m,a,b,c),N*2,1);
 d2f = 0.5*reshape(d2gUdz2([X,Y],n,m,a,b,c),N*2,N*2); 
+
 end
 
 function [f, df, d2f] = ftobj_Z(Z,n,m,a,b,c)

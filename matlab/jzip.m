@@ -23,7 +23,7 @@ wa1b1c1 = @(x,y) x.^(a+1-1/2).*y.^(b+1-1/2).*(1-x-y).^(c+1-1/2)*w_a1b1c1/2;
 f = @(x,y) (x+y).^10; 
 % eval test function on quadrature nodes
 Fref = f(R,S); FrefW = Fref.*W; normFref = norm(Fref);
-m = 14; n = m+1;
+m = 17; n = m+1;
 % normalization under (a,b,c), (a+1,b,c) etc.
 H_abc = structure_factors_tri(n+1,a,b,c);
 % vandermonde under (a,b,c), (a+1,b,c) etc.
@@ -36,13 +36,14 @@ disp(norm(V_abc*cfref_abc-Fref)/normFref);
 Rv = [0,1,0];
 Sv = [0,0,1];
 
-img = imread("mathias-reding-vU9-VO-4Nk0-unsplash.jpg");
+%img = imread("mathias-reding-vU9-VO-4Nk0-unsplash.jpg");
+img = imread("cat_greyscale.jpg");
 img = rgb2gray(img);
 imgsz = size(img);
 nXpix = imgsz(1); nYpix = imgsz(2);
 [Xpix,Ypix] = meshgrid(1:nXpix,1:nYpix); 
 
-nSamp = 10;
+nSamp = 30;
 [X,Y] = meshgrid(linspace(1,nXpix,nSamp), linspace(1,nYpix,nSamp));
 X = X(:); Y = Y(:);
 DT = delaunayTriangulation(X,Y);
@@ -52,9 +53,12 @@ figure(1);
 triplot(T,X,Y); hold on;
 imagesc(img','AlphaData',0.5)
 nTri = length(T);
+disp(nTri);
 interpolator = @(x,y) interp2(Xpix,Ypix,double(img)',x,y,'makima');
 Xpix = Xpix(:); Ypix = Ypix(:);
 Imgapprox = zeros(size(img'));
+% TODO: Fix division by zero in jpoly_tri - cancels analytically 
+% when y=1-x
 for j = 1:nTri
 
     Xe = [X(T(j,:))';Y(T(j,:))'];
@@ -75,10 +79,11 @@ for j = 1:nTri
     % get actual pixel values within triangle
     imgactual = interpolator(xpix,ypix);
     disp(norm(round(imgapprox)-imgactual)/norm(imgactual));
-    %plot(XYe(:,1),XYe(:,2),'k.');
+    plot(XYe(:,1),XYe(:,2),'k.');
     %plot(XYpix(1,:)',XYpix(2,:)','g.');
-    %drawnow; pause(0.1);
+    drawnow; pause(0.1);
     disp(j)
+
 end
 
 
