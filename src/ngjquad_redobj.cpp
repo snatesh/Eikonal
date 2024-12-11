@@ -53,7 +53,7 @@ inline void set_args  ( int argc, char* argv[],
       {
         case 0:
         { 
-          alg = NLOPT_LD_MMA;
+          alg = NLOPT_LD_SLSQP;
           std::cout << "ALGORITHM: SLSQP\n";
           break;
         }
@@ -67,6 +67,24 @@ inline void set_args  ( int argc, char* argv[],
         {  
           alg = NLOPT_LN_SBPLX;
           std::cout << "ALGORITHM: SBPLX";
+          break;
+        }
+        case 3:
+        {  
+          alg = NLOPT_LD_LBFGS;
+          std::cout << "ALGORITHM: LBFGS";
+          break;
+        }
+        case 4:
+        {  
+          alg = NLOPT_LD_TNEWTON_PRECOND_RESTART;
+          std::cout << "ALGORITHM: LD_TNEWTON";
+          break;
+        }
+        case 5:
+        {  
+          alg = NLOPT_LD_MMA;
+          std::cout << "ALGORITHM: LD_MMA";
           break;
         }
         default:
@@ -141,9 +159,9 @@ inline void writeQuad(ngjQuad* gjquad, unsigned int dim)
     ss  << "_N" << gjquad->optdata->N << "_n" << gjquad->optdata->n-1 
         << "_M" << gjquad->optdata->M << "_m" << gjquad->optdata->m-1;
     std::stringstream ssx, ssy, ssw;
-    ssx << "xtet" << ss.str() << ".txt";
-    ssy << "ytet" << ss.str() << ".txt";
-    ssw << "wtet" << ss.str() << ".txt";
+    ssx << "xtri" << ss.str() << ".txt";
+    ssy << "ytri" << ss.str() << ".txt";
+    ssw << "wtri" << ss.str() << ".txt";
     std::ofstream xfile(ssx.str());
     std::ofstream yfile(ssy.str());
     std::ofstream wfile(ssw.str());
@@ -152,7 +170,7 @@ inline void writeQuad(ngjQuad* gjquad, unsigned int dim)
     {
       xfile << gjquad->optdata->Z0[i] << std::endl; 
       yfile << gjquad->optdata->Z0[i+N] << std::endl; 
-      wfile << gjquad->optdata->Z0[i+2*N] << std::endl; 
+      wfile << gjquad->optdata->W0[i] << std::endl; 
     }
     xfile.close();
     yfile.close();
