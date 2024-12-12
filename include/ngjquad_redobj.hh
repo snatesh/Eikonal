@@ -661,7 +661,6 @@ struct ngjQuad
   
     nlopt_set_xtol_rel(opt, 1e-1);
     nlopt_set_stopval(opt, 3);
-    double minF;
     if (nlopt_optimize(opt, optdata->Z0, &optdata->minf1) < 0) 
     {
       std::cerr << "NLOPT failed!" << std::endl;
@@ -669,7 +668,7 @@ struct ngjQuad
     else 
     {
       std::cout << "Conditioning of interpolation operator on new abscissa : " 
-                << minF << std::endl;
+                << optdata->minf1 << std::endl;
     }
     nlopt_destroy(opt);
     free(lb); free(ub);
