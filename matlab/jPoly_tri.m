@@ -13,6 +13,7 @@ function V = jPoly_tri(X,Y,H,n,a,b,c)
 % dimension
 d = 2;
 % number of polynomials up to total degree n in d dimensions
+% TODO: Need to add limiting value correction for x=1
 N = nchoosek(n+d,n); 
 
 V = zeros(length(X),N);

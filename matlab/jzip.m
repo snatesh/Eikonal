@@ -14,8 +14,11 @@ set(groot, 'defaultLineLineWidth',3)
 % jacobi poly params
 a = 1/2; b = 1/2; c = 1/2;
 % legendre analog quadrature rule on triangle
-load './triquadLeg_17_28.mat';
-R = Zk(1:N); S = Zk(N+1:2*N); W = Zk(2*N+1:3*N);
+%load './triquadLeg_17_28.mat';
+S = importdata("../bin/ytri_N210_n19_M325_m24.txt"); N = length(S);
+R = importdata("../bin/xtri_N210_n19_M325_m24.txt");
+W = importdata("../bin/wtri_N210_n19_M325_m24.txt");
+%R = Zk(1:N); S = Zk(N+1:2*N); W = Zk(2*N+1:3*N);
 % weight function for (a+1,b+1,c+1)
 w_a1b1c1 = gamma(a+1+b+1+c+1+3/2)/(gamma(a+1+1/2)*gamma(b+1+1/2)*gamma(c+1+1/2));
 wa1b1c1 = @(x,y) x.^(a+1-1/2).*y.^(b+1-1/2).*(1-x-y).^(c+1-1/2)*w_a1b1c1/2;
@@ -23,7 +26,7 @@ wa1b1c1 = @(x,y) x.^(a+1-1/2).*y.^(b+1-1/2).*(1-x-y).^(c+1-1/2)*w_a1b1c1/2;
 f = @(x,y) (x+y).^10; 
 % eval test function on quadrature nodes
 Fref = f(R,S); FrefW = Fref.*W; normFref = norm(Fref);
-m = 17; n = m+1;
+m = 10; n = m+1;
 % normalization under (a,b,c), (a+1,b,c) etc.
 H_abc = structure_factors_tri(n+1,a,b,c);
 % vandermonde under (a,b,c), (a+1,b,c) etc.
@@ -31,7 +34,7 @@ V_abc = jPoly_tri(R,S,H_abc,n-1,a,b,c);
 % make coeffs of fref under (a,b,c)
 cfref_abc = V_abc'*FrefW;
 disp(norm(V_abc*cfref_abc-Fref)/normFref);
-
+%%
 % reference tri
 Rv = [0,1,0];
 Sv = [0,0,1];
@@ -43,7 +46,7 @@ imgsz = size(img);
 nXpix = imgsz(1); nYpix = imgsz(2);
 [Xpix,Ypix] = meshgrid(1:nXpix,1:nYpix); 
 
-nSamp = 30;
+nSamp = 20;
 [X,Y] = meshgrid(linspace(1,nXpix,nSamp), linspace(1,nYpix,nSamp));
 X = X(:); Y = Y(:);
 DT = delaunayTriangulation(X,Y);
@@ -78,7 +81,7 @@ for j = 1:nTri
     Imgapprox(triInd==j) = round(imgapprox);
     % get actual pixel values within triangle
     imgactual = interpolator(xpix,ypix);
-    disp(norm(round(imgapprox)-imgactual)/norm(imgactual));
+    disp(norm(round(imgapprox)-imgactual,'fro')/norm(imgactual,'fro'));
     plot(XYe(:,1),XYe(:,2),'k.');
     %plot(XYpix(1,:)',XYpix(2,:)','g.');
     drawnow; pause(0.1);
