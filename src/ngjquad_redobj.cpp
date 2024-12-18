@@ -162,19 +162,21 @@ inline void writeQuad(ngjQuad* gjquad, unsigned int dim)
     ssx << "xtri" << ss.str() << ".txt";
     ssy << "ytri" << ss.str() << ".txt";
     ssw << "wtri" << ss.str() << ".txt";
-    std::ofstream xfile(ssx.str());
-    std::ofstream yfile(ssy.str());
-    std::ofstream wfile(ssw.str());
-
+    std::string xname(ssx.str());
+    std::string yname(ssy.str());
+    std::string wname(ssw.str());
+    FILE* xxfile = fopen(xname.c_str(),"w");
+    FILE* yyfile = fopen(yname.c_str(),"w");
+    FILE* wwfile = fopen(wname.c_str(),"w");
     for (unsigned int i = 0; i < gjquad->optdata->N; ++i)
     {
-      xfile << std::setprecision(16) << gjquad->optdata->Z0[i] << std::endl; 
-      yfile << std::setprecision(16) << gjquad->optdata->Z0[i+N] << std::endl; 
-      wfile << std::setprecision(16) << gjquad->optdata->W0[i] << std::endl; 
+      fprintf(xxfile, "%.17g\n", gjquad->optdata->Z0[i]);
+      fprintf(yyfile, "%.17g\n", gjquad->optdata->Z0[i+N]);
+      fprintf(wwfile, "%.17g\n", gjquad->optdata->Z0[i+2*N]);
     }
-    xfile.close();
-    yfile.close();
-    wfile.close();
+    fclose(xxfile);
+    fclose(yyfile);
+    fclose(wwfile);
   }
   else if (dim == 3)
   {
@@ -234,17 +236,17 @@ int main(int argc, char* argv[])
                             nthreads  );
   }
   gjquad->init();
-  double* Z0 = gjquad->optdata->Z0;
-  double* W0 = gjquad->optdata->W0; 
   unsigned int N = gjquad->optdata->N;
+  unsigned int M = gjquad->optdata->M;
+  double* Z0 = gjquad->optdata->Z0;
+  double* W0 = Z0 + 2*N; 
   double sumw = 0;
   for (unsigned int i = 0; i < N; ++i) { sumw += W0[i]; } 
   std::cout << "(initial) Sum of weights : " << sumw << std::endl;
-  gjquad->runXW();
-  gjquad->runX();
+  gjquad->runXW_expl();
   sumw = 0;
   for (unsigned int i = 0; i < N; ++i) { sumw += W0[i]; } 
-  std::cout << "(final ) Sum of weights : " << sumw << std::endl;
+  std::cout << "(final ) Sum of weights : " << std::setprecision(15) << sumw << std::endl;
   writeQuad(gjquad, dim);
 
   if (dim == 2)
@@ -256,9 +258,11 @@ int main(int argc, char* argv[])
       Ftest[i] = std::sin( pow(Z0[i], 2) + pow(Z0[i+N], 2) ); 
     }
     double Ival = cblas_ddot(N, W0, 1, Ftest, 1) / wabc;
-    free(Ftest);
 
     printf("Integral : %5.16f \n", Ival);
+    
+    free(Ftest); 
+
     // plot resulting quadrature nodes
     std::vector<double> X(Z0, Z0+N); std::vector<double> Y(Z0+N, Z0+2*N);
     double tri[6] = {0, 1, 0, 0, 0, 1}; 

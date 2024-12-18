@@ -1223,20 +1223,20 @@ where we eliminated the second summation in the formula for the hessian of $\phi
 %\end{remark}
 
 \color{red} TODO: Derive the derivative and promotion operators for the general case of $d > 2$. UPDATE: this is done in the paper ``A New Family of Orghogonal Polynomials in Three Variables, by Aktas, Area, and Guldogan" \color{black}
-%At this point, we can parse out what we mean by applying the inverse of the vector Hessian of $\bs{F}:\bb{R}^{3N}\to \bb{R}^M$ to the vector gradient in \eqref{eq:newtsysvec}. We know that $$\mathcal{D}^2(\bs{F}(\bs{z})) \in \bb{R}^{M\times 3N\times 3N},\quad \mathcal{D}(\bs{F}(\bs{z})) \in\bb{R}^{M\times 3N}.$$ Then, we take the following natural interpretation\footnote{For a function $\bs{u}:\bb{R}^N \to \bb{R}^M$, we note the distinction between $\mathcal{D}(\bs{u}(\bs{z}))$ and $\nabla(\bs{u}(\bs{z}))$. The former is an element of $L(\bb{R}^N,\bb{R}^M)$, equivalently viewed as a set of $M$ elements of $L(\bb{R}^N,\bb{R})$, or $M$ row vectors in $\bb{R}^N$ (left argument of dot product). The latter evaluated at a point is as an element of $L(\bb{R}^M,\bb{R}^N)$, equivalently viewed as a set of $M$ elements of $L(\bb{R},\bb{R}^N)$, or $M$ column vectors in $\bb{R}^N$ (right argument of dot product). TLDR; $[\mathcal{D}(\bs u)]^T = \nabla(\bs{u})$}
-%\begin{align*}
-%[\mathcal{D}^2(\bs{F}(\bs{z}))]^{-1} &:= 
-%\begin{bmatrix}
-%	[\mathcal{D}^2(F_1(\bs{z}))]^{-1}& \cdots &[\mathcal{D}^2(F_M(\bs{z}))]^{-1}
-%\end{bmatrix}\\
-%\nabla(\bs{F}(\bs{z})) &:=
-%\begin{bmatrix}
-%	\mathcal{D}(F_1(\bs{z}))^T\\ 
-%	\vdots \\
-%	\mathcal{D}(F_M(\bs{z}))^T
-%\end{bmatrix}\\
-%\Rightarrow [\mathcal{D}^2(\bs{F}(\bs{z}))]^{-1}\mathcal{D}(\bs{F}(\bs{z})) &:= \sum_{j=1}^M \mathcal{D}^2(F_j(\bs{z}))^{-1}\nabla(F_j(\bs{z})) \in \bb{R}^{3N\times 1},\quad \text{(as required)}
-%\end{align*}
+At this point, we can parse out what we mean by applying the inverse of the vector Hessian of $\bs{F}:\bb{R}^{3N}\to \bb{R}^M$ to the vector gradient in \eqref{eq:newtsysvec}. We know that $$\mathcal{D}^2(\bs{F}(\bs{z})) \in \bb{R}^{M\times 3N\times 3N},\quad \mathcal{D}(\bs{F}(\bs{z})) \in\bb{R}^{M\times 3N}.$$ Then, we take the following natural interpretation\footnote{For a function $\bs{u}:\bb{R}^N \to \bb{R}^M$, we note the distinction between $\mathcal{D}(\bs{u}(\bs{z}))$ and $\nabla(\bs{u}(\bs{z}))$. The former is an element of $L(\bb{R}^N,\bb{R}^M)$, equivalently viewed as a set of $M$ elements of $L(\bb{R}^N,\bb{R})$, or $M$ row vectors in $\bb{R}^N$ (left argument of dot product). The latter evaluated at a point is as an element of $L(\bb{R}^M,\bb{R}^N)$, equivalently viewed as a set of $M$ elements of $L(\bb{R},\bb{R}^N)$, or $M$ column vectors in $\bb{R}^N$ (right argument of dot product). TLDR; $[\mathcal{D}(\bs u)]^T = \nabla(\bs{u})$}
+\begin{align*}
+[\mathcal{D}^2(\bs{F}(\bs{z}))]^{-1} &:= 
+\begin{bmatrix}
+	[\mathcal{D}^2(F_1(\bs{z}))]^{-1}& \cdots &[\mathcal{D}^2(F_M(\bs{z}))]^{-1}
+\end{bmatrix}\\
+\nabla(\bs{F}(\bs{z})) &:=
+\begin{bmatrix}
+	\mathcal{D}(F_1(\bs{z}))^T\\ 
+	\vdots \\
+	\mathcal{D}(F_M(\bs{z}))^T
+\end{bmatrix}\\
+\Rightarrow [\mathcal{D}^2(\bs{F}(\bs{z}))]^{-1}\mathcal{D}(\bs{F}(\bs{z})) &:= \sum_{j=1}^M \mathcal{D}^2(F_j(\bs{z}))^{-1}\nabla(F_j(\bs{z})) \in \bb{R}^{3N\times 1},\quad \text{(as required)}
+\end{align*}
 
 %\bibliographystyle{siamplain}
 %\bibliography{references}

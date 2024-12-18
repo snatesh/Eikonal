@@ -25,7 +25,6 @@ struct optData
   Complex *Jnz = 0, *XY0 = 0;
   double *X0 = 0, *Y0 = 0;
   double *Q = 0, *W0 = 0;
-  double *Fobj = 0, *gradFobj = 0;
   double* one = 0;
   double* S = 0;
   lapack_int* ipiv = 0;
@@ -39,7 +38,7 @@ struct optData
   double minf, minf1, minfw;
   unsigned int nthreads;
   unsigned int dim;
-  double *Z0 = 0, *dZk = 0; 
+  double* Z0 = 0; 
   double* G = 0;
   double *Habc = 0, *Ha1bc1 = 0, *Hab1c1 = 0;
   double *Dx = 0, *Dy = 0;
@@ -67,10 +66,6 @@ struct optData
       this->Hab1c1 = (double*) calloc((m+1)*(m+1), sizeof(double));
       this->Dx = (double*) calloc(M*M, sizeof(double));
       this->Dy = (double*) calloc(M*M, sizeof(double));
-      // first M hold Fvec 
-      // overwritten by dZk (3N) in  gradF*dZk=Fobj
-      this->Fobj = (double*) calloc(3*N, sizeof(double));
-      this->gradFobj = (double*) calloc(M*3*N, sizeof(double));
       sFactors(m+1, a, b, c, Habc);  
       sFactors(m+1, a+1, b, c+1, Ha1bc1);  
       sFactors(m+1, a, b+1, c+1, Hab1c1);  
@@ -96,17 +91,29 @@ struct optData
       this->dqstor = (double*) calloc(M, sizeof(double));
       this->dgQdq = (double*) calloc(N*N, sizeof(double));
       for (unsigned int i = 0; i < N; ++i) { one[i] = 1.0; }
-      this->Z0  = (double*) calloc((dim+1)*N, sizeof(double));
-      this->dZk = (double*) calloc((dim+1)*N, sizeof(double));
+      this->Z0 = (double*) calloc((dim+1)*N, sizeof(double));
       //this->G = (double*) calloc((dim+1)*N*(dim*N), sizeof(double));
-      this->G = (double*) calloc(N*(dim+1)*N, sizeof(double));
+      this->G = (double*) calloc(N*(dim*N), sizeof(double));
       for (unsigned int i = 0; i < N; ++i)
       {
         for (unsigned int j = 0; j < dim; ++j) 
         {
           G[i + N*(i + j*N)] = 1.0;
         }
+        //G[i + N*i] = 1.0;
+        //G[i + N*(i+N)] = 1.0;
       }
+      //for (unsigned int i = 0; i < dim*N; ++i)
+      //{
+      //  G[i + i*((dim+1)*N)] = -1.0;
+      //}   
+      //for (unsigned int i = dim*N; i < (dim+1)*N; ++i)
+      //{
+      //  for (unsigned int j = 0; j < dim; ++j)
+      //  {   
+      //    G[i + ((i-dim*N)+j*N)*((dim+1)*N)] = 1.0;
+      //  }   
+      //}
     }
     else
     {
@@ -150,8 +157,6 @@ struct optData
     if (S)  { free(S); S = 0; }
     if (ipiv) { free(ipiv); ipiv = 0; }
     if (Vm_T) { free(Vm_T); Vm_T = 0; }
-    if (Fobj) { free(Fobj); Fobj = 0; }
-    if (gradFobj) { free(gradFobj); gradFobj = 0; }
   }
 
   void initmsg(unsigned int step)
@@ -177,6 +182,66 @@ struct optData
       std::cout << "END NGJQUAD " << splxT << " INITIALIZATION\n";
     }
   }
+  
+  inline void dPTP ()
+  {
+    double* X = Z0; double* Y = Z0 + N;
+    if (this->dim == 2)
+    {
+      double *V[2], *D[2]; 
+      V[0] = Pmx->V; V[1] = Pmy->V;
+      D[0] = Dx; D[1] = Dy;
+      Pm->computeV(X, Y);
+      Pmx->computeV(X, Y);
+      Pmy->computeV(X, Y);
+      double dqkldzij;
+      for (unsigned int i = 0; i < N; ++i)
+      {
+        for (unsigned int j = 0; j < dim; ++j)
+        {
+          for (unsigned int k = 0; k < N; ++k)
+          {
+            for (unsigned int l = 0; l < N; ++l)
+            {
+              if (i != l && i != k) 
+              { 
+                dqkldzij = 0; 
+              }
+              else if (i == l && i != k) 
+              { 
+                cblas_dgemv ( CblasColMajor, CblasTrans, M, M, 1.0, 
+                              D[j], M, &(V[j][l]), N, 
+                              0.0, dqstor, 1 );
+                dqkldzij = cblas_ddot(M, &Vm[k], N, dqstor, 1);
+              }
+              else if (i != l && i == k) 
+              { 
+                cblas_dgemv ( CblasColMajor, CblasTrans, M, M, 1.0, 
+                              D[j], M, &(V[j][k]), N, 
+                              0.0, dqstor, 1 );
+                dqkldzij = cblas_ddot(M, &Vm[l], N, dqstor, 1);
+              }
+              else if (i == l && i == k) 
+              { 
+                cblas_dgemv ( CblasColMajor, CblasTrans, M, M, 1.0, 
+                              D[j], M, &(V[j][k]), N, 
+                              0.0, dqstor, 1 );
+                dqkldzij = 2.0 * cblas_ddot(M, &Vm[k], N, dqstor, 1);
+              }
+              //dQ[i + N*(j + dim*(k + N*l))] = dqkldzij; 
+              dQ[l + N*(k + N*(j + dim*i))] = dqkldzij;
+            }
+          }
+        }
+      }
+    }
+    else
+    {
+      std::cerr << "Only dim=2 is supported. Exiting..\n";
+      exit(1);
+    }
+  } 
+
 };
 
 
@@ -238,118 +303,9 @@ struct ngjQuad
     }
   }
 
-  static inline void newton( void* _data )
-  {
-    optData* data = (optData*) _data;
-    unsigned int m = data->m;
-    unsigned int M = data->M;
-    unsigned int N = data->N;
-    unsigned int dim = data->dim;
-    double* Zk = data->Z0;
-    double* Fk = data->Fobj;
-    double pk = sqrt(data->minf);
-    unsigned int iter = 0;
-    double rho = 0.9, gam = 1e-4;
-    double tol = 1e-16, tol_up = 1e3;
-    unsigned int maxiter = 1000;
-    double* gradFk = 0;
-    double* dZk = data->dZk;
-    lapack_int rank[1]; 
-    double alph, pk1;
-    while (pk > tol && pk < tol_up && iter < maxiter)
-    { 
-      iter += 1;
-      gradFobj(Zk, _data); gradFk = data->gradFobj;
-      // compute step direction
-      if (LAPACKE_dgelsd  ( LAPACK_COL_MAJOR, M, 3*N, 1, gradFk, 
-                            M, Fk, 3*N, data->S, -1.0, rank ) )
-      {
-        std::cerr << "ERROR: Lapack *gelsd: Pseudoinverse" << std::endl;
-      }
-      for (unsigned int i = 0; i < 3*N; ++i) { dZk[i] = -Fk[i]; } 
-      // take small steps
-      alph = 0.1; 
-      for (unsigned int i = 0; i < 3*N; ++i) { Zk[i] = Zk[i] + alph * dZk[i]; } 
-      optFXW_help(3*N, Zk, _data);
-      pk = cblas_dnrm2(M, Fk, 1);
-      std::cout << "NEWTON iter " << iter << " p = " << pk << std::endl;
-    }
-    data->minf = pk;
-  }
-
-  static inline void gradfobj ( const double* Zk, double* grad, void* _data)
-  {
-    optData* data = (optData*) _data;
-    unsigned int m = data->m;
-    unsigned int M = data->M;
-    unsigned int N = data->N;
-    unsigned int dim = data->dim;
-    gradFobj(Zk, _data);
-    cblas_dgemv ( CblasColMajor, CblasTrans, M, 3*N, 1.0, data->gradFobj, 
-                  M, data->Fobj, 1, 0.0, grad, 1);
-    for (unsigned int i = 0; i < (dim+1)*N; ++i)
-    {
-      grad[i] *= 2;  
-    }
-  }
-
-  static inline void gradFobj( const double* Zk, void* _data)
-  {
-    optData* data = (optData*) _data;
-    unsigned int m = data->m;
-    unsigned int M = data->M;
-    unsigned int N = data->N;
-    unsigned int dim = data->dim;
-    if (dim == 2)
-    {
-      const double *Xk, *Yk, *Wk;
-      Xk = Zk; Yk = Zk + N; Wk = Zk + 2*N;
-      data->Pmx->computeV(Xk,Yk);
-      data->Pmy->computeV(Xk,Yk);
-      data->Pm->computeV(Xk,Yk);  
-      double* gx0 = (double*)  calloc(M*N, sizeof(double));
-      double* gy0 = (double*)  calloc(M*N, sizeof(double));
-      double* gx = (double*)  calloc(M*N, sizeof(double));
-      double* gy = (double*)  calloc(M*N, sizeof(double));
-     
-      for (unsigned int j = 0; j < M; ++j)
-      {
-        for (unsigned int i = 0; i < N; ++i)
-        {
-          gx0[j + M*i] = Wk[i] * data->Pmx->V[i + N*j];    
-          gy0[j + M*i] = Wk[i] * data->Pmy->V[i + N*j];    
-        }
-      }
-
-      cblas_dgemm ( CblasColMajor, CblasTrans, CblasNoTrans,
-                    M, N, M, 1.0, data->Dx, M, gx0, M, 0.0, gx, M );
-      cblas_dgemm ( CblasColMajor, CblasTrans, CblasNoTrans,
-                    M, N, M, 1.0, data->Dy, M, gy0, M, 0.0, gy, M );
-      
-      for (unsigned int j = 0; j < N; ++j)
-      {
-        for (unsigned int i = 0; i < M; ++i)
-        {
-          data->gradFobj[i + M*j]       = gx[i + M*j];
-          data->gradFobj[i + M*(j+N)]   = gy[i + M*j];
-          data->gradFobj[i + M*(j+2*N)] = data->Pm->V[j + N*i];  
-        }
-      } 
-
-      free(gx);
-      free(gy);
-      free(gx0);
-      free(gy0);
-    }
-    else
-    {
-      std::cerr << "Only dim=2 is supported. Exiting..\n";
-      exit(1);
-    }
-  }
-
-  static inline double optFXW_help (  unsigned int n, const double* Zk,
-                                      void* _data )
+  // objective for fully explicit quadrature problem
+  static inline double optFXW ( unsigned int n, const double* Zk,
+                                double* grad, void* _data )
   {
     ++countxw;
     optData* data = (optData*) _data;
@@ -368,39 +324,193 @@ struct ngjQuad
       cblas_dgemv( CblasColMajor, CblasTrans,  N, M, 1.0, Vm, N, Wk, 1, -1.0, I0, 1 );
 
       norm2 = pow(cblas_dnrm2(M, I0, 1), 2);
-      for (unsigned int i = 0; i < M; ++i) { data->Fobj[i] = I0[i]; }
       free(I0);
     }
-    if ( !(countxw % 100) ) 
+    if ( !(countxw % 1000) ) 
     { 
-      std::cout << "Eval #" << countxw << " : Fxw = " << norm2 << std::endl; 
+      std::cout << "Eval #" << countxw << " : Fxw = " << std::sqrt(norm2) << std::endl; 
     }
-    return norm2;
+    
+    //return norm2;
+    return std::sqrt(norm2);
   }
-  
-  // objective for fully explicit quadrature problem
-  static inline double optFXW ( unsigned int n, const double* Zk,
-                                double* grad, void* _data )
+
+  // objective for quadrature problem with weights explicit 
+  static inline double optFW ( unsigned int n, const double* Wk,
+                               double* grad, void* _data ) 
   {
+    ++countw;
     optData* data = (optData*) _data;
     unsigned int m = data->m;
     unsigned int M = data->M;
     unsigned int N = data->N;
     unsigned int dim = data->dim;
     double *Vm = data->Pm->V;
-    const double *Xk, *Yk, *Wk;
     double norm2;
     if (dim == 2)
     {
-      norm2 = optFXW_help(n, Zk, _data);
-      if (grad)
-      {
-        gradfobj(Zk, grad, _data);
-      }
+      double* I0 = (double*) calloc(M, sizeof(double)); I0[0] = 1;  
+      cblas_dgemv( CblasColMajor, CblasTrans,  N, M, 1.0, Vm, N, Wk, 1, -1.0, I0, 1 );
+      norm2 = pow(cblas_dnrm2(M, I0, 1), 2);
+      free(I0);
     }
-    return norm2;
+    if ( !(countw % 5) ) 
+    { 
+      std::cout << "Eval #" << countw << " : Fw = " << 0.5*norm2 << std::endl; 
+    }
+    
+    return 0.5*norm2;
   }
 
+  // objective for quadrature problem with implicit sol for weights 
+  static inline double optF_help (  unsigned int n, const double* Zk, 
+                                    double* grad, void* _data  )
+  {
+    ++count;
+    optData* data = (optData*) _data;
+    unsigned int m = data->m;
+    unsigned int M = data->M;
+    unsigned int N = data->N;
+    unsigned int dim = data->dim;
+    double *Vm = data->Pm->V;
+    const double *Xk, *Yk;
+    if (dim == 2)
+    {
+      Xk = Zk; Yk = Zk + N; 
+      data->Pm->computeV(Xk, Yk);
+      // compute V*V'
+      cblas_dgemm ( CblasColMajor, 
+                    CblasNoTrans, 
+                    CblasTrans, 
+                    N, N, M, 
+                    1.0, Vm, N, 
+                    Vm, N,  
+                    0.0, data->Q, N );
+      // perform cholesky Q = U'*U
+      // with upper triangular U stored
+      // in upper triangle block of Q
+      int info = LAPACKE_dpotrf (LAPACK_COL_MAJOR, 'U', N, data->Q, N);
+      if ( !info )
+      {
+        // if cholesky successful, use factors to compute Q\1
+        LAPACKE_dpotrs  ( LAPACK_COL_MAJOR, 'U', N, 1,
+                          data->Q, N, data->one, N);
+      }
+      else
+      {
+        // if cholesky not succesful, we have non-spd Q
+        // at the current iterate, so we use a 
+        // general symmetric solver
+        std::cerr << "Could not compute cholesky factorization of Q. \n";
+        std::cerr << "Info code: " << info << std::endl;
+        std::cerr << "Trying with general symmetric solver\n";
+        // recompute Q
+        cblas_dgemm ( CblasColMajor, 
+                      CblasNoTrans, 
+                      CblasTrans, 
+                      N, N, M, 
+                      1.0, Vm, N, 
+                      Vm, N,  
+                      0.0, data->Q, N );
+        // solve
+        int info1 = LAPACKE_dsysv ( LAPACK_COL_MAJOR, 'L', N, 1, 
+                                    data->Q, N, data->ipiv, data->one, N );
+        if (info1 > 0) 
+        {
+          // if symmetric solve not successful due to rank deficiency etc.,
+          // try again with least squares solver 
+          std::cerr << "Could not compute inv(Q)*1 with symmetric solver\n";
+          std::cerr << "Info code: " << info1 << std::endl;
+          std::cerr << "Trying with general lsq solver\n";
+          // recompute Q
+          cblas_dgemm ( CblasColMajor, 
+                        CblasNoTrans, 
+                        CblasTrans, 
+                        N, N, M, 
+                        1.0, Vm, N, 
+                        Vm, N,  
+                        0.0, data->Q, N );
+          // reset rhs
+          for (unsigned int i = 0; i < N; ++i) { data->one[i] = 1.0; }
+          lapack_int rank[1]; 
+          LAPACKE_dgelsd  ( LAPACK_COL_MAJOR, N, N,
+                            1, data->Q, N, data->one, N, 
+                            data->S, -1.0, rank );
+        }
+      }
+      // copy sol to proper location, reset rhs
+      for (unsigned int i = 0; i < N; ++i)
+      {
+        data->W0[i] = data->one[i];
+        data->one[i] = 1.0;
+      }
+      // compute 1*W (sum of weights)
+      double sum = 0.0;
+      #pragma omp simd reduction(+:sum)
+      for (unsigned int i = 0; i < N; ++i) { sum += data->W0[i]; }
+      double fval = -0.5 * (sum - 1.0);     
+      if ( !(count % 5) && data->run0 ) 
+      { 
+        std::cout << "Eval #" << count << " : F = " << fval << std::endl; 
+      }
+ 
+      return fval;
+    
+    }
+    else
+    {
+      std::cerr << "Only dim=2 is supported. Exiting..\n";
+      exit(1);
+    }
+  
+  }
+ 
+  // objective for quadrature problem with implicit sol for weights
+  static inline double optF ( unsigned int n, const double* Zk,
+                              double* grad, void* _data )
+  {
+    
+    optData* data = (optData*) _data;
+    double fval = optF_help(n, Zk, grad, _data);
+    if (grad)
+    {
+
+      unsigned int N = data->N;
+      unsigned int dim = data->dim;
+      double* Q = data->Q; 
+      double* dQ = data->dQ;
+      double* dgQ = data->dgQ;
+      // compute dQ
+      data->dPTP();
+      // compute dg(Q)
+      double* Qinvone = data->W0;
+      cblas_dger (CblasColMajor, N, N, 1.0, Qinvone, 1, Qinvone, 1, dgQ, N);
+      double* dq;
+      // compute dgdz
+      double* dgQdq = data->dgQdq;
+      for (unsigned int i = 0; i < N; ++i)
+      {
+        for (unsigned int j = 0; j < dim; ++j)
+        {
+          dq = &(dQ[N*N*(j + dim*i)]);  
+          cblas_dgemm ( CblasColMajor, CblasTrans, CblasNoTrans, 
+                        N, N, N, 1.0, dgQ, 
+                        N, dq, N, 0.0, dgQdq, N );
+          double sum = 0.0;
+          #pragma omp simd reduction(+:sum)
+          for (unsigned int i = 0; i < N; ++i)
+          {
+            sum += dgQdq[i + i*N];
+          }
+          grad[i + j*N] = 0.5 * sum; 
+        } 
+      } 
+      // reset dgQ
+      for (unsigned int i = 0; i < N*N; ++i) { dgQ[i] = 0; }
+    }
+    return fval;
+  }
+ 
   // objective is condition number of interpolation matrix on abscissa 
   static inline double optF1  ( unsigned int n, const double* Zk, 
                                 double* grad, void* _data  )
@@ -423,9 +533,7 @@ struct ngjQuad
     cond(data->Pm->V, data->N, data->M, rcond);
     if ( !(count1 % 100) ) 
     { 
-      std::cout << "Eval #" << count1 
-                << " : cond(V(Z)) = " << 1.0 / rcond[0] 
-                << std::endl; 
+      std::cout << "Eval #" << count1 << " : cond(V(Z)) = " << 1.0 / rcond[0] << std::endl; 
     }
     return 1.0 / rcond[0];
   }
@@ -466,11 +574,6 @@ struct ngjQuad
     unsigned int N = data->N;
     #pragma omp simd reduction(+:sumw)
     for (unsigned int i = dim*N; i < n; ++i) { sumw += Zk[i]; }
-    if (grad)
-    {
-      for (unsigned int i = 0; i < dim*N; ++i) { grad[i] = 0; }
-      for (unsigned int i = dim*N; i < n; ++i) { grad[i] = 1; }
-    }
     return sumw - 1.0;
     
   } 
@@ -519,7 +622,7 @@ struct ngjQuad
   {
     optData* data = (optData*) _data;
     data->run0 = false;
-    return optFXW(n, Zk, nullptr, data) - data->minf;
+    return optF(n, Zk, nullptr, data) - data->minf;
   }  
   
   inline void init ()
@@ -582,39 +685,34 @@ struct ngjQuad
         Z0[i + 2*N] = std::abs(optdata->W0[i]);
       }
     }
-    optFXW ( 3*optdata->N, Z0, nullptr, optdata );
+    optF ( 3*optdata->N, Z0, nullptr, optdata );
   }
+  
 
-  inline void runXW_expl ()
+  inline void runW ()
   {
-    double minF = optFXW(3*optdata->N, optdata->Z0, nullptr, optdata); 
-    std::cout <<"\n BEGIN NLOPT (X,W) \n";
-    std::cout << "Initial value of objective : " << minF << std::endl; 
+    std::cout <<"\n BEGIN NLOPT W \n";
+    std::cout << "Initial value of objective : " 
+              << optFW(optdata->N, optdata->W0, nullptr, optdata) << std::endl; 
     unsigned int N = optdata->N; 
-    nlopt_opt opt, opt_i;
-    double *lb, *ub, *tolieq;
+    nlopt_opt opt;
+    double *lb, *ub, minFW;
     if (this->dim == 2)
     {
-      // x, y, w > 0
-      lb = (double*) calloc(3*N, sizeof(double)); 
-      // x, y, w < 1
-      ub = (double*) calloc(3*N, sizeof(double));
-      tolieq = (double*) calloc(N, sizeof(double));
-      for (unsigned int i = 0; i < 3*N; ++i) 
+      // W > 0
+      lb = (double*) calloc(N, sizeof(double)); 
+      // W < 1
+      ub = (double*) calloc(N, sizeof(double));
+      for (unsigned int i = 0; i < N; ++i) 
       { 
         ub[i] = 1.0;
-        lb[i] = 0.0; 
+        lb[i] = 0.0;
+        optdata->W0[i] = std::abs(optdata->W0[i]); 
       }
-      for (unsigned int i = 0; i < N; ++i) { tolieq[i] = tolc; }
-      //opt = nlopt_create(NLOPT_AUGLAG, 3*N);
-      //opt_i = nlopt_create(NLOPT_LN_SBPLX, 3*N);
-      //nlopt_set_local_optimizer(opt, opt_i);
-      opt = nlopt_create(NLOPT_LD_SLSQP, 3*N);
+      opt = nlopt_create(NLOPT_LN_COBYLA, N);
       nlopt_set_lower_bounds(opt, lb);
       nlopt_set_upper_bounds(opt, ub);
-      nlopt_add_inequality_mconstraint(opt, N, optieqC, optdata, tolieq);
-      nlopt_add_equality_constraint(opt, opteqC, optdata, tolc);
-      nlopt_set_min_objective(opt, optFXW, optdata);
+      nlopt_set_min_objective(opt, optFW, optdata);
     }
     else
     {
@@ -624,9 +722,7 @@ struct ngjQuad
 
     nlopt_set_xtol_rel(opt, tol);
     nlopt_set_ftol_rel(opt, tol);
-    nlopt_set_stopval(opt, tol);
-
-    nlopt_result result = nlopt_optimize(opt, optdata->Z0, &minF);
+    nlopt_result result = nlopt_optimize(opt, optdata->W0, &minFW);
     if (result < 0 && result != -4) 
     {
       std::cerr << "NLOPT failed! \n"; 
@@ -640,19 +736,155 @@ struct ngjQuad
       {
         std::cout << nlopt_result_to_string(result) << std::endl;
       }
-      std::cout << "NLOPT converged with residual " << minF << std::endl;
+      std::cout << "NLOPT converged with residual " << minFW << std::endl;
     }
     nlopt_destroy(opt);
-    nlopt_destroy(opt_i);
     free(lb); free(ub);
-    free(tolieq);
-    optdata->minf = minF;
-    std::cout << "Beginning Newton iteration " << std::endl;
-    newton(optdata); 
+    optdata->minfw = minFW;
     std::cout << "Quadrature exactness in norm up to specified order : " 
-              << optdata->minf << std::endl;
-  
+              << minFW << std::endl;
+    std::cout <<"END NLOPT \n\n";
 
+  }
+
+  inline void runXW_expl ()
+  {
+    double minF = optF(3*optdata->N, optdata->Z0, nullptr, optdata); 
+      std::cout <<"\n BEGIN NLOPT (X,W) \n";
+      std::cout << "Initial value of objective : " << minF << std::endl; 
+      unsigned int N = optdata->N; 
+      nlopt_opt opt, opt_i;
+      double *lb, *ub, *tolieq;
+      if (this->dim == 2)
+      {
+        // x, y, w > 0
+        lb = (double*) calloc(3*N, sizeof(double)); 
+        // x, y, w < 1
+        ub = (double*) calloc(3*N, sizeof(double));
+        tolieq = (double*) calloc(N, sizeof(double));
+        for (unsigned int i = 0; i < 3*N; ++i) 
+        { 
+          ub[i] = 1.0;
+          lb[i] = 0.0; 
+        }
+        for (unsigned int i = 0; i < N; ++i) { tolieq[i] = tolc; }
+        opt = nlopt_create(NLOPT_AUGLAG, 3*N);
+        opt_i = nlopt_create(NLOPT_LN_SBPLX, 3*N);
+        nlopt_set_local_optimizer(opt, opt_i);
+        //opt = nlopt_create(NLOPT_LN_COBYLA, 3*N);
+        nlopt_set_lower_bounds(opt, lb);
+        nlopt_set_upper_bounds(opt, ub);
+        nlopt_add_inequality_mconstraint(opt, N, optieqC, optdata, tolieq);
+        nlopt_add_equality_constraint(opt, opteqC, optdata, tolc);
+        nlopt_set_min_objective(opt, optFXW, optdata);
+      }
+      else
+      {
+        std::cerr << "Only dim=2 is supported. Exiting..\n";
+        exit(1);
+      }
+
+      nlopt_set_xtol_rel(opt, tol);
+      nlopt_set_ftol_rel(opt, tol);
+      nlopt_set_stopval(opt, tol);
+
+      nlopt_result result = nlopt_optimize(opt, optdata->Z0, &minF);
+      if (result < 0 && result != -4) 
+      {
+        std::cerr << "NLOPT failed! \n"; 
+        std::cerr << nlopt_result_to_string(result);
+        std::cerr << "\n Exiting ..\n";
+        exit(1);
+      }
+      else
+      {
+        if (result == -4)
+        {
+          std::cout << nlopt_result_to_string(result) << std::endl;
+        }
+        std::cout << "NLOPT converged with residual " << minF << std::endl;
+      }
+      nlopt_destroy(opt);
+      nlopt_destroy(opt_i);
+      free(lb); free(ub);
+      free(tolieq);
+      optdata->minf = minF;
+    std::cout << "Quadrature exactness in norm up to specified order : " 
+              << minF << std::endl;
+
+    double rcond[1];
+    cond(optdata->Pm->V, optdata->N, optdata->M, rcond);
+    std::cout << "Conditioning of interpolation operator on new abscissa : "
+              << 1.0 / rcond[0] << std::endl; 
+    std::cout <<"END NLOPT \n\n";
+  }
+ 
+  inline void runXW_impl ()
+  {
+    double minF = optF(2*optdata->N, optdata->Z0, nullptr, optdata); 
+    if (minF > tolc)
+    {
+      std::cout <<"\n BEGIN NLOPT (X,W) \n";
+      std::cout << "Initial value of objective : " << minF << std::endl; 
+      unsigned int N = optdata->N; 
+      nlopt_opt opt, opt_i;
+      double *lb, *ub, *tolieq;
+      if (this->dim == 2)
+      {
+        // x, y > 0
+        lb = (double*) calloc(2*N, sizeof(double)); 
+        // x, y < 1
+        ub = (double*) calloc(2*N, sizeof(double));
+        tolieq = (double*) calloc(N, sizeof(double));
+        for (unsigned int i = 0; i < 2*N; ++i) 
+        { 
+          ub[i] = 1.0 - 1e-8;
+          lb[i] = 1e-8; 
+        }
+        for (unsigned int i = 0; i < N; ++i) { tolieq[i] = tolc; }
+        //opt = nlopt_create(NLOPT_AUGLAG, 2*N);
+        //opt_i = nlopt_create(alg, 2*N);
+        //nlopt_set_local_optimizer(opt, opt_i);
+        opt = nlopt_create(alg, 2*N);
+        nlopt_set_lower_bounds(opt, lb);
+        nlopt_set_upper_bounds(opt, ub);
+        nlopt_add_inequality_mconstraint(opt, N, optieqC, optdata, tolieq);
+        nlopt_set_min_objective(opt, optF, optdata);
+      }
+      else
+      {
+        std::cerr << "Only dim=2 is supported. Exiting..\n";
+        exit(1);
+      }
+
+      nlopt_set_xtol_rel(opt, tol);
+      nlopt_set_ftol_rel(opt, tol);
+      //nlopt_set_stopval(opt, tol);
+
+      nlopt_result result = nlopt_optimize(opt, optdata->Z0, &minF);
+      if (result < 0 && result != -4) 
+      {
+        std::cerr << "NLOPT failed! \n"; 
+        std::cerr << nlopt_result_to_string(result);
+        std::cerr << "\n Exiting ..\n";
+        exit(1);
+      }
+      else
+      {
+        if (result == -4)
+        {
+          std::cout << nlopt_result_to_string(result) << std::endl;
+        }
+        std::cout << "NLOPT converged with residual " << minF << std::endl;
+      }
+      nlopt_destroy(opt);
+      nlopt_destroy(opt_i);
+      free(lb); free(ub);
+      free(tolieq);
+      optdata->minf = minF;
+    } 
+    std::cout << "Quadrature exactness in norm up to specified order : " 
+              << minF << std::endl;
 
     double rcond[1];
     cond(optdata->Pm->V, optdata->N, optdata->M, rcond);

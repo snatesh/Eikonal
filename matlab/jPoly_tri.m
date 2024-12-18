@@ -22,12 +22,20 @@ for kk = 0:n
   Pnmk{kk+1} = jPoly(2*X-1,n+1,2*kk+b+c,a-1/2);
 end
 
+oneinds = find(X==1);
+
 ind = 1;
 for nn = 0:n
   for kk = 0:nn
     V(:,ind+kk) = 1/H(kk+1,nn+1) .* ...
                   Pnmk{kk+1}(:,nn-kk+1) .* ... 
-                  (1-X).^kk.*Pk(:,kk+1);     
+                  (1-X).^kk.*Pk(:,kk+1);
+    if ~isempty(oneinds)
+        V(oneinds,ind+kk) = (1/H(kk+1,nn+1) .* gamma(nn+kk+b+c+1) ./ ...
+                             (gamma(nn-kk+1) .* gamma(nn+kk+b+c-(nn-kk)+1))) .* ...
+                             (pochhammer(kk+c+b,kk) / (2.^kk * gamma(kk+1))) .* ...
+                             (2 * Y(oneinds)).^kk;
+    end
   end
   ind = ind+nn+1;
 end

@@ -18,7 +18,7 @@ set(groot, 'defaultAxesFontSize',30)
 % jacobi poly params
 a = 0.5; b = 0.5; c = 0.5;
 % source and target poly total degree (+1)
-n = 10; m = 12; d = 2;
+n = 12; m = 14; d = 2;
 % jacobi matrices
 [Jn1,Jn2,A1,A2,B1,B2,Hn] = jMatON_tri(n,a,b,c);
 % structure factors in target basis
@@ -35,6 +35,122 @@ Vm = jPoly_tri(X,Y,Hm,m-1,a,b,c);
 
 Vm_pinv = pinv(Vm');
 W = Vm_pinv(:,1);
+
+% constraints
+Aieq = zeros(5*N,3*N); bieq = zeros(5*N,1);
+Aeq = zeros(1,3*N); Aeq(2*N+1:end) = 1; beq = 1;
+ones = ones(3*N,1);
+Aieq(1:3*N,1:3*N) = -diag(ones);
+Aieq(3*N+1:4*N,1:N) = eye(N);
+Aieq(4*N+1:5*N,1:N) = eye(N);
+Aieq(4*N+1:5*N,N+1:2*N) = eye(N);
+bieq(3*N+1:end) = 1;
+lb = zeros(3*N,1); ub = lb + 1;
+
+fun = @(Z) fobj_Z(Z,n,m,a,b,c);
+Zk = [X;Y;W];
+
+Fk = Fobj(Zk(1:N),Zk(N+1:2*N),Zk(2*N+1:end),n,m,a,b,c);
+pk = norm(Fk)
+iter_i = 0;
+rho = 0.9; gam = 1e-4;
+tol = 1e-13; tol_up = 1e3; maxiter = 1000;
+while pk>tol && pk<tol_up && iter_i<maxiter
+    iter_i = iter_i + 1;
+    gradFk = gradFobj(Zk(1:N),Zk(N+1:2*N),Zk(2*N+1:end),n,m,a,b,c);
+    % step direction
+    dZk = -gradFk\Fk;
+    % linesearch with wolf conditions
+    alph = 1; Zk1 = Zk+alph*dZk;
+    Fk1 = Fobj(Zk1(1:N),Zk1(N+1:2*N),Zk1(2*N+1:end),n,m,a,b,c);
+    pk1 = norm(Fk1); iter_ii = 0;
+    while pk1>norm(Fk+gam*alph*gradFk*dZk) && iter_ii<maxiter
+        alph = rho*alph;
+        Zk1 = Zk+alph*dZk;
+        Fk1 = Fobj(Zk1(1:N),Zk1(N+1:2*N),Zk1(2*N+1:end),n,m,a,b,c);
+        pk1 = norm(Fk1); iter_ii = iter_ii+1;
+    end
+    Zk = Zk1; Fk = Fk1; pk = pk1;
+    disp([pk,alph]);
+end
+X = Zk(1:N); Y = Zk(N+1:2*N); W = Zk(2*N+1:3*N);
+
+
+
+%%
+
+F = Fobj(X,Y,W,n,m,a,b,c);
+% test function
+f = @(x,y) (x+y).^10;
+% eval test function on quadrature nodes
+Fref = f(X,Y); FrefW = Fref.*W; normFref = norm(Fref);
+nn = 11; NN = nn*(nn+1)/2;
+% normalization under (a,b,c), (a+1,b,c) etc.
+H_abc = structure_factors_tri(nn+1,a,b,c);
+% vandermonde under (a,b,c), (a+1,b,c) etc.
+V_abc = jPoly_tri(X,Y,H_abc,nn-1,a,b,c);
+% make coeffs of fref under (a,b,c)
+cfref_abc = V_abc'*FrefW;
+disp(norm(V_abc*cfref_abc-Fref)/normFref);
+
+%%
+
+options = ...
+    optimoptions('fmincon',...
+    'Display','iter',...
+    'Algorithm','sqp',...
+    'SpecifyObjectiveGradient',true,...
+    'MaxFunctionEvaluations',1e10,...
+    'MaxIterations',1e10,...
+    'ConstraintTolerance',1e-16,...
+    'OptimalityTolerance',1e-16,...
+    'StepTolerance', 1e-16, ...
+    'UseParallel', true);
+[Zk,fval] = fmincon(fun,Z0,Aieq,bieq,Aeq,beq,lb,ub,[],options);
+Fk = Fobj(Zk(1:N),Zk(N+1:2*N),Zk(2*N+1:end),n,m,a,b,c);
+pk = norm(Fk)
+iter_i = 0;
+rho = 0.9; gam = 1e-4;
+tol = 15*eps; tol_up = 1e3; maxiter = 1000;
+while pk>tol && pk<tol_up && iter_i<maxiter
+    iter_i = iter_i + 1;
+    gradFk = gradFobj(Zk(1:N),Zk(N+1:2*N),Zk(2*N+1:end),n,m,a,b,c);
+    % step direction
+    dZk = -gradFk\Fk;
+    % linesearch with wolf conditions
+    alph = 1; Zk1 = Zk+alph*dZk;
+    Fk1 = Fobj(Zk1(1:N),Zk1(N+1:2*N),Zk1(2*N+1:end),n,m,a,b,c);
+    pk1 = norm(Fk1); iter_ii = 0;
+    while pk1>norm(Fk+gam*alph*gradFk*dZk) && iter_ii<maxiter
+        alph = rho*alph;
+        Zk1 = Zk+alph*dZk;
+        Fk1 = Fobj(Zk1(1:N),Zk1(N+1:2*N),Zk1(2*N+1:end),n,m,a,b,c);
+        pk1 = norm(Fk1); iter_ii = iter_ii+1;
+    end
+    Zk = Zk1; Fk = Fk1; pk = pk1;
+    disp([pk,alph]);
+end
+
+
+%%
+
+%%
+X = Zk(1:N); Y = Zk(N+1:2*N); W = Zk(2*N+1:end);
+F = Fobj(X,Y,W,n,m,a,b,c);
+% test function
+f = @(x,y) (x+y).^8;
+% eval test function on quadrature nodes
+Fref = f(X,Y); FrefW = Fref.*W; normFref = norm(Fref);
+nn = 7;
+% normalization under (a,b,c), (a+1,b,c) etc.
+H_abc = structure_factors_tri(nn+1,a,b,c);
+% vandermonde under (a,b,c), (a+1,b,c) etc.
+V_abc = jPoly_tri(X,Y,H_abc,nn-1,a,b,c);
+% make coeffs of fref under (a,b,c)
+cfref_abc = V_abc'*FrefW;
+disp(norm(V_abc*cfref_abc-Fref)/normFref);
+
+%% Gradient checks
 % analytical gradient 
 dF = gradFobj(X,Y,W,n,m,a,b,c); % vector objective
 df = gradfobj(X,Y,W,n,m,a,b,c); % scalar objective
@@ -90,6 +206,46 @@ function f = fobj(X,Y,W,n,m,a,b,c)
 f = norm(Fobj(X,Y,W,n,m,a,b,c))^2;
 
 end
+
+function [f,df] = fobj_Z(Z,n,m,a,b,c)
+d = 2;
+N = nchoosek(n-1+d,n-1);
+X = Z(1:N); 
+Y = Z(N+1:2*N); 
+W = Z(2*N+1:3*N);
+f = fobj(X,Y,W,n,m,a,b,c);
+df = gradfobj(X,Y,W,n,m,a,b,c);
+
+end
+
+function [eqc, Aeq, beq] = feqc(X,Y,W,n)
+
+dim = 2;
+N = n*(n+1)/2;
+Aeq = zeros(1,(dim+1)*N);
+Aeq(dim*N+1:(dim+1)*N) = 1;
+eqc = Aeq*[X;Y;W] - 1;
+beq = 1;
+end
+
+function [ieqc,G,zeroOne] = fieqc(X,Y,W,n)
+
+dim = 2;
+N = n*(n+1)/2;
+G = zeros((dim+2)*N,(dim+1)*N);
+one = ones((dim+1)*N,1);
+G(1:(dim+1)*N,1:(dim+1)*N) = -diag(one);
+
+%zeroOne = [zeros((dim+1)*N,1); ones(N,1)];
+%I = eye(N);
+%for j = 1:dim
+%    G((dim+1)*N+1:(dim+2)*N,N*(j-1)+1:N*j) = I;
+%end
+%ieqc = G*[X;Y;W] - zeroOne;
+
+end
+
+
 
 % objective gradient eq. 3.17
 function dF = gradFobj(X,Y,W,n,m,a,b,c)
@@ -276,3 +432,13 @@ end
 
 end
 
+    % for j = 1:N
+    %     if (Zk1(j) < 0 || Zk1(j) > 1)
+    %         Zk1(j) = Zk(j);
+    %     end
+    %     if (Zk1(j+N) < 0 || Zk1(j+N) > 1)
+    %         Zk1(j+N) = Zk(j+N);
+    %     end
+    %     Fk1 = Fobj(Zk1(1:N),Zk1(N+1:2*N),Zk1(2*N+1:end),n,m,a,b,c);
+    %     pk1 = norm(Fk1);  
+    % end

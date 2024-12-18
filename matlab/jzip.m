@@ -15,26 +15,36 @@ set(groot, 'defaultLineLineWidth',3)
 a = 1/2; b = 1/2; c = 1/2;
 % legendre analog quadrature rule on triangle
 %load './triquadLeg_17_28.mat';
-S = importdata("../bin/ytri_N210_n19_M325_m24.txt"); N = length(S);
-R = importdata("../bin/xtri_N210_n19_M325_m24.txt");
-W = importdata("../bin/wtri_N210_n19_M325_m24.txt");
+S = importdata("../bin/ytri_N325_n24_M465_m29.txt"); N = length(S);
+R = importdata("../bin/xtri_N325_n24_M465_m29.txt");
+W = importdata("../bin/wtri_N325_n24_M465_m29.txt");
 %R = Zk(1:N); S = Zk(N+1:2*N); W = Zk(2*N+1:3*N);
-% weight function for (a+1,b+1,c+1)
-w_a1b1c1 = gamma(a+1+b+1+c+1+3/2)/(gamma(a+1+1/2)*gamma(b+1+1/2)*gamma(c+1+1/2));
-wa1b1c1 = @(x,y) x.^(a+1-1/2).*y.^(b+1-1/2).*(1-x-y).^(c+1-1/2)*w_a1b1c1/2;
 % test function
-f = @(x,y) (x+y).^10; 
+f = @(x,y)(x+y).^14
+df = @(x,y) 14*(x+y).^13;
 % eval test function on quadrature nodes
 Fref = f(R,S); FrefW = Fref.*W; normFref = norm(Fref);
-m = 10; n = m+1;
+m = 14; n = m+1;
 % normalization under (a,b,c), (a+1,b,c) etc.
 H_abc = structure_factors_tri(n+1,a,b,c);
+H_a1bc1 = structure_factors_tri(n+1,a+1,b,c+1);
+H_ab1c1 = structure_factors_tri(n+1,a,b+1,c+1);
 % vandermonde under (a,b,c), (a+1,b,c) etc.
 V_abc = jPoly_tri(R,S,H_abc,n-1,a,b,c);
-% make coeffs of fref under (a,b,c)
+V_a1bc1 = jPoly_tri(R,S,H_a1bc1,n-1,a+1,b,c+1);
+V_ab1c1 = jPoly_tri(R,S,H_ab1c1,n-1,a,b+1,c+1);
+% derivatives and interp ops in deriv basis
+Dx = D1_tri(a,b,c,H_abc,H_a1bc1,0);
+Dy = D1_tri(a,b,c,H_abc,H_ab1c1,1);
+% make coeffs of fref under (a,b,c) and derivatives
 cfref_abc = V_abc'*FrefW;
+cdxf_a1bc1 = Dx*cfref_abc;
+cdyf_ab1c1 = Dy*cfref_abc;
+% check representation
 disp(norm(V_abc*cfref_abc-Fref)/normFref);
-%%
+disp(norm(V_a1bc1*cdxf_a1bc1-df(R,S))/norm(df(R,S)));
+disp(norm(V_ab1c1*cdyf_ab1c1-df(R,S))/norm(df(R,S)));
+
 % reference tri
 Rv = [0,1,0];
 Sv = [0,0,1];
@@ -57,9 +67,10 @@ triplot(T,X,Y); hold on;
 imagesc(img','AlphaData',0.5)
 nTri = length(T);
 disp(nTri);
-interpolator = @(x,y) interp2(Xpix,Ypix,double(img)',x,y,'makima');
+interpolator = @(x,y) interp2(Xpix,Ypix,double(img)',x,y,'cubic');
 Xpix = Xpix(:); Ypix = Ypix(:);
 Imgapprox = zeros(size(img'));
+ImgGradNorm = zeros(size(img'));
 % TODO: Fix division by zero in jpoly_tri - cancels analytically 
 % when y=1-x
 for j = 1:nTri
@@ -69,6 +80,8 @@ for j = 1:nTri
     XYe = (Ixe * [R,S]' + Xe(:,1))';
     imginterp = interpolator(XYe(:,1),XYe(:,2));
     cimg = V_abc' * (imginterp .* W);
+    cdximg = Dx*cimg;
+    cdyimg = Dy*cimg;
     % find pixels inside current triangle
     xpix = Xpix(triInd==j);
     ypix = Ypix(triInd==j);
@@ -76,15 +89,19 @@ for j = 1:nTri
     XYpix = Ixe \ [xpix'-Xe(1,1);ypix'-Xe(2,1)];
     % evaluate vandermonde at pixels in reference
     Vabcpix = jPoly_tri(XYpix(1,:)',XYpix(2,:)',H_abc,n-1,a,b,c);
+    Va1bc1pix = jPoly_tri(XYpix(1,:)',XYpix(2,:)',H_a1bc1,n-1,a+1,b,c+1);
+    Vab1c1pix = jPoly_tri(XYpix(1,:)',XYpix(2,:)',H_ab1c1,n-1,a,b+1,c+1);
     % evaluate approximation to image within triangle
     imgapprox = Vabcpix*cimg;
-    Imgapprox(triInd==j) = round(imgapprox);
+    imgGradNorm = ((Va1bc1pix*cdximg).^2 + (Vab1c1pix*cdyimg).^2).^(1./2.);
+
+    Imgapprox(triInd==j) = uint8(imgapprox);
+    ImgGradNorm(triInd==j) = imgGradNorm;
     % get actual pixel values within triangle
     imgactual = interpolator(xpix,ypix);
     disp(norm(round(imgapprox)-imgactual,'fro')/norm(imgactual,'fro'));
-    plot(XYe(:,1),XYe(:,2),'k.');
-    %plot(XYpix(1,:)',XYpix(2,:)','g.');
-    drawnow; pause(0.1);
+    %plot(XYe(:,1),XYe(:,2),'k.');
+    %drawnow; pause(0.01);
     disp(j)
 
 end
