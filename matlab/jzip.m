@@ -7,7 +7,7 @@ for i = 1:length(index_interpreter)
 end
 set(groot, 'defaultLegendFontSize',30)
 set(groot, 'defaultAxesFontSize',30)
-set(groot, 'defaultLineLineWidth',3)
+set(groot, 'defaultLineLineWidth',1)
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -24,7 +24,9 @@ f = @(x,y)(x+y).^21;
 df = @(x,y) 21*(x+y).^20;
 % eval test function on quadrature nodes
 Fref = f(R,S); FrefW = Fref.*W; normFref = norm(Fref);
-m = 21; n = m+1;
+%m = 21; 
+m = 5;
+n = m+1;
 % normalization under (a,b,c), (a+1,b,c) etc.
 H_abc = structure_factors_tri(n+1,a,b,c);
 H_a1bc1 = structure_factors_tri(n+1,a+1,b,c+1);
@@ -49,27 +51,34 @@ disp(norm(V_ab1c1*cdyf_ab1c1-df(R,S))/norm(df(R,S)));
 Rv = [0,1,0];
 Sv = [0,0,1];
 
-img = imread("mathias-reding-vU9-VO-4Nk0-unsplash.jpg");
-%img = imread("cat_greyscale.jpg");
+%img = imread("mathias-reding-vU9-VO-4Nk0-unsplash.jpg");
+img = imread("cat_greyscale.jpg");
 %img = imread('ngc6543a.jpg');
 %img = imread('Parakeeets.jpg');
-img = rgb2gray(img); 
-nsamp = 20; nruns = 5;
-[DT, triInd, XXpix, YYpix] = triangulate(img, nsamp, nruns, false);
-%[DT, triInd, XXpix, YYpix] = triangulate_fast(img, nsamp, nruns);
 
+img = rgb2gray(img); 
+nsamp = 5; nruns = 7; thresh = 0.005;
+
+[DT, XXpix, YYpix, IntImgGradNorm] = ...
+  triangulate_entropy(img, nsamp, nruns, thresh);
+cImg = compress(img,V_abc,DT,XXpix,YYpix);
+Img = decompress(cImg,H_abc,DT,XXpix,YYpix);
+disp([psnr(Img',img),numel(img)/(numel(cImg)*8)]);
+
+%%
+
+%[DT, triInd, XXpix, YYpix] = triangulate(img, nsamp, nruns, false);
+%[DT, triInd, XXpix, YYpix] = triangulate_fast(img, nsamp, nruns);
 T = DT.ConnectivityList;
 X = DT.Points(:,1); Y = DT.Points(:,2);
-figure(1);
-triplot(T,X,Y); hold on;
-imagesc(img','AlphaData',0.5)
-
 nTri = length(T);
 disp(nTri);
 interpolator = @(x,y) interp2(XXpix,YYpix,double(img)',x,y,'cubic');
 Xpix = XXpix(:); Ypix = YYpix(:);
+triInd = DT.pointLocation(Xpix,Ypix);
 Imgapprox = zeros(size(img'));
-%ImgGradNorm = zeros(size(img'));
+M = (m+1)*(m+2)/2;
+cImgapprox = zeros(M,nTri);
 for j = 1:nTri
 
     Xe = [X(T(j,:))';Y(T(j,:))'];
@@ -77,8 +86,6 @@ for j = 1:nTri
     XYe = (Ixe * [R,S]' + Xe(:,1))';
     imginterp = interpolator(XYe(:,1),XYe(:,2));
     cimg = V_abc' * (imginterp .* W);
-    %cdximg = Dx*cimg;
-    %cdyimg = Dy*cimg;
     % find pixels inside current triangle
     xpix = Xpix(triInd==j);
     ypix = Ypix(triInd==j);
@@ -86,30 +93,239 @@ for j = 1:nTri
     XYpix = Ixe \ [xpix'-Xe(1,1);ypix'-Xe(2,1)];
     % evaluate vandermonde at pixels in reference
     Vabcpix = jPoly_tri(XYpix(1,:)',XYpix(2,:)',H_abc,n-1,a,b,c);
-    %Va1bc1pix = jPoly_tri(XYpix(1,:)',XYpix(2,:)',H_a1bc1,n-1,a+1,b,c+1);
-    %Vab1c1pix = jPoly_tri(XYpix(1,:)',XYpix(2,:)',H_ab1c1,n-1,a,b+1,c+1);
-    
     % evaluate approximation to image within reference triangle
     imgapprox = Vabcpix*cimg;
-    %imgGradNorm = ((Va1bc1pix*cdximg).^2 + (Vab1c1pix*cdyimg).^2).^(1./2.);
-
     Imgapprox(triInd==j) = uint8(imgapprox);
-    %ImgGradNorm(triInd==j) = imgGradNorm;
-    % get actual pixel values within triangle
-    %imgactual = interpolator(xpix,ypix);
-    %err = norm(imgapprox-imgactual,'fro')/norm(imgactual,'fro');
-    %plot(XYe(:,1),XYe(:,2),'k.');
-    %drawnow; pause(0.01);
-    %disp([j,err]);img
+    disp(j);
+
+end
+
+function cImg = compress(Img,V_abc,DT,XXpix,YYpix)
+S = importdata("../bin/ytri_N325_n24_M946_m42.txt"); 
+R = importdata("../bin/xtri_N325_n24_M946_m42.txt");
+W = importdata("../bin/wtri_N325_n24_M946_m42.txt");
+T = DT.ConnectivityList;
+X = DT.Points(:,1); Y = DT.Points(:,2);
+nTri = length(T);
+disp(nTri);
+interpolator = @(x,y) interp2(XXpix,YYpix,double(Img)',x,y,'cubic');
+M = size(V_abc,2);
+cImg = zeros(M,nTri);
+for j = 1:nTri
+    Xe = [X(T(j,:))';Y(T(j,:))'];
+    Ixe = IncidenceMatrix(Xe);
+    XYe = (Ixe * [R,S]' + Xe(:,1))';
+    imginterp = interpolator(XYe(:,1),XYe(:,2));
+    cimg = V_abc' * (imginterp .* W);
+    cImg(:,j) = cimg;
+end
+
+end
+
+function Img = decompress(cImg,H_abc,DT,XXpix,YYpix)
+T = DT.ConnectivityList;
+X = DT.Points(:,1); Y = DT.Points(:,2);
+nTri = length(T);
+disp(nTri);
+Xpix = XXpix(:); Ypix = YYpix(:);
+triInd = DT.pointLocation(Xpix,Ypix);
+Img = zeros(size(XXpix),'uint8');
+n = size(H_abc,1)-1; a = 1/2; b = 1/2; c = 1/2;
+for j = 1:nTri
+    Xe = [X(T(j,:))';Y(T(j,:))'];
+    Ixe = IncidenceMatrix(Xe);
+    % get coefs for current tri
+    cimg = cImg(:,j);
+    % find pixels inside current triangle
+    xpix = Xpix(triInd==j);
+    ypix = Ypix(triInd==j);
+    % map those pixels to reference triangle
+    XYpix = Ixe \ [xpix'-Xe(1,1);ypix'-Xe(2,1)];
+    % evaluate vandermonde at pixels in reference
+    Vabcpix = jPoly_tri(XYpix(1,:)',XYpix(2,:)',H_abc,n-1,a,b,c);
+    % evaluate approximation to image within reference triangle
+    img = Vabcpix*cimg;
+    Img(triInd==j) = uint8(img);
     disp(j);
 end
 
+end
 
 function Ixe = IncidenceMatrix(Xe)
 
 Ixe = [Xe(:,2)-Xe(:,1), Xe(:,3)-Xe(:,1)];
 
 end
+% 
+% function DT = triangulate_explicit(nX,nY,nSamp)
+% 
+% x = linspace(1,nX,nSamp);
+% y = linspace(1,nY,nSamp);
+% nTri = (nSamp-1)*(nSamp-1)*2;
+% nPts = nSamp*nSamp;
+% DT = delaunayTriangulation();
+% DT.Points = zeros(nSamp,2);
+% DT.ConnectivityList = zeros(nTri,3);
+% indy = [1 2 2]; iTri = 1; iPt = 1;
+% for iY = 1:nSamp
+%   indx1 = [1 2 1];
+%   indx2 = [2 2 1];
+%   for iX = 1:nSamp
+%     DT.ConnectivityList(iTri,:) = indx1;
+%     
+%     DT.Points(iPt,:) = [x(iX), y(iY)];
+%   end
+% end
+% 
+% end
+
+function [DT, XXpix, YYpix, IntImgGradNorm] = ...
+  triangulate_entropy(I, nSamp, nRuns, thresh)
+% first insert evenly spaced candidate coordinates
+% from subsampled version of I
+imgsz = size(I);
+nXpix = imgsz(1); nYpix = imgsz(2);
+[XXpix,YYpix] = meshgrid(1:nXpix,1:nYpix); 
+interpolator = @(x,y) interp2(XXpix,YYpix,double(I)',x,y,'cubic');
+[X,Y] = meshgrid(linspace(1,nXpix,nSamp), linspace(1,nYpix,nSamp));
+% initial vertices for triangulation
+X = X(:); Y = Y(:);
+% load low order quad rule
+R = importdata("../bin/xtri_N55_n9_M91_m12.txt");
+S = importdata("../bin/ytri_N55_n9_M91_m12.txt");
+W = importdata("../bin/wtri_N55_n9_M91_m12.txt");
+
+m = 6; n = m+1;
+a = 0.5; b = a; c = a;
+H_abc = structure_factors_tri(n+1,a,b,c);
+H_a1bc1 = structure_factors_tri(n+1,a+1,b,c+1);
+H_ab1c1 = structure_factors_tri(n+1,a,b+1,c+1);
+V_abc = jPoly_tri(R,S,H_abc,n-1,a,b,c);
+Va1bc1 = jPoly_tri(R,S,H_a1bc1,n-1,a+1,b,c+1);
+Vab1c1 = jPoly_tri(R,S,H_ab1c1,n-1,a,b+1,c+1);
+Dr = D1_tri(a,b,c,H_abc,H_a1bc1,0);
+Ds = D1_tri(a,b,c,H_abc,H_ab1c1,1);
+%imagesc(I','AlphaData',0.5); hold on;
+for iRun = 1:nRuns
+  DT = delaunayTriangulation(X,Y);
+  T = DT.ConnectivityList;
+  X = DT.Points(:,1); Y = DT.Points(:,2);
+  triplot(T,X,Y); drawnow;
+  nTri = length(T);
+  if iRun == nRuns 
+    break;
+  end
+  IntImgGradNorm = zeros(nTri,1);
+  for j = 1:nTri
+    % coordinate mat for element j
+    Xe = [X(T(j,:))';Y(T(j,:))'];
+    % incidence matrix mapping element j to reference tri
+    Ixe = IncidenceMatrix(Xe);
+    XYe = (Ixe * [R,S]' + Xe(:,1))';
+    imginterp = interpolator(XYe(:,1),XYe(:,2));
+    % coefs of image and its derivatives in element j
+    cimg = V_abc' * (imginterp .* W);
+    cdrimg = Dr*cimg;
+    cdsimg = Ds*cimg;
+    % gradient of image in reference at quad poitns
+    dimgdr = Va1bc1*cdrimg; dimgds = Vab1c1*cdsimg;
+    % gradient of image in current tri via deformation map at quad points
+    gradimg = Ixe\[dimgdr';dimgds'];
+    IntImgGradNorm(j) = det(Ixe)*(gradimg(1,:).^2 + gradimg(2,:).^2)*W/2;
+  end
+  IntImgGradNorm = IntImgGradNorm / sum(IntImgGradNorm);
+  overthresh = find(IntImgGradNorm > thresh);
+  % add vertex at circumcenter of each tri for which integral  > thresh
+  for j = 1:length(overthresh)
+    X(end+1) = sum(X(T(overthresh(j),:)))/3;
+    Y(end+1) = sum(Y(T(overthresh(j),:)))/3;
+  end
+end
+
+end
+
+
+function [DT, triInd, XXpix, YYpix, ImgGradNorm, IntImgGradNorm] = triangulate_entropy_test(I, nSamp, nRuns)
+% first insert evenly spaced candidate coordinates
+% from subsampled version of I
+imgsz = size(I);
+nXpix = imgsz(1); nYpix = imgsz(2);
+[XXpix,YYpix] = meshgrid(1:nXpix,1:nYpix); 
+interpolator = @(x,y) interp2(XXpix,YYpix,double(I)',x,y,'cubic');
+Xpix = XXpix(:); Ypix = YYpix(:);
+[X,Y] = meshgrid(linspace(1,nXpix,nSamp), linspace(1,nYpix,nSamp));
+% initial vertices for triangulation
+X = X(:); Y = Y(:);
+% load low order quad rule
+R = importdata("../bin/xtri_N55_n9_M91_m12.txt");
+S = importdata("../bin/ytri_N55_n9_M91_m12.txt");
+W = importdata("../bin/wtri_N55_n9_M91_m12.txt");
+
+m = 6; n = m+1;
+a = 0.5; b = a; c = a;
+H_abc = structure_factors_tri(n+1,a,b,c);
+H_a1bc1 = structure_factors_tri(n+1,a+1,b,c+1);
+H_ab1c1 = structure_factors_tri(n+1,a,b+1,c+1);
+V_abc = jPoly_tri(R,S,H_abc,n-1,a,b,c);
+Va1bc1 = jPoly_tri(R,S,H_a1bc1,n-1,a+1,b,c+1);
+Vab1c1 = jPoly_tri(R,S,H_ab1c1,n-1,a,b+1,c+1);
+Dr = D1_tri(a,b,c,H_abc,H_a1bc1,0);
+Ds = D1_tri(a,b,c,H_abc,H_ab1c1,1);
+for iRun = 1:nRuns
+  DT = delaunayTriangulation(X,Y);
+  % triInd is list of triangle indices
+  % for each point (Xpix,Ypix), corresponding
+  % to that point exisiting in triangle
+  triInd = DT.pointLocation(Xpix,Ypix);
+  % now we generate I'
+  T = DT.ConnectivityList;
+  triplot(T,X,Y); drawnow;
+  nTri = length(T);
+  ImgGradNorm = zeros(size(I'));
+  IntImgGradNorm = zeros(nTri,1);
+  for j = 1:nTri
+    % coordinate mat for element j
+    Xe = [X(T(j,:))';Y(T(j,:))'];
+    % incidence matrix mapping element j to reference tri
+    Ixe = IncidenceMatrix(Xe);
+    XYe = (Ixe * [R,S]' + Xe(:,1))';
+    imginterp = interpolator(XYe(:,1),XYe(:,2));
+    % coefs of image and its derivatives in element j
+    cimg = V_abc' * (imginterp .* W);
+    cdrimg = Dr*cimg;
+    cdsimg = Ds*cimg;
+    % find pixels inside current triangle
+    xpix = Xpix(triInd==j);
+    ypix = Ypix(triInd==j);
+    % map those pixels to reference triangle
+    XYpix = Ixe \ [xpix'-Xe(1,1);ypix'-Xe(2,1)];
+    % evaluate vandermonde for derivs at pixels in reference
+    Va1bc1pix = jPoly_tri(XYpix(1,:)',XYpix(2,:)',H_a1bc1,n-1,a+1,b,c+1);
+    Vab1c1pix = jPoly_tri(XYpix(1,:)',XYpix(2,:)',H_ab1c1,n-1,a,b+1,c+1);
+    % gradient of image in reference at pixel points
+    dimgdrpix = Va1bc1pix*cdrimg; dimgdspix = Vab1c1pix*cdsimg;
+    % gradient of image in current tri via deformation map at pix points
+    gradimgpix = Ixe\[dimgdrpix';dimgdspix'];
+    imgGradNorm = gradimgpix(1,:).^2 + gradimgpix(2,:).^2;
+    ImgGradNorm(triInd==j) = imgGradNorm;
+    % gradient of image in reference at quad poitns
+    dimgdr = Va1bc1*cdrimg; dimgds = Vab1c1*cdsimg;
+    % gradient of image in current tri via deformation map at quad points
+    gradimg = Ixe\[dimgdr';dimgds'];
+    IntImgGradNorm(j) = det(Ixe)*(gradimg(1,:).^2 + gradimg(2,:).^2)*W/2;
+    disp(j);
+  end
+  IntImgGradNorm = IntImgGradNorm / sum(IntImgGradNorm);
+
+end
+
+
+
+
+
+end
+
+
 
 function [DT, triInd, XXpix, YYpix] = triangulate(I, nSamp, nRuns, go)
 
