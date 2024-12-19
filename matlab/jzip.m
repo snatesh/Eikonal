@@ -25,7 +25,7 @@ df = @(x,y) 21*(x+y).^20;
 % eval test function on quadrature nodes
 Fref = f(R,S); FrefW = Fref.*W; normFref = norm(Fref);
 %m = 21; 
-m = 5;
+m = 10;
 n = m+1;
 % normalization under (a,b,c), (a+1,b,c) etc.
 H_abc = structure_factors_tri(n+1,a,b,c);
@@ -50,14 +50,19 @@ disp(norm(V_ab1c1*cdyf_ab1c1-df(R,S))/norm(df(R,S)));
 % reference tri
 Rv = [0,1,0];
 Sv = [0,0,1];
+% reference cent tri
+Rvcent = [1/2, 1/2, 0];
+Svcent = [0, 1/2, 1/2];
+%plot_tri(Rvcent,Svcent,'o-'); hold on;
+%plot_tri(Rv,Sv,'k-');
 
-%img = imread("mathias-reding-vU9-VO-4Nk0-unsplash.jpg");
-img = imread("cat_greyscale.jpg");
+img = imread("mathias-reding-vU9-VO-4Nk0-unsplash.jpg");
+%img = imread("cat_greyscale.jpg");
 %img = imread('ngc6543a.jpg');
 %img = imread('Parakeeets.jpg');
 
 img = rgb2gray(img); 
-nsamp = 5; nruns = 7; thresh = 0.005;
+nsamp = 10; nruns = 3; thresh = 0.005;
 
 [DT, XXpix, YYpix, IntImgGradNorm] = ...
   triangulate_entropy(img, nsamp, nruns, thresh);
@@ -156,28 +161,6 @@ function Ixe = IncidenceMatrix(Xe)
 Ixe = [Xe(:,2)-Xe(:,1), Xe(:,3)-Xe(:,1)];
 
 end
-% 
-% function DT = triangulate_explicit(nX,nY,nSamp)
-% 
-% x = linspace(1,nX,nSamp);
-% y = linspace(1,nY,nSamp);
-% nTri = (nSamp-1)*(nSamp-1)*2;
-% nPts = nSamp*nSamp;
-% DT = delaunayTriangulation();
-% DT.Points = zeros(nSamp,2);
-% DT.ConnectivityList = zeros(nTri,3);
-% indy = [1 2 2]; iTri = 1; iPt = 1;
-% for iY = 1:nSamp
-%   indx1 = [1 2 1];
-%   indx2 = [2 2 1];
-%   for iX = 1:nSamp
-%     DT.ConnectivityList(iTri,:) = indx1;
-%     
-%     DT.Points(iPt,:) = [x(iX), y(iY)];
-%   end
-% end
-% 
-% end
 
 function [DT, XXpix, YYpix, IntImgGradNorm] = ...
   triangulate_entropy(I, nSamp, nRuns, thresh)
@@ -194,7 +177,8 @@ X = X(:); Y = Y(:);
 R = importdata("../bin/xtri_N55_n9_M91_m12.txt");
 S = importdata("../bin/ytri_N55_n9_M91_m12.txt");
 W = importdata("../bin/wtri_N55_n9_M91_m12.txt");
-
+Rvcent = [1/2, 1/2, 0];
+Svcent = [0, 1/2, 1/2];
 m = 6; n = m+1;
 a = 0.5; b = a; c = a;
 H_abc = structure_factors_tri(n+1,a,b,c);
@@ -237,8 +221,15 @@ for iRun = 1:nRuns
   overthresh = find(IntImgGradNorm > thresh);
   % add vertex at circumcenter of each tri for which integral  > thresh
   for j = 1:length(overthresh)
-    X(end+1) = sum(X(T(overthresh(j),:)))/3;
-    Y(end+1) = sum(Y(T(overthresh(j),:)))/3;
+    % coordinate mat for element j
+    Xe = [X(T(overthresh(j),:))';Y(T(overthresh(j),:))'];
+    % incidence matrix mapping element j to reference tri
+    Ixe = IncidenceMatrix(Xe);
+    XYcent = (Ixe * [Rvcent',Svcent']' + Xe(:,1))';
+    X(end+1:end+3) = XYcent(:,1);
+    Y(end+1:end+3) = XYcent(:,2);
+    %X(end+1) = sum(X(T(overthresh(j),:)))/3;
+    %Y(end+1) = sum(Y(T(overthresh(j),:)))/3;
   end
 end
 
