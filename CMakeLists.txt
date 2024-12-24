@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.6)
 project(Eikonal CXX)
 option(debug "Build with debugger" ON)
 option(build_testing "compile and run tests" ON)
-
+enable_language(C)
 
 # lib and bin will be in top source
 set(CMAKE_INSTALL_PREFIX "${CMAKE_SOURCE_DIR}")
@@ -29,12 +29,29 @@ if (build_testing)
   add_subdirectory(testing)
 endif()
 
-
 set(BLA_VENDOR OpenBLAS)
 find_package(OpenMP REQUIRED)
 find_package(LAPACK REQUIRED)
 find_package(BLAS REQUIRED)
 find_package(Python COMPONENTS Interpreter Development REQUIRED)
+find_package(VTK REQUIRED)
+#find_package(VTK COMPONENTS 
+#  CommonColor
+#  CommonCore
+#  IOImage
+#  InteractionImage
+#  InteractionStyle
+#  RenderingContextOpenGL2
+#  RenderingCore
+#  RenderingFreeType
+#  RenderingGL2PSOpenGL2
+#  RenderingOpenGL2
+#)
+
+if (NOT VTK_FOUND)
+  message(FATAL_ERROR "JPEGReader: Unable to find the VTK build folder.")
+endif()
+
 
 include_directories(include)
 include_directories(${Python_INCLUDE_DIRS})
@@ -60,6 +77,8 @@ set(EikonalSRC src/eikonal.cpp)
 set(EikonalWeightedSRC src/eikonal_weighted.cpp)
 set(nullspaceSRC  src/nullspace.cpp)
 #set(eikonalSRC src/eikonal.cpp)
+set(readjpgsrc src/readjpg.cpp)
+set(readnefsrc src/readnef.cpp)
 
 # set build output paths
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
@@ -179,6 +198,18 @@ add_executable(EikonalW ${EikonalWeightedSRC})
 set_target_properties(EikonalW PROPERTIES COMPILE_FLAGS "-DWITHOUT_NUMPY")
 target_link_libraries(EikonalW eikonal)  
 
+add_executable(readjpg ${readjpgsrc})
+target_link_libraries(readjpg ${VTK_LIBRARIES})
+
+add_executable(readnef ${readnefsrc})
+target_link_libraries(readnef ${VTK_LIBRARIES})
+
+# vtk_module_autoinit is needed
+vtk_module_autoinit(
+  TARGETS readjpg readnef
+  MODULES ${VTK_LIBRARIES}
+)
+
 install(TARGETS sfactors ARCHIVE DESTINATION lib LIBRARY DESTINATION lib)
 install(TARGETS kmat ARCHIVE DESTINATION lib LIBRARY DESTINATION lib)
 install(TARGETS dmat ARCHIVE DESTINATION lib LIBRARY DESTINATION lib)
@@ -196,4 +227,5 @@ install(TARGETS tetquad ARCHIVE DESTINATION bin LIBRARY DESTINATION bin)
 install(TARGETS Eikonal ARCHIVE DESTINATION bin LIBRARY DESTINATION bin)
 install(TARGETS nullspace ARCHIVE DESTINATION bin LIBRARY DESTINATION bin)
 install(TARGETS EikonalW ARCHIVE DESTINATION bin LIBRARY DESTINATION bin)
-
+install(TARGETS readjpg ARCHIVE DESTINATION bin LIBRARY DESTINATION bin)
+install(TARGETS readnef ARCHIVE DESTINATION bin LIBRARY DESTINATION bin)
