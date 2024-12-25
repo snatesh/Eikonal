@@ -13,6 +13,34 @@ set(groot, 'defaultLineLineWidth',1)
 
 % jacobi poly params
 a = 1/2; b = 1/2; c = 1/2;
+R = importdata("../bin/xtri_N55_n9_M91_m12.txt");
+S = importdata("../bin/ytri_N55_n9_M91_m12.txt");
+W = importdata("../bin/wtri_N55_n9_M91_m12.txt");
+N = length(S);
+% test function
+f = @(x,y)(x+y).^6;
+% eval test function on quadrature nodes
+Fref = f(R,S); FrefW = Fref.*W; normFref = norm(Fref);
+%m = 21; 
+m = 6; n = m+1;
+% normalization under (a,b,c), (a+1,b,c) etc.
+H_abc = structure_factors_tri(n+1,a,b,c);
+H_a1bc1 = structure_factors_tri(n+1,a+1,b,c+1);
+H_ab1c1 = structure_factors_tri(n+1,a,b+1,c+1);
+% vandermonde under (a,b,c), (a+1,b,c) etc.
+V_abc = jPoly_tri(R,S,H_abc,n-1,a,b,c);
+V_a1bc1 = jPoly_tri(R,S,H_a1bc1,n-1,a+1,b,c+1);
+V_ab1c1 = jPoly_tri(R,S,H_ab1c1,n-1,a,b+1,c+1);
+Dx = D1_tri(a,b,c,H_abc,H_a1bc1,0);
+Dy = D1_tri(a,b,c,H_abc,H_ab1c1,1);
+% make coeffs of fref under (a,b,c)
+cfref_abc = V_abc'*FrefW;
+cdxf_a1bc1 = Dx*cfref_abc;
+cdyf_ab1c1 = Dy*cfref_abc;
+% check representation
+disp(norm(V_abc*cfref_abc-Fref)/normFref);
+
+%%
 % legendre analog quadrature rule on triangle
 %load './triquadLeg_17_28.mat';
 S = importdata("../bin/ytri_N325_n24_M946_m42.txt"); N = length(S);
@@ -55,21 +83,76 @@ Rvcent = [1/2, 1/2, 0];
 Svcent = [0, 1/2, 1/2];
 %plot_tri(Rvcent,Svcent,'o-'); hold on;
 %plot_tri(Rv,Sv,'k-');
-
-img = imread("mathias-reding-vU9-VO-4Nk0-unsplash.jpg");
+%%
+%img = imread("mathias-reding-vU9-VO-4Nk0-unsplash.jpg");
 %img = imread("cat_greyscale.jpg");
+%img = imread('20241219_021848.jpg');
+img = raw2rgb('./raw_images/00004_00_30s.NEF');
+imgjpg = imread('./raw_images/00004_00_30s.jpg');
 %img = imread('ngc6543a.jpg');
 %img = imread('Parakeeets.jpg');
+[U1,S1,V1] = svd(double(reshape(img(:,:,1),4016,6016)),'econ');
+[U2,S2,V2] = svd(double(reshape(img(:,:,2),4016,6016)),'econ');
+[U3,S3,V3] = svd(double(reshape(img(:,:,3),4016,6016)),'econ');
+%%
+imgsvd = zeros(size(img));
+S1(:,40:end) = 0;
+S2(:,40:end) = 0;
+S3(:,40:end) = 0;
+imgsvd(:,:,1) = single(U1*S1*V1');
+imgsvd(:,:,2) = single(U2*S2*V2');
+imgsvd(:,:,3) = single(U3*S3*V3');
+%%
+imshow(uint16(imgsvd));
+%%
 
-img = rgb2gray(img); 
+
+%%
+%
+%img = rgb2gray(img); 
+img = imread("cat_greyscale.jpg");
+
+img1 = img(:,:,1);
+img2 = img(:,:,2);
+img3 = img(:,:,3);
+
 nsamp = 10; nruns = 3; thresh = 0.005;
+[DT, XXpix, YYpix, IntImgGradNorm] = ...
+  triangulate_entropy(img1, nsamp, nruns, thresh);
+cImg1 = compress(img1,V_abc,DT,XXpix,YYpix);
+Img1 = decompress(cImg1,H_abc,DT,XXpix,YYpix);
 
 [DT, XXpix, YYpix, IntImgGradNorm] = ...
-  triangulate_entropy(img, nsamp, nruns, thresh);
-cImg = compress(img,V_abc,DT,XXpix,YYpix);
-Img = decompress(cImg,H_abc,DT,XXpix,YYpix);
-disp([psnr(Img',img),numel(img)/(numel(cImg)*8)]);
+  triangulate_entropy(img2, nsamp, nruns, thresh);
+cImg2 = compress(img2,V_abc,DT,XXpix,YYpix);
+Img2 = decompress(cImg2,H_abc,DT,XXpix,YYpix);
 
+[DT, XXpix, YYpix, IntImgGradNorm] = ...
+  triangulate_entropy(img3, nsamp, nruns, thresh);
+cImg3 = compress(img3,V_abc,DT,XXpix,YYpix);
+Img3 = decompress(cImg3,H_abc,DT,XXpix,YYpix);
+%%
+Img = zeros(size(img),'uint8');
+Img(:,:,1) = Img1';
+Img(:,:,2) = Img2';
+Img(:,:,3) = Img3';
+imshow(Img); figure(2)
+imshow(img);
+
+
+%%
+
+% [DT, XXpix, YYpix, IntImgGradNorm] = ...
+%   triangulate_entropy(img, nsamp, nruns, thresh);
+% cImg = compress(img,V_abc,DT,XXpix,YYpix);
+% 
+% Img = decompress(cImg,H_abc,DT,XXpix,YYpix);
+disp([psnr(Img',img),numel(img)/(numel(cImg)*8)]);
+hold off;
+figure(1);
+imshow(Img'); 
+figure(2);
+imshow(img);
 %%
 
 %[DT, triInd, XXpix, YYpix] = triangulate(img, nsamp, nruns, false);
@@ -100,7 +183,7 @@ for j = 1:nTri
     Vabcpix = jPoly_tri(XYpix(1,:)',XYpix(2,:)',H_abc,n-1,a,b,c);
     % evaluate approximation to image within reference triangle
     imgapprox = Vabcpix*cimg;
-    Imgapprox(triInd==j) = uint8(imgapprox);
+    Imgapprox(triInd==j) = uint16(imgapprox);
     disp(j);
 
 end
@@ -134,7 +217,7 @@ nTri = length(T);
 disp(nTri);
 Xpix = XXpix(:); Ypix = YYpix(:);
 triInd = DT.pointLocation(Xpix,Ypix);
-Img = zeros(size(XXpix),'uint8');
+Img = zeros(size(XXpix),'uint16');
 n = size(H_abc,1)-1; a = 1/2; b = 1/2; c = 1/2;
 for j = 1:nTri
     Xe = [X(T(j,:))';Y(T(j,:))'];
@@ -150,7 +233,7 @@ for j = 1:nTri
     Vabcpix = jPoly_tri(XYpix(1,:)',XYpix(2,:)',H_abc,n-1,a,b,c);
     % evaluate approximation to image within reference triangle
     img = Vabcpix*cimg;
-    Img(triInd==j) = uint8(img);
+    Img(triInd==j) = uint16(img);
     disp(j);
 end
 
@@ -217,7 +300,9 @@ for iRun = 1:nRuns
     gradimg = Ixe\[dimgdr';dimgds'];
     IntImgGradNorm(j) = det(Ixe)*(gradimg(1,:).^2 + gradimg(2,:).^2)*W/2;
   end
+  
   IntImgGradNorm = IntImgGradNorm / sum(IntImgGradNorm);
+  thresh = mean(IntImgGradNorm);
   overthresh = find(IntImgGradNorm > thresh);
   % add vertex at circumcenter of each tri for which integral  > thresh
   for j = 1:length(overthresh)

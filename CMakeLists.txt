@@ -199,7 +199,7 @@ set_target_properties(EikonalW PROPERTIES COMPILE_FLAGS "-DWITHOUT_NUMPY")
 target_link_libraries(EikonalW eikonal)  
 
 add_executable(readjpg ${readjpgsrc})
-target_link_libraries(readjpg ${VTK_LIBRARIES})
+target_link_libraries(readjpg ${VTK_LIBRARIES} jpoly dmat lapacke)
 
 add_executable(readnef ${readnefsrc})
 target_link_libraries(readnef ${VTK_LIBRARIES})
