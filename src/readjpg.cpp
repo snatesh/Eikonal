@@ -62,6 +62,122 @@ vtkSmartPointer<vtkDelaunay2D> triangulateImage ( int* dims,
 
 }
 
+vtkSmartPointer<vtkDelaunay2D> 
+triangulateEntropy  ( vtkSmartPointer<vtkPolyData> polytri,
+                      vtkSmartPointer<vtkImageInterpolator> interpolator,
+                      double* X, double* Y, double* W,
+                      unsigned int N, unsigned int M,
+                      jPoly<double>* Pm, 
+                      jPoly<double>* Pmx, 
+                      jPoly<double>* Pmy,
+                      double* Dx, double* Dy,
+                      double* cimg, double* cdimg, 
+                      double* dimgr, double* dimgt,
+                      double* interpc,
+                      double* intgn,
+                      unsigned int channel)
+                      
+                      
+{
+  double v1t[3], v2t[3], v3t[3], tmpwts[3];
+  double xqtr[3], xqt[3]; xqtr[2] = 0; xqt[2] = 0;
+  double invIxe[4], gradnorm;
+  vtkSmartPointer<vtkIdList> ptids = vtkSmartPointer<vtkIdList>::New();
+  // loop over each triangle 
+  for (int i = 0; i < polytri->GetNumberOfCells(); ++i)
+  {
+    // interpolate pixel channel vals onto quadrature points
+    for (unsigned int j = 0; j < N; ++j) 
+    {
+      // get quad point in ref
+      xqtr[0] = X[j]; xqtr[1] = Y[j];
+      // map ref pt xqtr to tri point xqt
+      polytri->GetCell(i)->EvaluateLocation(i, xqtr, xqt, tmpwts);
+      interpc[j] = interpolator->Interpolate(xqt[0], xqt[1], xqt[2], channel);
+    }
+    // get tri verts
+    polytri->GetCellPoints(i, ptids);
+    polytri->GetPoints()->GetPoint(ptids->GetId(0), v1t);
+    polytri->GetPoints()->GetPoint(ptids->GetId(1), v2t);
+    polytri->GetPoints()->GetPoint(ptids->GetId(2), v3t);
+    // inverse of incidence matrix 
+    invIxe[0] = v3t[1] - v1t[1];
+    invIxe[1] = -(v2t[1] - v1t[1]);
+    invIxe[2] = -(v3t[0] - v1t[0]); 
+    invIxe[3] = v2t[0] - v1t[0];
+    // coefficients of interpolated data in channel
+    Pm->computeCoeffs(interpc, X, Y, W, cimg);
+    // coefficients of xy derivatives of interpolated data in channel
+    cblas_dgemv(CblasColMajor, CblasNoTrans, M, M, 1.0, Dx, M, cimg, 1, 0.0, cdimg, 1);
+    cblas_dgemv(CblasColMajor, CblasNoTrans, M, M, 1.0, Dy, M, cimg, 1, 0.0, cdimg+M, 1);
+    // values of derivative at points in rs-triangle
+    cblas_dgemv(CblasColMajor, CblasNoTrans, N, M, 1.0, Pmx->V, N, cdimg, 1, 0.0, dimgr, 1);
+    cblas_dgemv(CblasColMajor, CblasNoTrans, N, M, 1.0, Pmy->V, N, cdimg+M, 1, 0.0, dimgr+N, 1);
+    // map derivative to xy-triangle
+    cblas_dgemm ( CblasColMajor, CblasNoTrans, CblasTrans,
+                  2, N, 2, 1.0, invIxe, 2, dimgr, N, 0.0, dimgt, 2 );
+
+    gradnorm = 0;
+    #pragma omp simd reduction(+:gradnorm)  
+    for (unsigned int j = 0; j < N; ++j)
+    {
+      gradnorm += (dimgt[j] * dimgt[j] + dimgt[j+N] * dimgt[j+N]) * W[j] / 2.0;
+    }
+    intgn[i] = gradnorm;
+  }
+  
+  double sum = 0;
+  #pragma omp simd reduction(+:sum)
+  for (unsigned int i = 0; i < polytri->GetNumberOfCells(); ++i)
+  {
+    sum += intgn[i];
+  }
+  for (unsigned int i = 0; i < polytri->GetNumberOfCells(); ++i)
+  {
+    intgn[i] /= sum;
+  } 
+
+  double ave = 0;//, ave1 = 0, ave2 = 0;
+  #pragma omp simd reduction(+:ave)
+  for (unsigned int i = 0; i < polytri->GetNumberOfCells(); ++i)
+  {
+    ave += intgn[i];
+  } 
+  
+  ave /= polytri->GetNumberOfCells();
+
+  vtkSmartPointer<vtkIncrementalOctreePointLocator> locator = 
+    vtkSmartPointer<vtkIncrementalOctreePointLocator>::New();
+  
+  locator->SetDataSet(polytri);
+  locator->BuildLocator();
+  ptids->Reset();
+  double v1r[3] = {0.5, 0, 0};
+  double v2r[3] = {0.5, 0.5, 0};
+  double v3r[3] = {0, 0.5, 0};
+  vtkIdType ptid; int subid;
+  std::cout << "num pts before refinement: " << locator->GetNumberOfPoints() << std::endl;
+  for (int icell = 0; icell < polytri->GetNumberOfCells(); ++icell)
+  {
+    if (intgn[icell] > ave)
+    {
+      polytri->GetCell(icell)->EvaluateLocation(subid, v1r, v1t, tmpwts);
+      polytri->GetCell(icell)->EvaluateLocation(subid, v2r, v2t, tmpwts);
+      polytri->GetCell(icell)->EvaluateLocation(subid, v3r, v3t, tmpwts);
+      locator->InsertUniquePoint(v1t, ptid);  
+      locator->InsertUniquePoint(v2t, ptid);  
+      locator->InsertUniquePoint(v3t, ptid);
+    } 
+  } 
+  std::cout << "num pts after refinement: " << locator->GetNumberOfPoints() << std::endl;
+  vtkSmartPointer<vtkPolyData> polydata = vtkSmartPointer<vtkPolyData>::New(); 
+  polydata->SetPoints(locator->GetLocatorPoints());
+  vtkSmartPointer<vtkDelaunay2D> triangulator = vtkSmartPointer<vtkDelaunay2D>::New();
+  triangulator->SetInputData(polydata);
+  triangulator->Update();
+  return triangulator;
+}
+
 void readQuad(const std::string& trix, 
               const std::string& triy, 
               const std::string& triw,
@@ -83,15 +199,26 @@ void readQuad(const std::string& trix,
 
 }
 
+void writeVTP(vtkSmartPointer<vtkPolyData> polytri, const char* ofname)
+{
+  // write mesh
+  std::cout << "NEW num points " << polytri->GetNumberOfPoints() << std::endl;
+  vtkNew<vtkXMLPolyDataWriter> writer;
+  writer->SetFileName(ofname);
+  writer->SetInputData(polytri);  
+  writer->SetDataModeToBinary();
+  writer->Write();
+}
+
 int main(int argc, char* argv[])
 {
   vtkNew<vtkNamedColors> colors;
 
   // Verify input arguments
-  if (argc != 2)
+  if (argc != 4)
   {
     std::cout << "Usage: " << argv[0]
-              << " Filename(.jpeg/jpg) e.g. Pileated.jpg " << std::endl;
+              << " Filename(.jpeg/jpg) nSamp nRuns " << std::endl;
     return EXIT_FAILURE;
   }
 
@@ -130,6 +257,10 @@ int main(int argc, char* argv[])
   double* cdimg = (double*) calloc(M*2, sizeof(double));
   double* dimgr = (double*) calloc(N*2, sizeof(double));
   double* dimgt = (double*) calloc(2*N, sizeof(double));
+  // interpolated val storage for each channel
+  double* interpc1 = (double*) calloc(N, sizeof(double));
+  double* interpc2 = (double*) calloc(N, sizeof(double));
+  double* interpc3 = (double*) calloc(N, sizeof(double));
   // Read the image
   vtkNew<vtkJPEGReader> jpegReader;
   jpegReader->SetFileName(argv[1]);
@@ -139,7 +270,7 @@ int main(int argc, char* argv[])
   double origin[3]; imagedata->GetOrigin(origin);
 
   // triangulate uniform subsampled grid on image
-  unsigned int nSamp = 10;
+  unsigned int nSamp = static_cast<unsigned int>(atoi(argv[2]));
   vtkSmartPointer<vtkDelaunay2D> triangulator = triangulateImage(dims, origin, nSamp);
   vtkSmartPointer<vtkPolyData> polytri = triangulator->GetOutput();
   std::cout << polytri->GetNumberOfPoints() << std::endl;
@@ -149,182 +280,48 @@ int main(int argc, char* argv[])
     vtkSmartPointer<vtkImageInterpolator>::New();
   interpolator->Initialize(imagedata);
   interpolator->SetInterpolationModeToCubic();
-  std::cout << interpolator->GetNumberOfComponents() << std::endl; 
-
-  // interpolated val storage for each channel
-  double* interpc1 = (double*) calloc(N, sizeof(double));
-  double* interpc2 = (double*) calloc(N, sizeof(double));
-  double* interpc3 = (double*) calloc(N, sizeof(double));
-  double interpc[3];
-  // cell pt storage
-  double v1t[3], v2t[3], v3t[3], tmpwts[3];
-  double xqtr[3], xqt[3]; xqtr[2] = 0; xqt[2] = 0;
-  vtkSmartPointer<vtkIdList> ptids = vtkSmartPointer<vtkIdList>::New();
-  // incidence matrix
-  double invIxe[4], gradnorm;
-  vtkSmartPointer<vtkPolyData> polytri1 = polytri; 
-  unsigned int nRuns = 5;
+  vtkSmartPointer<vtkPolyData> polytri1 = vtkSmartPointer<vtkPolyData>::New();
+  vtkSmartPointer<vtkPolyData> polytri2 = vtkSmartPointer<vtkPolyData>::New();
+  vtkSmartPointer<vtkPolyData> polytri3 = vtkSmartPointer<vtkPolyData>::New();
+  polytri1->DeepCopy(polytri);
+  polytri2->DeepCopy(polytri);
+  polytri3->DeepCopy(polytri);
+ 
+  unsigned int nRuns = static_cast<unsigned int>(atoi(argv[3]));
+  // triangulate based on gradient density for each channel, and
+  // perform the refinement nRuns times
   for (unsigned int iRun = 0; iRun < nRuns; ++iRun)
   {
-    polytri = polytri1; 
-    // gradient density
-    double* intgn1 = (double*) calloc(polytri->GetNumberOfCells(), sizeof(double));
-    double* intgn2 = (double*) calloc(polytri->GetNumberOfCells(), sizeof(double));
-    double* intgn3 = (double*) calloc(polytri->GetNumberOfCells(), sizeof(double));
-    // loop over each triangle 
-    for (int i = 0; i < polytri->GetNumberOfCells(); ++i)
-    {
-      // interpolate pixel channel vals onto quadrature points
-      for (unsigned int j = 0; j < N; ++j) 
-      {
-        // get quad point in ref
-        xqtr[0] = X[j]; xqtr[1] = Y[j];
-        // map ref pt xqtr to tri point xqt
-        polytri->GetCell(i)->EvaluateLocation(i, xqtr, xqt, tmpwts);
-        interpolator->Interpolate(xqt, interpc);
-        interpc1[j] = interpc[0];
-        interpc2[j] = interpc[1];
-        interpc3[j] = interpc[2];
-      }
-      // get tri verts
-      polytri->GetCellPoints(i, ptids);
-      polytri->GetPoints()->GetPoint(ptids->GetId(0), v1t);
-      polytri->GetPoints()->GetPoint(ptids->GetId(1), v2t);
-      polytri->GetPoints()->GetPoint(ptids->GetId(2), v3t);
-      // incidence matrix inverse
-      invIxe[0] = v3t[1] - v1t[1];
-      invIxe[1] = -(v2t[1] - v1t[1]);
-      invIxe[2] = -(v3t[0] - v1t[0]); 
-      invIxe[3] = v2t[0] - v1t[0];
-      // coefficients of interpolated data in channel
-      Pm->computeCoeffs(interpc1, X, Y, W, cimg);
-      // coefficients of xy derivatives of interpolated data in channel
-      cblas_dgemv(CblasColMajor, CblasNoTrans, M, M, 1.0, Dx, M, cimg, 1, 0.0, cdimg, 1);
-      cblas_dgemv(CblasColMajor, CblasNoTrans, M, M, 1.0, Dy, M, cimg, 1, 0.0, cdimg+M, 1);
-      // values of derivative at points in rs-triangle
-      cblas_dgemv(CblasColMajor, CblasNoTrans, N, M, 1.0, Pmx->V, N, cdimg, 1, 0.0, dimgr, 1);
-      cblas_dgemv(CblasColMajor, CblasNoTrans, N, M, 1.0, Pmy->V, N, cdimg+M, 1, 0.0, dimgr+N, 1);
-      // map derivative to xy-triangle
-      cblas_dgemm ( CblasColMajor, CblasNoTrans, CblasTrans,
-                    2, N, 2, 1.0, invIxe, 2, dimgr, N, 0.0, dimgt, 2 );
-
-      gradnorm = 0;
-      #pragma omp simd reduction(+:gradnorm)  
-      for (unsigned int j = 0; j < N; ++j)
-      {
-        gradnorm += (dimgt[j] * dimgt[j] + dimgt[j+N] * dimgt[j+N]) * W[j] / 2;
-      }
-      intgn1[i] = gradnorm;
-
-      Pm->computeCoeffs(interpc2, X, Y, W, cimg);
-      // coefficients of xy derivatives of interpolated data in channel
-      cblas_dgemv(CblasColMajor, CblasNoTrans, M, M, 1.0, Dx, M, cimg, 1, 0.0, cdimg, 1);
-      cblas_dgemv(CblasColMajor, CblasNoTrans, M, M, 1.0, Dy, M, cimg, 1, 0.0, cdimg+M, 1);
-      // values of derivative at points in rs-triangle
-      cblas_dgemv(CblasColMajor, CblasNoTrans, N, M, 1.0, Pmx->V, N, cdimg, 1, 0.0, dimgr, 1);
-      cblas_dgemv(CblasColMajor, CblasNoTrans, N, M, 1.0, Pmy->V, N, cdimg+M, 1, 0.0, dimgr+N, 1);
-      // map derivative to xy-triangle
-      cblas_dgemm ( CblasColMajor, CblasNoTrans, CblasTrans,
-                    2, N, 2, 1.0, invIxe, 2, dimgr, N, 0.0, dimgt, 2 );
-
-      gradnorm = 0;
-      #pragma omp simd reduction(+:gradnorm)  
-      for (unsigned int j = 0; j < N; ++j)
-      {
-        gradnorm += (dimgt[j] * dimgt[j] + dimgt[j+N] * dimgt[j+N]) * W[j] / 2;
-      }
-      intgn2[i] = gradnorm;
-      
-      Pm->computeCoeffs(interpc3, X, Y, W, cimg);
-      // coefficients of xy derivatives of interpolated data in channel
-      cblas_dgemv(CblasColMajor, CblasNoTrans, M, M, 1.0, Dx, M, cimg, 1, 0.0, cdimg, 1);
-      cblas_dgemv(CblasColMajor, CblasNoTrans, M, M, 1.0, Dy, M, cimg, 1, 0.0, cdimg+M, 1);
-      // values of derivative at points in rs-triangle
-      cblas_dgemv(CblasColMajor, CblasNoTrans, N, M, 1.0, Pmx->V, N, cdimg, 1, 0.0, dimgr, 1);
-      cblas_dgemv(CblasColMajor, CblasNoTrans, N, M, 1.0, Pmy->V, N, cdimg+M, 1, 0.0, dimgr+N, 1);
-      // map derivative to xy-triangle
-      cblas_dgemm ( CblasColMajor, CblasNoTrans, CblasTrans,
-                    2, N, 2, 1.0, invIxe, 2, dimgr, N, 0.0, dimgt, 2 );
-
-      gradnorm = 0;
-      #pragma omp simd reduction(+:gradnorm)  
-      for (unsigned int j = 0; j < N; ++j)
-      {
-        gradnorm += (dimgt[j] * dimgt[j] + dimgt[j+N] * dimgt[j+N]) * W[j] / 2;
-      }
-      intgn3[i] = gradnorm;
-      
-    }
-    
-    double sum = 0, sum1 = 0, sum2 = 0;
-    #pragma omp simd reduction(+:sum,sum1,sum2)
-    for (unsigned int i = 0; i < polytri->GetNumberOfCells(); ++i)
-    {
-      sum += intgn1[i];
-      sum1 += intgn2[i];
-      sum2 += intgn3[i];
-    }
-    for (unsigned int i = 0; i < polytri->GetNumberOfCells(); ++i)
-    {
-      intgn1[i] /= sum;
-      intgn2[i] /= sum1;
-      intgn3[i] /= sum2;
-    } 
-
-    double ave = 0, ave1 = 0, ave2 = 0;
-    #pragma omp simd reduction(+:sum,sum1,sum2)
-    for (unsigned int i = 0; i < polytri->GetNumberOfCells(); ++i)
-    {
-      ave += intgn1[i];
-      ave1 += intgn2[i];
-      ave2 += intgn3[i];
-    } 
-    
-    ave /= polytri->GetNumberOfCells();
-    ave1 /= polytri->GetNumberOfCells();
-    ave2 /= polytri->GetNumberOfCells();
-
-    vtkSmartPointer<vtkIncrementalOctreePointLocator> locator = 
-      vtkSmartPointer<vtkIncrementalOctreePointLocator>::New();
-    locator->SetDataSet(polytri);
-    locator->BuildLocator();
-    ptids->Reset();
-    double v1r[3] = {0.5, 0, 0};
-    double v2r[3] = {0.5, 0.5, 0};
-    double v3r[3] = {0, 0.5, 0};
-    vtkIdType ptid; int subid;
-    std::cout << "num pts in loc: " << locator->GetNumberOfPoints() << std::endl;
-    for (int icell = 0; icell < polytri->GetNumberOfCells(); ++icell)
-    {
-      if (intgn1[icell] > ave)
-      {
-        polytri->GetCell(icell)->EvaluateLocation(subid, v1r, v1t, tmpwts);
-        polytri->GetCell(icell)->EvaluateLocation(subid, v2r, v2t, tmpwts);
-        polytri->GetCell(icell)->EvaluateLocation(subid, v3r, v3t, tmpwts);
-        locator->InsertUniquePoint(v1t, ptid);  
-        locator->InsertUniquePoint(v2t, ptid);  
-        locator->InsertUniquePoint(v3t, ptid);
-      } 
-    } 
-    std::cout << "num pts in loc: " << locator->GetNumberOfPoints() << std::endl;
-    vtkSmartPointer<vtkPolyData> polydata1 = vtkSmartPointer<vtkPolyData>::New(); 
-    polydata1->SetPoints(locator->GetLocatorPoints());
-    vtkSmartPointer<vtkDelaunay2D> triangulator1 = vtkSmartPointer<vtkDelaunay2D>::New();
-    triangulator1->SetInputData(polydata1);
-    triangulator1->Update();
+    double* intgn1 = (double*) calloc(polytri1->GetNumberOfCells(), sizeof(double));
+    double* intgn2 = (double*) calloc(polytri2->GetNumberOfCells(), sizeof(double));
+    double* intgn3 = (double*) calloc(polytri3->GetNumberOfCells(), sizeof(double));
+    vtkSmartPointer<vtkDelaunay2D> triangulator1 = 
+      triangulateEntropy ( polytri1, interpolator,
+                           X, Y, W, N, M, Pm, Pmx, Pmy,
+                           Dx, Dy, cimg, cdimg, dimgr, dimgt,
+                           interpc1, intgn1, 0 );
+    vtkSmartPointer<vtkDelaunay2D> triangulator2 = 
+      triangulateEntropy ( polytri2, interpolator,
+                           X, Y, W, N, M, Pm, Pmx, Pmy,
+                           Dx, Dy, cimg, cdimg, dimgr, dimgt,
+                           interpc2, intgn2, 1 );
+    vtkSmartPointer<vtkDelaunay2D> triangulator3 = 
+      triangulateEntropy ( polytri3, interpolator,
+                           X, Y, W, N, M, Pm, Pmx, Pmy,
+                           Dx, Dy, cimg, cdimg, dimgr, dimgt,
+                           interpc3, intgn3, 2 );
     polytri1 = triangulator1->GetOutput();
+    polytri2 = triangulator2->GetOutput();
+    polytri3 = triangulator3->GetOutput();
     free(intgn1);
     free(intgn2);
     free(intgn3);
   }
-  // write mesh
-  std::cout << "NEW num points " << polytri1->GetNumberOfPoints() << std::endl;
-  vtkNew<vtkXMLPolyDataWriter> writer1;
-  writer1->SetFileName("test1.vtp");
-  writer1->SetInputData(polytri1);  
-  //writer->SetDataModeToBinary();
-  writer1->SetDataModeToAscii();
-  writer1->Write();
+  // write grids
+  writeVTP(polytri1, "test1.vtp");
+  writeVTP(polytri2, "test2.vtp");
+  writeVTP(polytri3, "test3.vtp");
+
   
   // Visualize
   vtkNew<vtkImageViewer2> imageViewer;
@@ -355,7 +352,9 @@ int main(int argc, char* argv[])
   free(cdimg);
   free(dimgr);
   free(dimgt); 
-
+  free(interpc1);
+  free(interpc2);
+  free(interpc3);
   return EXIT_SUCCESS;
 }
   
