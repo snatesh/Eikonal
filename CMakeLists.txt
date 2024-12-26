@@ -79,6 +79,7 @@ set(nullspaceSRC  src/nullspace.cpp)
 #set(eikonalSRC src/eikonal.cpp)
 set(readjpgsrc src/readjpg.cpp)
 set(readnefsrc src/readnef.cpp)
+set(jcodecSRC include/jcodec.hh src/jcodec.cpp)
 
 # set build output paths
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
@@ -175,9 +176,21 @@ else()
 endif()
 target_link_libraries(eikonal nlopt legquad) 
 
+add_library(jcodec SHARED ${jcodecSRC})
+if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  set_source_files_properties(${eikonalSRC} PROPERTIES COMPILE_FLAGS "-fPIC -fopenmp")
+else()
+  set_source_files_properties(${eikonalSRC} PROPERTIES COMPILE_FLAGS "-xHost -qopenmp -fpic ")
+endif()
+target_link_libraries(jcodec ${VTK_LIBRARIES} jpoly dmat lapacke)
+
+
 set_target_properties(sfactors kmat dmat jmat jweight eikonal
-                      jpoly ngjquad legquad jevd tensorquad 
+                      jpoly ngjquad legquad jevd tensorquad jcodec 
                       PROPERTIES LINKER_LANGUAGE CXX)
+
+
+
 
 add_executable(gjquadopt ${gjquadoptSRC})
 set_target_properties(gjquadopt PROPERTIES COMPILE_FLAGS "-DWITHOUT_NUMPY")
@@ -199,7 +212,7 @@ set_target_properties(EikonalW PROPERTIES COMPILE_FLAGS "-DWITHOUT_NUMPY")
 target_link_libraries(EikonalW eikonal)  
 
 add_executable(readjpg ${readjpgsrc})
-target_link_libraries(readjpg ${VTK_LIBRARIES} jpoly dmat lapacke)
+target_link_libraries(readjpg jcodec)
 
 add_executable(readnef ${readnefsrc})
 target_link_libraries(readnef ${VTK_LIBRARIES})
@@ -227,5 +240,6 @@ install(TARGETS tetquad ARCHIVE DESTINATION bin LIBRARY DESTINATION bin)
 install(TARGETS Eikonal ARCHIVE DESTINATION bin LIBRARY DESTINATION bin)
 install(TARGETS nullspace ARCHIVE DESTINATION bin LIBRARY DESTINATION bin)
 install(TARGETS EikonalW ARCHIVE DESTINATION bin LIBRARY DESTINATION bin)
+install(TARGETS jcodec ARCHIVE DESTINATION bin LIBRARY DESTINATION lib)
 install(TARGETS readjpg ARCHIVE DESTINATION bin LIBRARY DESTINATION bin)
 install(TARGETS readnef ARCHIVE DESTINATION bin LIBRARY DESTINATION bin)

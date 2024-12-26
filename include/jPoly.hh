@@ -359,6 +359,43 @@ class jPoly
         exit(1);
       }
     }
+    
+    // compute only the first (m+1)*(m+2)/2 coeffs with m <= n
+    void computeCoeffsM(T* F, T* X, T* Y, T* W, T* cF, unsigned int m)
+    {
+      if (m > n)
+      {
+        std::cerr << "m <= n reaquired for truncated coeff computation\n";
+        exit(1);
+      } 
+      
+      if (this->dim == 2)
+      {
+        unsigned int Mp = static_cast<unsigned int>(0.5 * (m + 1) * (m + 2));
+        this->computeV(X,Y);
+        #pragma omp simd
+        for (unsigned int i = 0; i < Nx; ++i)
+        {
+          F[i] *= W[i];
+        }
+        if (std::is_same_v<T, double>)
+        {
+          cblas_dgemv ( CblasColMajor, CblasTrans,
+                        Nx, Mp, 1.0, (double*) this->V, Nx, (double*) F, 1, 0.0, (double*) cF, 1);
+        }
+        else if (std::is_same_v<T, float>)
+        {
+          cblas_sgemv ( CblasColMajor, CblasTrans,
+                        Nx, Mp, 1.0, (float*) this->V, Nx, (float*) F, 1, 0.0, (float*) cF, 1);
+        }
+
+      }
+      else
+      {
+        std::cerr << "ERROR: Coefficient expansion is supported only for dim=2\n"; 
+        exit(1);
+      }
+    }
 
     ~jPoly  ()
     {
