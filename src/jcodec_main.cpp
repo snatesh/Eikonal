@@ -8,6 +8,7 @@
 #include <vtkRenderWindowInteractor.h>
 #include <vtkRenderer.h>
 #include <vtkXMLPolyDataWriter.h>
+#include <vtkImageSSIM.h>
 
 #include <vtkPointData.h>
 #include <map>
@@ -60,8 +61,8 @@ int main(int argc, char* argv[])
     vtkSmartPointer<vtkImageData> imagedata = reader->GetOutput(); 
     
     // View the image
-    vtkNew<vtkNamedColors> colors;
-    vtkNew<vtkImageViewer2> imageViewer;
+    vtkSmartPointer<vtkNamedColors> colors = vtkSmartPointer<vtkNamedColors>::New();
+    vtkSmartPointer<vtkImageViewer2> imageViewer = vtkSmartPointer<vtkImageViewer2>::New();
     imageViewer->SetInputData(imagedata);
     vtkNew<vtkRenderWindowInteractor> renderWindowInteractor;
     imageViewer->SetupInteractor(renderWindowInteractor);
@@ -134,7 +135,7 @@ int main(int argc, char* argv[])
       D = new Decompressor ( useMultiChannel, channel ); 
     }
     D->run();
-    D->writeImage("test.tiff");
+    D->writeImage("test.png");
     delete D;
   }
   else

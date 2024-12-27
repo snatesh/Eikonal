@@ -642,17 +642,17 @@ void Decompressor::writeImage ( const char* fname )
   cast->SetOutputScalarTypeToUnsignedChar();
   cast->Update(); 
   
-  //vtkSmartPointer<vtkPNGWriter> png = vtkSmartPointer<vtkPNGWriter>::New();
-  //vtkSmartPointer<vtkImageData> imagecast = cast->GetOutput();
-  //png->SetFileName(fname);
-  //png->SetInputData(imagecast);
-  //png->Write(); 
-  vtkSmartPointer<vtkTIFFWriter> tiff = vtkSmartPointer<vtkTIFFWriter>::New();
+  vtkSmartPointer<vtkPNGWriter> png = vtkSmartPointer<vtkPNGWriter>::New();
   vtkSmartPointer<vtkImageData> imagecast = cast->GetOutput();
-  tiff->SetFileName(fname);
-  tiff->SetInputData(imagecast);
-  tiff->SetCompression(vtkTIFFWriter::NoCompression);
-  tiff->Write(); 
+  png->SetFileName(fname);
+  png->SetInputData(imagecast);
+  png->Write(); 
+  //vtkSmartPointer<vtkTIFFWriter> tiff = vtkSmartPointer<vtkTIFFWriter>::New();
+  //vtkSmartPointer<vtkImageData> imagecast = cast->GetOutput();
+  //tiff->SetFileName(fname);
+  //tiff->SetInputData(imagecast);
+  //tiff->SetCompression(vtkTIFFWriter::NoCompression);
+  //tiff->Write(); 
  
 }
 
