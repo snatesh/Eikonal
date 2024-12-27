@@ -1,7 +1,6 @@
 #ifndef _JCODEC_H
 #define _JCODEC_H
 
-
 #include <vtkMath.h>
 #include <vtkPolyData.h>
 #include <vtkDelaunay2D.h>
@@ -11,7 +10,11 @@
 #include <vtkSmartPointer.h>
 #include <vtkImageData.h>
 #include <vtkDoubleArray.h>
+#include <vtkUnsignedCharArray.h>
+#include <vtkDataArray.h>
+#include <vtkPointData.h>
 #include <vtkIntArray.h>
+#include <vtkUnsignedIntArray.h>
 #include <fstream>
 #include <iostream>
 #include <string>
@@ -27,12 +30,12 @@ vtkSmartPointer<vtkDelaunay2D> triangulateUniform ( int* dims,
                                                     unsigned int nSamp );
 
 
-void readQuad(const std::string& trix, 
-              const std::string& triy, 
-              const std::string& triw,
-              unsigned int N,
-              double* X, double* Y, 
-              double*  W);
+void readQuad ( const std::string& trix, 
+                const std::string& triy, 
+                const std::string& triw,
+                unsigned int N,
+                double* X, double* Y, 
+                double*  W  );
 
 struct Triangulator
 {
@@ -85,19 +88,58 @@ struct Compressor
   vtkSmartPointer<vtkPolyData> polytri1, polytri2, polytri3; 
   vtkSmartPointer<vtkDoubleArray> coeffs1, coeffs2, coeffs3;
   vtkSmartPointer<vtkIntArray> offsets1, offsets2, offsets3;
+  vtkSmartPointer<vtkUnsignedIntArray> orders1, orders2, orders3;
  
   Compressor  ( Triangulator* T );
 
-  void compressChannel(unsigned int channel, double blknormtol);
+  void compressChannel  ( unsigned int channel, double blknormtol );
  
-  void run(double ctol);
+  void run  ( double ctol );
 
   ~Compressor();
 
 };
 
-struct DeCompressor
+/*  
+     1) will need to create an empty imagedata with same dims
+        as original - gives pixel points.
+     2) create map between cell index (triangle) and 
+        the indices of pixel points in that triangle
+     3) use enconding we defined in vtp files to interpolate
+        using jacobi interp mat evauated on pixel points
+        in that triangle with coeffs in that tri 
+        (this uses the coeffs field array and offsets cell
+         array we stored in the vtp during compression)
+     4) This is to be stored as a vtkInt32/16/8 Array in vtkPointData
+        with each tuple having 3 components (1 for each channel)
+     5) Finally, we write it back to some lossless format like png
+        (NOTE: we don't want to write to a lossy compressed format) 
+*/
+struct Decompressor
 {
+  vtkSmartPointer<vtkPolyData> polytri1, polytri2, polytri3; 
+  vtkSmartPointer<vtkDoubleArray> coeffs1, coeffs2, coeffs3;
+  vtkSmartPointer<vtkIntArray> offsets1, offsets2, offsets3;
+  vtkSmartPointer<vtkUnsignedIntArray> orders1, orders2, orders3;
+  vtkSmartPointer<vtkImageData> imagedata;
+  vtkSmartPointer<vtkUnsignedCharArray> colors;
+  vtkSmartPointer<vtkPoints> pixels;
+  double a, b, c;
+  unsigned int mmax = 21, Mmax = 253;
+  double bounds[6];
+
+
+  Decompressor  ( const char* channel1, 
+                  const char* channel2, 
+                  const char* channel3 );
+
+  void decompressChannel  ( unsigned int channel  );
+
+  void writeImage (const char* fname);
+
+  void run ();
+  
+  ~Decompressor(){}
 
 };
 

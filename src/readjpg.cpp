@@ -7,7 +7,7 @@
 #include <vtkRenderWindowInteractor.h>
 #include <vtkRenderer.h>
 #include <vtkXMLPolyDataWriter.h>
-#include <vtkCellTreeLocator.h>
+
 #include <vtkPointData.h>
 #include <map>
 #include <vector>
@@ -22,115 +22,100 @@ void writeVTP(vtkSmartPointer<vtkPolyData> polytri, const char* ofname)
   writer->Write();
 }
 
+int usage(char* argv[])
+{
+  std::cout << "Usage: " << argv[0]
+            << " mode args\n"
+            << " if (mode=0), args = filename.jpg nSamp nRuns ctol \n"
+            << " if (mode=1), args = channel1.vtp channel2.vtp channel3.vtp\n";
+  return EXIT_FAILURE;
+
+}
+
 int main(int argc, char* argv[])
 {
-  vtkNew<vtkNamedColors> colors;
 
-  // Verify input arguments
-  if (argc != 4)
+  unsigned int mode = static_cast<unsigned int>(atoi(argv[1]));
+  if (mode != 0 && mode != 1)
+  {
+    return usage(argv);
+  }
+  
+  if (mode == 0)
+  {
+    if (argc != 6) { return usage(argv); }
+    // jacobi poly
+    double a = 0.5, b = 0.5, c = 0.5;
+    unsigned int N = 55;
+    unsigned int m = 6;
+    unsigned int nthreads = 6;
+    double ctol = atof(argv[5]);
+    // Read the image
+    vtkNew<vtkJPEGReader> jpegReader;
+    jpegReader->SetFileName(argv[2]);
+    jpegReader->Update();
+    vtkSmartPointer<vtkImageData> imagedata = jpegReader->GetOutput(); 
+
+    // create cubic interpolator on image
+     vtkSmartPointer<vtkImageInterpolator> interpolator = 
+      vtkSmartPointer<vtkImageInterpolator>::New();
+    interpolator->Initialize(imagedata);
+    interpolator->SetInterpolationModeToCubic();
+    // get triangulation settings
+    unsigned int nSamp = static_cast<unsigned int>(atoi(argv[3]));
+    unsigned int nRuns = static_cast<unsigned int>(atoi(argv[4]));
+    Triangulator* T = new Triangulator  ( N, m, a, b, c, nSamp, nRuns, 
+                                          "xtri_N55_n9_M91_m12.txt",
+                                          "ytri_N55_n9_M91_m12.txt",            
+                                          "wtri_N55_n9_M91_m12.txt",
+                                           imagedata, interpolator, nthreads);
+    T->run();
+    Compressor* C = new Compressor(T);
+    C->run(ctol);
+    // write grids with compressed data
+    writeVTP(T->polytri1, "test1.vtp");
+    writeVTP(T->polytri2, "test2.vtp");
+    writeVTP(T->polytri3, "test3.vtp");
+  
+    // Visualize original image
+    vtkNew<vtkNamedColors> colors;
+    vtkNew<vtkImageViewer2> imageViewer;
+    imageViewer->SetInputData(imagedata);
+    vtkNew<vtkRenderWindowInteractor> renderWindowInteractor;
+    imageViewer->SetupInteractor(renderWindowInteractor);
+    imageViewer->Render();
+    imageViewer->GetRenderer()->ResetCamera();
+    imageViewer->GetRenderer()->SetBackground(
+        colors->GetColor3d("DarkSlateGray").GetData());
+    imageViewer->GetRenderWindow()->SetWindowName("JPEGReader");
+    imageViewer->Render();
+    renderWindowInteractor->Start();
+
+    // clean
+    delete T;
+    delete C;
+  }
+  else if (mode == 1)
+  {
+    if (argc != 5) { return usage(argv); }
+    const char *channel1, *channel2, *channel3;
+    channel1 = argv[2];
+    channel2 = argv[3];
+    channel3 = argv[4];
+    // test decompressor reading
+    Decompressor* D = new Decompressor ( "test1.vtp", "test2.vtp", "test3.vtp" );
+    D->run();
+    D->writeImage("test.png");
+    delete D;
+  }
+  else
   {
     std::cout << "Usage: " << argv[0]
-              << " Filename(.jpeg/jpg) nSamp nRuns " << std::endl;
+              << " mode args\n "
+              << "if (mode=0), args = filename.jpg nSamp nRuns\n"
+              << "if (mode=1), args = channel1.vtp channel2.vtp channel3.vtp\n";
     return EXIT_FAILURE;
   }
-
-  // jacobi poly
-  double a = 0.5, b = 0.5, c = 0.5;
-  unsigned int N = 55;
-  unsigned int m = 6;
-  unsigned int nthreads = 6;
-  double ctol = 1e-14;
-  // Read the image
-  vtkNew<vtkJPEGReader> jpegReader;
-  jpegReader->SetFileName(argv[1]);
-  jpegReader->Update();
-  vtkSmartPointer<vtkImageData> imagedata = jpegReader->GetOutput(); 
-  std::cout << imagedata->GetPointData()->GetNumberOfTuples() << std::endl;
-  std::cout << imagedata->GetPointData()->GetNumberOfComponents() << std::endl;
-  // create cubic interpolator on image
-   vtkSmartPointer<vtkImageInterpolator> interpolator = 
-    vtkSmartPointer<vtkImageInterpolator>::New();
-  interpolator->Initialize(imagedata);
-  interpolator->SetInterpolationModeToCubic();
-  // get triangulation settings
-  unsigned int nSamp = static_cast<unsigned int>(atoi(argv[2]));
-  unsigned int nRuns = static_cast<unsigned int>(atoi(argv[3]));
-  Triangulator* T = new Triangulator  ( N, m, a, b, c, nSamp, nRuns, 
-                                        "xtri_N55_n9_M91_m12.txt",
-                                        "ytri_N55_n9_M91_m12.txt",            
-                                        "wtri_N55_n9_M91_m12.txt",
-                                         imagedata, interpolator, nthreads);
-                      
-  T->run();
-  Compressor* C = new Compressor(T);
-  C->run(ctol);
-
-  /* testing ideas for decompression */
-  vtkSmartPointer<vtkCellTreeLocator> triloc =
-    vtkSmartPointer<vtkCellTreeLocator>::New();
-  triloc->SetDataSet(T->polytri1);
-  triloc->BuildLocator(); 
- 
-  vtkSmartPointer<vtkPoints> pixels = imagedata->GetPoints(); 
- 
-  std::map<int, std::vector<int>> pixInTri;
- 
-  double* pix; int triInd;
-  for (unsigned int ipt = 0; ipt < pixels->GetNumberOfPoints(); ++ipt)
-  {
-    triInd = triloc->FindCell(pixels->GetPoint(ipt));
-    pixInTri[triInd].push_back(ipt); 
-  } 
-
-  auto it = pixInTri.begin();
-  while (it != pixInTri.end())
-  {
-    std::cout << it->first << ": ";
-    for (unsigned int i = 0; i < it->second.size(); ++i)
-    {
-      std::cout << it->second[i] << " ";
-    }
-    std::cout << std::endl;
-  }  
-
-  /* ^ 
-       1) will need to create an empty imagedata with same dims
-          as original - gives pixel points.
-       2) create map between cell index (triangle) and 
-          the indices of pixel points in that triangle
-       3) use enconding we defined in vtp files to interpolate
-          using jacobi interp mat evauated on pixel points
-          in that triangle with coeffs in that tri 
-          (this uses the coeffs field array and offsets cell
-           array we stored in the vtp during compression)
-       4) This is to be stored as a vtkInt32/16/8 Array in vtkPointData
-          with each tuple having 3 components (1 for each channel)
-       5) Finally, we write it back to some lossless format like png
-          (NOTE: we don't want to write to a lossy compressed format) 
-  */
-
-  // write grids
-  writeVTP(T->polytri1, "test1.vtp");
-  writeVTP(T->polytri2, "test2.vtp");
-  writeVTP(T->polytri3, "test3.vtp");
- 
-  // Visualize
-  vtkNew<vtkImageViewer2> imageViewer;
-  imageViewer->SetInputData(imagedata);
-  vtkNew<vtkRenderWindowInteractor> renderWindowInteractor;
-  imageViewer->SetupInteractor(renderWindowInteractor);
-  imageViewer->Render();
-  imageViewer->GetRenderer()->ResetCamera();
-  imageViewer->GetRenderer()->SetBackground(
-      colors->GetColor3d("DarkSlateGray").GetData());
-  imageViewer->GetRenderWindow()->SetWindowName("JPEGReader");
-  imageViewer->Render();
-
-  renderWindowInteractor->Start();
-
-  // clean
-  delete T;
-  delete C;
 
   return EXIT_SUCCESS;
 }
@@ -236,3 +221,9 @@ int main(int argc, char* argv[])
   ////writer->SetDataModeToBinary();
   //writer->SetDataModeToAscii();
   //writer->Write();
+
+
+    //std::cout << imagedata->GetPointData()->GetNumberOfTuples() << std::endl;
+    //std::cout << imagedata->GetPointData()->GetNumberOfComponents() << std::endl;
+    //std::cout << imagedata->GetScalarTypeAsString() << std::endl;
+    //std::cout << imagedata->GetNumberOfScalarComponents() << std::endl;

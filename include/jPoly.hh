@@ -361,7 +361,7 @@ class jPoly
     }
     
     // compute only the first (m+1)*(m+2)/2 coeffs with m <= n
-    void computeCoeffsM(T* F, T* X, T* Y, T* W, T* cF, unsigned int m)
+    void computeCoeffsM(T* F, T* X, T* Y, T* W, T* cF, unsigned int m, bool hasweights)
     {
       if (m > n)
       {
@@ -373,10 +373,13 @@ class jPoly
       {
         unsigned int Mp = static_cast<unsigned int>(0.5 * (m + 1) * (m + 2));
         this->computeV(X,Y);
-        #pragma omp simd
-        for (unsigned int i = 0; i < Nx; ++i)
+        if (not hasweights)
         {
-          F[i] *= W[i];
+          #pragma omp simd
+          for (unsigned int i = 0; i < Nx; ++i)
+          {
+            F[i] *= W[i];
+          }
         }
         if (std::is_same_v<T, double>)
         {
