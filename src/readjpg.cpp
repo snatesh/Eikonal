@@ -105,7 +105,7 @@ int main(int argc, char* argv[])
     // test decompressor reading
     Decompressor* D = new Decompressor ( "test1.vtp", "test2.vtp", "test3.vtp" );
     D->run();
-    D->writeImage("test.png");
+    D->writeImage("test.tiff");
     delete D;
   }
   else

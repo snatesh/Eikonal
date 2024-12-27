@@ -6,6 +6,7 @@
 #include <vtkCellTreeLocator.h>
 #include <vtkPNGWriter.h>
 #include <vtkImageCast.h>
+#include <vtkTIFFWriter.h>
 
 vtkSmartPointer<vtkDelaunay2D> triangulateUniform ( int* dims, 
                                                     double* origin,
@@ -400,7 +401,8 @@ void Compressor::compressChannel  ( unsigned int channel, double blknormtol )
       vals by quadrature weights 
       ONLY on first run */
     bool hasweights = false;
-    m = 1; double blknorm; 
+    m = 1; double blknorm;
+    m = mmax; 
     while (m <= mmax)
     {
       unsigned int M = static_cast<unsigned int>(0.5 * (m + 1) * (m + 2));
@@ -525,11 +527,18 @@ void Decompressor::writeImage(const char* fname)
   cast->SetOutputScalarTypeToUnsignedChar();
   cast->Update(); 
   
-  vtkSmartPointer<vtkPNGWriter> png = vtkSmartPointer<vtkPNGWriter>::New();
+  //vtkSmartPointer<vtkPNGWriter> png = vtkSmartPointer<vtkPNGWriter>::New();
+  //vtkSmartPointer<vtkImageData> imagecast = cast->GetOutput();
+  //png->SetFileName(fname);
+  //png->SetInputData(imagecast);
+  //png->Write(); 
+  vtkSmartPointer<vtkTIFFWriter> tiff = vtkSmartPointer<vtkTIFFWriter>::New();
   vtkSmartPointer<vtkImageData> imagecast = cast->GetOutput();
-  png->SetFileName(fname);
-  png->SetInputData(imagecast);
-  png->Write(); 
+  tiff->SetFileName(fname);
+  tiff->SetInputData(imagecast);
+  tiff->SetCompression(vtkTIFFWriter::NoCompression);
+  tiff->Write(); 
+ 
 }
 
 void Decompressor::decompressChannel( unsigned int channel )
@@ -584,6 +593,7 @@ void Decompressor::decompressChannel( unsigned int channel )
   for (int ipt = 0; ipt < pixels->GetNumberOfPoints(); ++ipt)
   {
     triInd = triloc->FindCell(pixels->GetPoint(ipt));
+    if (triInd == - 1) { std::cout << "not in cell " << ipt << std::endl; }
     pixInTri[triInd].push_back(ipt);
   } 
 
@@ -603,7 +613,7 @@ void Decompressor::decompressChannel( unsigned int channel )
   double* rspix = (double*) calloc(maxpix * 2, sizeof(double));  
   double* img = (double*) calloc(maxpix, sizeof(double));
   // iterate over triangles
-  vtkSmartPointer<vtkIdList> ptids = vtkSmartPointer<vtkIdList>::New();
+
   double v1t[3], v2t[3], v3t[3], x[3], r[3], tmpwts[3], dist2;
   int offset, npix, subid;
   unsigned int m, M;
@@ -612,7 +622,10 @@ void Decompressor::decompressChannel( unsigned int channel )
   while (it != pixInTri.end())
   {
     // get tri verts
-    polytri->GetCellPoints(it->first, ptids);
+    vtkSmartPointer<vtkIdList> ptids = vtkSmartPointer<vtkIdList>::New();
+    std::cout << it->first << std::endl;
+    polytri->GetCellPoints(it->first, ptids); vtkIndent indent;
+    ptids->PrintSelf(std::cout, indent);
     polytri->GetPoints()->GetPoint(ptids->GetId(0), v1t);
     polytri->GetPoints()->GetPoint(ptids->GetId(1), v2t);
     polytri->GetPoints()->GetPoint(ptids->GetId(2), v3t);
@@ -623,8 +636,15 @@ void Decompressor::decompressChannel( unsigned int channel )
     for (unsigned int i = 0; i < npix; ++i)
     {
       pixels->GetPoint(it->second[i], x);
-      polytri->GetCell(it->first)->EvaluatePosition(x, nullptr, subid, r, dist2, tmpwts);
+      int ret = polytri->GetCell(it->first)->EvaluatePosition(x, nullptr, subid, r, dist2, tmpwts);
       rspix[i] = r[0]; rspix[i+npix] = r[1];
+      if (rspix[i] < 0 || rspix[i] > 1 || rspix[i+npix] < 0 || rspix[i+npix] > 1-rspix[i])
+      {
+        std::cerr << "outside of triangle" << std::endl;
+        std::cerr << rspix[i] << " " << rspix[i+npix] << " " 
+                  << ret << std::setprecision(17) 
+                  << rspix[i+npix]-(1-rspix[i]) << std::endl;
+      }
     }
 
     // get order and offset
@@ -642,6 +662,22 @@ void Decompressor::decompressChannel( unsigned int channel )
     // save the image data in channel
     for (unsigned int i = 0; i < npix; ++i)
     {
+      if (img[i] <= 0)
+      {
+        //std::cerr << "color is non-positive " << img[i] << std::endl;
+        // set to nearest non-negative color
+        for (unsigned int j = i; j < npix; ++j)
+        {
+          if (img[j] >= 0) { img[i] = img[j]; break; }
+        }
+        if (i == npix-1)
+        {
+          for (int j = i; j >= 0; --j)
+          {
+            if (img[j] >= 0) { img[i] = img[j]; break; }
+          }  
+        }
+      }
       color = static_cast<unsigned char>(std::round(img[i])); 
       colors->SetComponent(it->second[i], channel, color);
     } 

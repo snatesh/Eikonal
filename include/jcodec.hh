@@ -11,6 +11,7 @@
 #include <vtkImageData.h>
 #include <vtkDoubleArray.h>
 #include <vtkUnsignedCharArray.h>
+#include <vtkUnsignedShortArray.h>
 #include <vtkDataArray.h>
 #include <vtkPointData.h>
 #include <vtkIntArray.h>
@@ -100,21 +101,6 @@ struct Compressor
 
 };
 
-/*  
-     1) will need to create an empty imagedata with same dims
-        as original - gives pixel points.
-     2) create map between cell index (triangle) and 
-        the indices of pixel points in that triangle
-     3) use enconding we defined in vtp files to interpolate
-        using jacobi interp mat evauated on pixel points
-        in that triangle with coeffs in that tri 
-        (this uses the coeffs field array and offsets cell
-         array we stored in the vtp during compression)
-     4) This is to be stored as a vtkInt32/16/8 Array in vtkPointData
-        with each tuple having 3 components (1 for each channel)
-     5) Finally, we write it back to some lossless format like png
-        (NOTE: we don't want to write to a lossy compressed format) 
-*/
 struct Decompressor
 {
   vtkSmartPointer<vtkPolyData> polytri1, polytri2, polytri3; 
