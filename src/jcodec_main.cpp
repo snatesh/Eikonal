@@ -26,22 +26,26 @@ void writeVTP(vtkSmartPointer<vtkPolyData> polytri, const char* ofname)
 int usage(char* argv[])
 {
   std::cout << "Usage: " << argv[0]
-            << " mode args\n"
-            << " if (mode=0), args = filename.jpg nSamp nRuns ctol \n"
-            << " if (mode=1), args = channel1.vtp channel2.vtp channel3.vtp\n";
+            << " mode multichannel args\n"
+            << " if (mode=0), args = filename.jpg nSamp nRuns \n"
+            << " if (mode=1) and (multichannel=1), args = channel1.vtp channel2.vtp channel3.vtp\n"
+            << " if (mode=1) and (multichannel=0), args = channel123.vtp\n";
   return EXIT_FAILURE;
 
 }
 
 int main(int argc, char* argv[])
 {
-  if (argc == 1) { return usage(argv); }
-  unsigned int mode = static_cast<unsigned int>(atoi(argv[1]));
-  if (mode != 0 && mode != 1 || argc == 1)
-  {
-    return usage(argv);
-  }
+  if (argc < 4) { return usage(argv); }
   
+  unsigned int mode = static_cast<unsigned int>(atoi(argv[1]));
+  
+  if (mode != 0 && mode != 1) { return usage(argv); }
+  
+  bool useMultiChannel = static_cast<bool>(atoi(argv[2]));
+  
+  if (useMultiChannel != 0 && useMultiChannel != 1) { return usage(argv); }
+
   if (mode == 0)
   {
     if (argc != 6) { return usage(argv); }
@@ -49,13 +53,11 @@ int main(int argc, char* argv[])
     double a = 0.5, b = 0.5, c = 0.5;
     unsigned int N = 55;
     unsigned int m = 6;
-    unsigned int nthreads = 1;
-    double ctol = atof(argv[5]);
     // Read the image
-    vtkSmartPointer<vtkPNGReader> pngReader = vtkSmartPointer<vtkPNGReader>::New();
-    pngReader->SetFileName(argv[2]);
-    pngReader->Update();
-    vtkSmartPointer<vtkImageData> imagedata = pngReader->GetOutput(); 
+    vtkSmartPointer<vtkPNGReader> reader = vtkSmartPointer<vtkPNGReader>::New();
+    reader->SetFileName(argv[3]);
+    reader->Update();
+    vtkSmartPointer<vtkImageData> imagedata = reader->GetOutput(); 
     
     // View the image
     vtkNew<vtkNamedColors> colors;
@@ -67,7 +69,7 @@ int main(int argc, char* argv[])
     imageViewer->GetRenderer()->ResetCamera();
     imageViewer->GetRenderer()->SetBackground(
         colors->GetColor3d("DarkSlateGray").GetData());
-    imageViewer->GetRenderWindow()->SetWindowName("JPEGReader");
+    imageViewer->GetRenderWindow()->SetWindowName(argv[3]);
     imageViewer->Render();
     renderWindowInteractor->Start();
 
@@ -78,51 +80,66 @@ int main(int argc, char* argv[])
     interpolator->SetInterpolationModeToCubic();
     
     // get triangulation settings
-    unsigned int nSamp = static_cast<unsigned int>(atoi(argv[3]));
-    unsigned int nRuns = static_cast<unsigned int>(atoi(argv[4]));
+    unsigned int nSamp = static_cast<unsigned int>(atoi(argv[4]));
+    unsigned int nRuns = static_cast<unsigned int>(atoi(argv[5]));
     
     // triangulate
     Triangulator* T = new Triangulator  ( N, m, a, b, c, nSamp, nRuns, 
                                           "xtri_N55_n9_M91_m12.txt",
                                           "ytri_N55_n9_M91_m12.txt",            
                                           "wtri_N55_n9_M91_m12.txt",
-                                           imagedata, interpolator, nthreads);
+                                          imagedata, interpolator, 
+                                          useMultiChannel );
     T->run();
 
+  
     // compress
     Compressor* C = new Compressor(T);
-    C->run(ctol);
+    C->run();
 
+  
     // write grids with compressed data
-    writeVTP(T->polytri1, "channel1.vtp");
-    writeVTP(T->polytri2, "channel2.vtp");
-    writeVTP(T->polytri3, "channel3.vtp");
-
+    if (useMultiChannel)
+    {
+      writeVTP(T->polytri1, "channel1.vtp");
+      writeVTP(T->polytri2, "channel2.vtp");
+      writeVTP(T->polytri3, "channel3.vtp");
+    }
+    else
+    {
+      writeVTP(T->polytri, "channel123.vtp");
+    }
     // clean
     delete T;
     delete C;
   }
   else if (mode == 1)
   {
-    if (argc != 5) { return usage(argv); }
-    const char *channel1, *channel2, *channel3;
-    channel1 = argv[2];
-    channel2 = argv[3];
-    channel3 = argv[4];
-    unsigned int nthreads = 1;
-    // test decompressor reading
-    Decompressor* D = new Decompressor ( channel1, channel2, channel3 );
-    D->run(nthreads);
+    if (argc != 6 && argc != 4) { return usage(argv); }
+    // test decompressor 
+    Decompressor* D;
+    if (useMultiChannel)
+    {
+      if (argc != 6) { return usage(argv); }
+      const char *channel1, *channel2, *channel3;
+      channel1 = argv[2];
+      channel2 = argv[3];
+      channel3 = argv[4];
+      D = new Decompressor ( useMultiChannel, channel1, channel2, channel3 );
+    }
+    else
+    {
+      if (argc != 4) { return usage(argv); }
+      const char* channel = argv[3];
+      D = new Decompressor ( useMultiChannel, channel ); 
+    }
+    D->run();
     D->writeImage("test.tiff");
     delete D;
   }
   else
   {
-    std::cout << "Usage: " << argv[0]
-              << " mode args\n "
-              << "if (mode=0), args = filename.jpg nSamp nRuns\n"
-              << "if (mode=1), args = channel1.vtp channel2.vtp channel3.vtp\n";
-    return EXIT_FAILURE;
+    return usage(argv);
   }
 
   return EXIT_SUCCESS;

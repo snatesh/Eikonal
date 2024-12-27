@@ -67,12 +67,12 @@ Triangulator::Triangulator  ( unsigned int _N, unsigned int _m,
                               const std::string& _triy,
                               const std::string& _triw,
                               vtkSmartPointer<vtkImageData> _imagedata,
-                              vtkSmartPointer<vtkImageInterpolator> _interpolator, 
-                              unsigned int _nthreads )
+                              vtkSmartPointer<vtkImageInterpolator> _interpolator,
+                              bool _useMultiChannel )
   : N(_N), m(_m), a(_a), b(_b), c(_c), nSamp(_nSamp), nRuns(_nRuns),
-    trix(_trix), triy(_triy), triw(_triw), 
-    nthreads(_nthreads)
+    trix(_trix), triy(_triy), triw(_triw), useMultiChannel(_useMultiChannel)
   {
+    unsigned int nthreads = 1;
     this->M = static_cast<unsigned int>(0.5 * (m + 1) * (m + 2));
     this->Pm = new jPoly<double>(N, m, a, b, c, nthreads); 
     this->Pmx = new jPoly<double>(N, m, a+1, b, c+1, nthreads); 
@@ -112,15 +112,18 @@ Triangulator::Triangulator  ( unsigned int _N, unsigned int _m,
     // triangulate uniform subsampled grid on image
     vtkSmartPointer<vtkDelaunay2D> triangulator = 
       triangulateUniform(dims, origin, nSamp);
-    vtkSmartPointer<vtkPolyData> polytri = triangulator->GetOutput();
+    polytri = triangulator->GetOutput();
     std::cout << "Num cells on subsampled grid: " 
               << polytri->GetNumberOfCells() << std::endl;
-    this->polytri1 = vtkSmartPointer<vtkPolyData>::New();
-    this->polytri2 = vtkSmartPointer<vtkPolyData>::New();
-    this->polytri3 = vtkSmartPointer<vtkPolyData>::New();
-    this->polytri1->DeepCopy(polytri);
-    this->polytri2->DeepCopy(polytri);
-    this->polytri3->DeepCopy(polytri);
+    if (useMultiChannel)
+    { 
+      this->polytri1 = vtkSmartPointer<vtkPolyData>::New();
+      this->polytri2 = vtkSmartPointer<vtkPolyData>::New();
+      this->polytri3 = vtkSmartPointer<vtkPolyData>::New();
+      this->polytri1->DeepCopy(polytri);
+      this->polytri2->DeepCopy(polytri);
+      this->polytri3->DeepCopy(polytri);
+    }
   }
 
 Triangulator::~Triangulator()
@@ -142,26 +145,9 @@ Triangulator::~Triangulator()
   if (interpc) { free(interpc); }
 }
 
-vtkSmartPointer<vtkDelaunay2D> Triangulator::triangulateEntropy ( double* intgn, unsigned int channel  )
+double Triangulator::triangulateEntropy_help  ( double* intgn, unsigned int channel,
+                                                vtkSmartPointer<vtkPolyData> polytri )
 {
-  vtkSmartPointer<vtkPolyData> polytri;
-  switch (channel)
-  { 
-    case 0:
-      polytri = polytri1;
-      break;
-    case 1:
-      polytri = polytri2;
-      break;
-    case 2:
-      polytri = polytri3;
-      break;
-    default:
-    {
-      std::cerr << "channel must be 0,1,2\n"; 
-      exit(1);
-    }
-  }
   double v1t[3], v2t[3], v3t[3], tmpwts[3];
   double xqtr[3], xqt[3]; xqtr[2] = 0; xqt[2] = 0;
   double invIxe[4], gradnorm;
@@ -229,15 +215,60 @@ vtkSmartPointer<vtkDelaunay2D> Triangulator::triangulateEntropy ( double* intgn,
   
   ave /= polytri->GetNumberOfCells();
 
+  return ave;
+}
+
+vtkSmartPointer<vtkDelaunay2D> Triangulator::triangulateEntropy ( double* intgn, unsigned int channel  )
+{
+  vtkSmartPointer<vtkPolyData> polytri;
+  double ave;
+  if (useMultiChannel)
+  {
+    switch (channel)
+    { 
+      case 0:
+        polytri = polytri1;
+        break;
+      case 1:
+        polytri = polytri2;
+        break;
+      case 2:
+        polytri = polytri3;
+        break;
+      default:
+      {
+        std::cerr << "channel must be 0,1,2\n"; 
+        exit(1);
+      }
+    }
+    ave = triangulateEntropy_help ( intgn, channel, polytri );
+  }
+  else
+  {
+    polytri = this->polytri;
+    double* intgn1 = (double*) calloc(polytri->GetNumberOfCells(), sizeof(double));
+    double* intgn2 = (double*) calloc(polytri->GetNumberOfCells(), sizeof(double));
+    ave = ( triangulateEntropy_help ( intgn,  0, polytri ) +
+            triangulateEntropy_help ( intgn1, 1, polytri ) +
+            triangulateEntropy_help ( intgn2, 2, polytri )  ) / 3.0;
+    for (unsigned int i = 0; i < polytri->GetNumberOfCells(); ++i)
+    {
+      intgn[i] += intgn1[i] + intgn2[i];
+      intgn[i] /= 3.0;
+    }
+    free(intgn1);
+    free(intgn2);
+  }
+
   vtkSmartPointer<vtkIncrementalOctreePointLocator> locator = 
     vtkSmartPointer<vtkIncrementalOctreePointLocator>::New();
   
   locator->SetDataSet(polytri);
   locator->BuildLocator();
-  ptids->Reset();
   double v1r[3] = {0.5, 0, 0};
   double v2r[3] = {0.5, 0.5, 0};
   double v3r[3] = {0, 0.5, 0};
+  double v1t[3], v2t[3], v3t[3], tmpwts[3];
   vtkIdType ptid; int subid;
   for (int icell = 0; icell < polytri->GetNumberOfCells(); ++icell)
   {
@@ -262,36 +293,72 @@ vtkSmartPointer<vtkDelaunay2D> Triangulator::triangulateEntropy ( double* intgn,
 
 void Triangulator::run()
 {
-  for (unsigned int iRun = 0; iRun < nRuns; ++iRun)
+  if (useMultiChannel)
   {
-    double* intgn1 = (double*) calloc(polytri1->GetNumberOfCells(), sizeof(double));
-    double* intgn2 = (double*) calloc(polytri2->GetNumberOfCells(), sizeof(double));
-    double* intgn3 = (double*) calloc(polytri3->GetNumberOfCells(), sizeof(double));
-    vtkSmartPointer<vtkDelaunay2D> triangulator1 = triangulateEntropy ( intgn1, 0 );
-    vtkSmartPointer<vtkDelaunay2D> triangulator2 = triangulateEntropy ( intgn2, 1 );
-    vtkSmartPointer<vtkDelaunay2D> triangulator3 = triangulateEntropy ( intgn3, 2 );
+    for (unsigned int iRun = 0; iRun < nRuns; ++iRun)
+    {
+      double* intgn1 = (double*) calloc(polytri1->GetNumberOfCells(), sizeof(double));
+      double* intgn2 = (double*) calloc(polytri2->GetNumberOfCells(), sizeof(double));
+      double* intgn3 = (double*) calloc(polytri3->GetNumberOfCells(), sizeof(double));
+      vtkSmartPointer<vtkDelaunay2D> triangulator1 = triangulateEntropy ( intgn1, 0 );
+      vtkSmartPointer<vtkDelaunay2D> triangulator2 = triangulateEntropy ( intgn2, 1 );
+      vtkSmartPointer<vtkDelaunay2D> triangulator3 = triangulateEntropy ( intgn3, 2 );
 
-    polytri1 = triangulator1->GetOutput();
-    polytri2 = triangulator2->GetOutput();
-    polytri3 = triangulator3->GetOutput();
-    free(intgn1);
-    free(intgn2);
-    free(intgn3);
-    std::cout << "Refinement step: " << iRun << std::endl;
-    std::cout << "Num cells on each grid: "
-              << polytri1->GetNumberOfCells() << ", "
-              << polytri2->GetNumberOfCells() << ", "
-              << polytri3->GetNumberOfCells() << "\n\n";
+      polytri1 = triangulator1->GetOutput();
+      polytri2 = triangulator2->GetOutput();
+      polytri3 = triangulator3->GetOutput();
+      free(intgn1);
+      free(intgn2);
+      free(intgn3);
+      std::cout << "Refinement step: " << iRun << std::endl;
+      std::cout << "Num cells on each grid: "
+                << polytri1->GetNumberOfCells() << ", "
+                << polytri2->GetNumberOfCells() << ", "
+                << polytri3->GetNumberOfCells() << "\n\n";
+    }
+  }
+  else
+  {
+    for (unsigned int iRun = 0; iRun < nRuns; ++iRun)
+    {
+      double* intgn = (double*) calloc(polytri->GetNumberOfCells(), sizeof(double));
+      vtkSmartPointer<vtkDelaunay2D> triangulator = triangulateEntropy ( intgn, 0 );
+      polytri = triangulator->GetOutput();
+      free(intgn);
+      std::cout << "Refinement step: " << iRun << std::endl;
+      std::cout << "Num cells on grid: "
+                << polytri->GetNumberOfCells() << "\n\n";
+    }
   }
 }
 
 Compressor::Compressor  ( Triangulator* T )
 {
-  this->polytri1 = T->polytri1; 
-  this->polytri2 = T->polytri2; 
-  this->polytri3 = T->polytri3;
+  unsigned int nthreads = 1;
+  this->useMultiChannel = T->useMultiChannel;
+  if (useMultiChannel)
+  { 
+    this->polytri1 = T->polytri1; 
+    this->polytri2 = T->polytri2; 
+    this->polytri3 = T->polytri3;
+    this->coeffs1 = vtkSmartPointer<vtkDoubleArray>::New();
+    this->coeffs2 = vtkSmartPointer<vtkDoubleArray>::New();
+    this->coeffs3 = vtkSmartPointer<vtkDoubleArray>::New();
+    this->offsets1 = vtkSmartPointer<vtkIntArray>::New();
+    this->offsets2 = vtkSmartPointer<vtkIntArray>::New();
+    this->offsets3 = vtkSmartPointer<vtkIntArray>::New();
+    this->orders1 = vtkSmartPointer<vtkUnsignedIntArray>::New();
+    this->orders2 = vtkSmartPointer<vtkUnsignedIntArray>::New();
+    this->orders3 = vtkSmartPointer<vtkUnsignedIntArray>::New();
+  }
+  else
+  {
+    this->polytri = T->polytri;
+    this->coeffs = vtkSmartPointer<vtkDoubleArray>::New();
+    this->offsets = vtkSmartPointer<vtkIntArray>::New();
+    this->orders = vtkSmartPointer<vtkUnsignedIntArray>::New();
+  }
   this->interpolator = T->interpolator;
-  this->nthreads = T->nthreads; 
   this->R = (double*) calloc(this->N, sizeof(double));
   this->S = (double*) calloc(this->N, sizeof(double));
   this->W = (double*) calloc(this->N, sizeof(double));
@@ -302,16 +369,6 @@ Compressor::Compressor  ( Triangulator* T )
   // storage buffer for img coefs
   this->cimg = (double*) calloc(Mmax, sizeof(double)); 
   readQuad(trix, triy, triw, N, R, S, W);
-  this->coeffs1 = vtkSmartPointer<vtkDoubleArray>::New();
-  this->coeffs2 = vtkSmartPointer<vtkDoubleArray>::New();
-  this->coeffs3 = vtkSmartPointer<vtkDoubleArray>::New();
-  this->offsets1 = vtkSmartPointer<vtkIntArray>::New();
-  this->offsets2 = vtkSmartPointer<vtkIntArray>::New();
-  this->offsets3 = vtkSmartPointer<vtkIntArray>::New();
-  this->orders1 = vtkSmartPointer<vtkUnsignedIntArray>::New();
-  this->orders2 = vtkSmartPointer<vtkUnsignedIntArray>::New();
-  this->orders3 = vtkSmartPointer<vtkUnsignedIntArray>::New();
-  
 }
 
 Compressor::~Compressor()
@@ -323,53 +380,13 @@ Compressor::~Compressor()
   if (interpc) { free(interpc); interpc = 0; }
   if (cimg) { free(cimg); cimg = 0; }
 }
-void Compressor::compressChannel  ( unsigned int channel, double blknormtol )
-{
-  vtkSmartPointer<vtkPolyData> polytri;
-  vtkSmartPointer<vtkDoubleArray> coeffs;
-  vtkSmartPointer<vtkIntArray> offsets;
-  vtkSmartPointer<vtkUnsignedIntArray> orders;
-  switch (channel)
-  { 
-    case 0:
-    {
-      polytri = polytri1;
-      coeffs = coeffs1;
-      offsets = offsets1;
-      orders = orders1;
-      break;
-    }
-    case 1:
-    {
-      polytri = polytri2;
-      coeffs = coeffs2;
-      offsets = offsets2;
-      orders = orders2;
-      break;
-    }
-    case 2:
-    {
-      polytri = polytri3;
-      coeffs = coeffs3;
-      offsets = offsets3;
-      orders = orders3;
-      break;
-    }
-    default:
-    {
-      std::cerr << "channel must be 0,1,2\n"; 
-      exit(1);
-    }
-  }
-  offsets->SetName("offsets");
-  offsets->SetNumberOfComponents(1);
-  offsets->SetNumberOfTuples(polytri->GetNumberOfCells());
-  orders->SetName("orders");
-  orders->SetNumberOfComponents(1);
-  orders->SetNumberOfTuples(polytri->GetNumberOfCells());
-  coeffs->SetName("coeffs");
-  coeffs->SetNumberOfComponents(1);
 
+void Compressor::compressChannel_help ( unsigned int channel,
+                                        vtkSmartPointer<vtkPolyData> polytri,
+                                        vtkSmartPointer<vtkDoubleArray> coeffs,
+                                        vtkSmartPointer<vtkIntArray> offsets,
+                                        vtkSmartPointer<vtkUnsignedIntArray> orders )
+{
   double v1t[3], v2t[3], v3t[3], tmpwts[3];
   double xqtr[3], xqt[3]; xqtr[2] = 0; xqt[2] = 0;
   double invIxe[4], gradnorm;
@@ -407,93 +424,179 @@ void Compressor::compressChannel  ( unsigned int channel, double blknormtol )
     unsigned int M = static_cast<unsigned int>(0.5 * (m + 1) * (m + 2));
     unsigned int Mprev = static_cast<unsigned int>(0.5 * m * (m + 1));
     Pm->computeCoeffs(interpc, R, S, W, cimg);
-    for (unsigned int j = 0; j < Mmax; ++j)
+    if (useMultiChannel)
     {
-      coeffs->InsertNextValue(cimg[j]);
+      for (unsigned int j = 0; j < Mmax; ++j)
+      {
+        coeffs->InsertNextValue(cimg[j]);
+      }
+      offsets->SetValue(i, offset);
+      orders->SetValue(i, mmax);
     }
-    offsets->SetValue(i, offset);
-    orders->SetValue(i, mmax);
+    else
+    {
+      for (unsigned int j = 0; j < Mmax; ++j)
+      {
+        coeffs->InsertComponent(offset+j, channel, cimg[j]);
+      }
+      offsets->SetComponent(i, channel, offset);
+      orders->SetComponent(i, channel, mmax);
+    }
     offset += Mmax;
-    
-   
-    //while (m <= mmax)
-    //{
-    //  unsigned int M = static_cast<unsigned int>(0.5 * (m + 1) * (m + 2));
-    //  unsigned int Mprev = static_cast<unsigned int>(0.5 * m * (m + 1));
-    //  Pm->computeCoeffsM(interpc, R, S, W, cimg, m, hasweights);
-    //  hasweights = true;
-    //  blknorm = cblas_dnrm2(M-Mprev, cimg+Mprev, 1);
-    //  if (blknorm < blknormtol)
-    //  { 
-    //    for (unsigned int j = 0; j < M; ++j)
-    //    {
-    //      coeffs->InsertNextValue(cimg[j]);
-    //    }
-    //    offsets->SetValue(i, offset);
-    //    orders->SetValue(i, m);
-    //    offset += M;
-    //    break;
-    //  }
-    //  m += 2; 
-    //}
-    //// if blknormtol never statisfied
-    //if (m > mmax)
-    //{
-    //  for (unsigned int j = 0; j < Mmax; ++j)
-    //  {
-    //    coeffs->InsertNextValue(cimg[j]);
-    //  }
-    //  offsets->SetValue(i, offset);
-    //  orders->SetValue(i, mmax);
-    //  offset += Mmax;
-    //}
   }
+}
+
+void Compressor::compressChannel  ( unsigned int channel )
+{
+  vtkSmartPointer<vtkPolyData> polytri;
+  vtkSmartPointer<vtkDoubleArray> coeffs;
+  vtkSmartPointer<vtkIntArray> offsets;
+  vtkSmartPointer<vtkUnsignedIntArray> orders;
+  if (useMultiChannel)
+  {
+    switch (channel)
+    { 
+      case 0:
+      {
+        polytri = polytri1;
+        coeffs = coeffs1;
+        offsets = offsets1;
+        orders = orders1;
+        break;
+      }
+      case 1:
+      {
+        polytri = polytri2;
+        coeffs = coeffs2;
+        offsets = offsets2;
+        orders = orders2;
+        break;
+      }
+      case 2:
+      {
+        polytri = polytri3;
+        coeffs = coeffs3;
+        offsets = offsets3;
+        orders = orders3;
+        break;
+      }
+      default:
+      {
+        std::cerr << "channel must be 0,1,2\n"; 
+        exit(1);
+      }
+    }
+    offsets->SetName("offsets");
+    offsets->SetNumberOfComponents(1);
+    offsets->SetNumberOfTuples(polytri->GetNumberOfCells());
+    orders->SetName("orders");
+    orders->SetNumberOfComponents(1);
+    orders->SetNumberOfTuples(polytri->GetNumberOfCells());
+    coeffs->SetName("coeffs");
+    coeffs->SetNumberOfComponents(1);
+    compressChannel_help ( channel, polytri, coeffs, offsets, orders );
+  }
+  else
+  {
+    polytri = this->polytri;
+    coeffs = this->coeffs;
+    offsets = this->offsets;
+    orders = this->orders;
+    offsets->SetName("offsets");
+    offsets->SetNumberOfComponents(3);
+    offsets->SetNumberOfTuples(polytri->GetNumberOfCells());
+    orders->SetName("orders");
+    orders->SetNumberOfComponents(3);
+    orders->SetNumberOfTuples(polytri->GetNumberOfCells());
+    coeffs->SetName("coeffs");
+    coeffs->SetNumberOfComponents(3);
+    compressChannel_help ( 0, polytri, coeffs, offsets, orders );
+    compressChannel_help ( 1, polytri, coeffs, offsets, orders );
+    compressChannel_help ( 2, polytri, coeffs, offsets, orders );
+  }
+  
   polytri->GetFieldData()->AddArray(coeffs);
   polytri->GetCellData()->AddArray(offsets); 
   polytri->GetCellData()->AddArray(orders); 
 }
 
-void Compressor::run  ( double ctol  )
-{ 
-  compressChannel(0, ctol);
-  std::cout << "compressed channel 1" << std::endl;
-  compressChannel(1, ctol);
-  std::cout << "compressed channel 2" << std::endl;
-  compressChannel(2, ctol);
-  std::cout << "compressed channel 3" << std::endl;
+void Compressor::run  ( )
+{
+  if (useMultiChannel)
+  { 
+    compressChannel(0);
+    std::cout << "compressed channel 1" << std::endl;
+    compressChannel(1);
+    std::cout << "compressed channel 2" << std::endl;
+    compressChannel(2);
+    std::cout << "compressed channel 3" << std::endl;
+  }
+  else
+  {
+    compressChannel(0);
+    std::cout << "compressed all channels" << std::endl;
+  }
 }
 
-Decompressor::Decompressor  ( const char* channel1, 
+Decompressor::Decompressor  ( bool _useMultiChannel,
+                              const char* channel1, 
                               const char* channel2, 
-                              const char* channel3 )
+                              const char* channel3  )
 {
-  // read compressed channel files
-  vtkSmartPointer<vtkXMLPolyDataReader> reader1 =
-    vtkSmartPointer<vtkXMLPolyDataReader>::New();
-  vtkSmartPointer<vtkXMLPolyDataReader> reader2 =
-    vtkSmartPointer<vtkXMLPolyDataReader>::New();
-  vtkSmartPointer<vtkXMLPolyDataReader> reader3 =
-    vtkSmartPointer<vtkXMLPolyDataReader>::New();
 
-  reader1->SetFileName(channel1); reader1->Update();
-  reader2->SetFileName(channel2); reader2->Update();
-  reader3->SetFileName(channel3); reader3->Update();
+  if (_useMultiChannel && (!channel2 || !channel3))
+  {
+    std::cerr << "missing channel files" << std::endl;
+  }
+  this->useMultiChannel = _useMultiChannel;
 
-  this->polytri1 = reader1->GetOutput();
-  this->polytri2 = reader2->GetOutput();
-  this->polytri3 = reader3->GetOutput();
-  // read coefficient and offset arrays
-  this->offsets1 = vtkIntArray::SafeDownCast(polytri1->GetCellData()->GetAbstractArray(0));
-  this->offsets2 = vtkIntArray::SafeDownCast(polytri2->GetCellData()->GetAbstractArray(0));
-  this->offsets3 = vtkIntArray::SafeDownCast(polytri3->GetCellData()->GetAbstractArray(0));
-  this->orders1 = vtkUnsignedIntArray::SafeDownCast(polytri1->GetCellData()->GetAbstractArray(1));
-  this->orders2 = vtkUnsignedIntArray::SafeDownCast(polytri2->GetCellData()->GetAbstractArray(1));
-  this->orders3 = vtkUnsignedIntArray::SafeDownCast(polytri3->GetCellData()->GetAbstractArray(1));
-  this->coeffs1 = vtkDoubleArray::SafeDownCast(polytri1->GetFieldData()->GetAbstractArray(0));
-  this->coeffs2 = vtkDoubleArray::SafeDownCast(polytri2->GetFieldData()->GetAbstractArray(0));
-  this->coeffs3 = vtkDoubleArray::SafeDownCast(polytri3->GetFieldData()->GetAbstractArray(0));
-  // initialize decompressed image data
-  polytri1->GetBounds(this->bounds);
+  if (useMultiChannel)
+  {
+    // read compressed channel files
+    vtkSmartPointer<vtkXMLPolyDataReader> reader1 =
+      vtkSmartPointer<vtkXMLPolyDataReader>::New();
+    vtkSmartPointer<vtkXMLPolyDataReader> reader2 =
+      vtkSmartPointer<vtkXMLPolyDataReader>::New();
+    vtkSmartPointer<vtkXMLPolyDataReader> reader3 =
+      vtkSmartPointer<vtkXMLPolyDataReader>::New();
+
+    reader1->SetFileName(channel1); reader1->Update();
+    reader2->SetFileName(channel2); reader2->Update();
+    reader3->SetFileName(channel3); reader3->Update();
+
+    this->polytri1 = reader1->GetOutput();
+    this->polytri2 = reader2->GetOutput();
+    this->polytri3 = reader3->GetOutput();
+    // read coefficient and offset arrays
+    this->offsets1 = vtkIntArray::SafeDownCast(polytri1->GetCellData()->GetAbstractArray(0));
+    this->offsets2 = vtkIntArray::SafeDownCast(polytri2->GetCellData()->GetAbstractArray(0));
+    this->offsets3 = vtkIntArray::SafeDownCast(polytri3->GetCellData()->GetAbstractArray(0));
+    this->orders1 = vtkUnsignedIntArray::SafeDownCast(polytri1->GetCellData()->GetAbstractArray(1));
+    this->orders2 = vtkUnsignedIntArray::SafeDownCast(polytri2->GetCellData()->GetAbstractArray(1));
+    this->orders3 = vtkUnsignedIntArray::SafeDownCast(polytri3->GetCellData()->GetAbstractArray(1));
+    this->coeffs1 = vtkDoubleArray::SafeDownCast(polytri1->GetFieldData()->GetAbstractArray(0));
+    this->coeffs2 = vtkDoubleArray::SafeDownCast(polytri2->GetFieldData()->GetAbstractArray(0));
+    this->coeffs3 = vtkDoubleArray::SafeDownCast(polytri3->GetFieldData()->GetAbstractArray(0));
+    // initialize decompressed image data
+    polytri1->GetBounds(this->bounds);
+  }
+  else
+  {
+    // read compressed channel file
+    vtkSmartPointer<vtkXMLPolyDataReader> reader =
+      vtkSmartPointer<vtkXMLPolyDataReader>::New();
+
+    reader->SetFileName(channel1); reader->Update();
+
+    this->polytri = reader->GetOutput();
+    // read coefficient and offset arrays
+    this->offsets = vtkIntArray::SafeDownCast(polytri->GetCellData()->GetAbstractArray(0));
+    this->orders = vtkUnsignedIntArray::SafeDownCast(polytri->GetCellData()->GetAbstractArray(1));
+    this->coeffs = vtkDoubleArray::SafeDownCast(polytri->GetFieldData()->GetAbstractArray(0));
+    // initialize decompressed image data
+    polytri->GetBounds(this->bounds);
+  }
+  
   this->imagedata = vtkSmartPointer<vtkImageData>::New();
   int dims[3]; 
   dims[0] = bounds[1]+1; dims[1] = bounds[3]+1; dims[2] = 1;
@@ -527,10 +630,9 @@ Decompressor::Decompressor  ( const char* channel1,
   this->colors->SetName("colors");
   this->colors->SetNumberOfComponents(3);
   this->colors->SetNumberOfTuples(imagedata->GetNumberOfPoints());
-
 }
 
-void Decompressor::writeImage(const char* fname)
+void Decompressor::writeImage ( const char* fname )
 {
   imagedata->GetPointData()->AddArray(colors);
   imagedata->GetPointData()->SetActiveScalars("colors"); 
@@ -554,46 +656,17 @@ void Decompressor::writeImage(const char* fname)
  
 }
 
-void Decompressor::decompressChannel( unsigned int channel )
+void Decompressor::decompressChannel_help ( unsigned int channel,
+                                            vtkSmartPointer<vtkPolyData> polytri,
+                                            vtkSmartPointer<vtkDoubleArray> coeffs,
+                                            vtkSmartPointer<vtkIntArray> offsets,
+                                            vtkSmartPointer<vtkUnsignedIntArray> orders )
 {
-  vtkSmartPointer<vtkPolyData> polytri;
-  vtkSmartPointer<vtkDoubleArray> coeffs;
-  vtkSmartPointer<vtkIntArray> offsets;
-  vtkSmartPointer<vtkUnsignedIntArray> orders;
-
-  switch (channel)
-  { 
-    case 0:
-    {
-      polytri = polytri1;
-      coeffs = coeffs1;
-      offsets = offsets1;
-      orders = orders1;
-      break;
-    }
-    case 1:
-    {
-      polytri = polytri2;
-      coeffs = coeffs2;
-      offsets = offsets2;
-      orders = orders2;
-      break;
-    }
-    case 2:
-    {
-      polytri = polytri3;
-      coeffs = coeffs3;
-      offsets = offsets3;
-      orders = orders3;
-      break;
-    }
-    default:
-    {
-      std::cerr << "channel must be 0,1,2\n"; 
-      exit(1);
-    }
+  double* cimg;
+  if (not useMultiChannel)
+  {
+    cimg = (double*) calloc(Mmax, sizeof(double)); 
   }
-
   // build locator on image triangulation
   vtkSmartPointer<vtkCellTreeLocator> triloc =
     vtkSmartPointer<vtkCellTreeLocator>::New();
@@ -625,71 +698,89 @@ void Decompressor::decompressChannel( unsigned int channel )
   // allocate buffer for pixels in tri to ref 
   double* rspix = (double*) calloc(maxpix * 2, sizeof(double));  
   double* img = (double*) calloc(maxpix, sizeof(double));
-  jPoly<double>* Pm = new jPoly<double>(maxpix, mmax, a, b, c, nthreads); 
+  // large buffer jacobi interp op
+  jPoly<double>* Pm = new jPoly<double>(maxpix, mmax, a, b, c, 1); 
+  
   // iterate over triangles
-
   double v1t[3], v2t[3], v3t[3], tmpwts[3], r[3], dist2;
   int offset, npix, subid;
   unsigned int m, M;
   unsigned short color;
-  //timer clock;
   for (it = pixInTri.begin(); it != pixInTri.end(); ++it)
   {
     // get tri verts
     vtkSmartPointer<vtkIdList> ptids = vtkSmartPointer<vtkIdList>::New();
-    polytri->GetCellPoints(it->first, ptids); vtkIndent indent;
-    //ptids->PrintSelf(std::cout, indent);
+    polytri->GetCellPoints(it->first, ptids);
     polytri->GetPoints()->GetPoint(ptids->GetId(0), v1t);
     polytri->GetPoints()->GetPoint(ptids->GetId(1), v2t);
     polytri->GetPoints()->GetPoint(ptids->GetId(2), v3t);
     
     // get pixels inside current triangle
     // and get position in reference
-    //clock.tic();
     npix = it->second.size();
     for (unsigned int i = 0; i < npix; ++i)
     { 
       polytri->GetCell(it->first)->EvaluatePosition(pixels->GetPoint(it->second[i]), nullptr, subid, r, dist2, tmpwts);
       rspix[i] = r[0]; rspix[i+npix] = r[1];
-      //if (rspix[i] < 0 || rspix[i] > 1 || rspix[i+npix] < 0 || rspix[i+npix] > 1-rspix[i])
-      //{
-      //  std::cerr << "outside of triangle" << std::endl;
-      //  std::cerr << rspix[i] << " " << rspix[i+npix] << " " 
-      //            << ret << std::setprecision(17) 
-      //            << rspix[i+npix]-(1-rspix[i]) << std::endl;
-      //}
+
     }
-    //std::cout << "time to find pix in tri: " << clock.toc() << std::endl;
 
-    // get order and offset
-
-    //clock.tic();
-    offset = offsets->GetTuple1(it->first);
-    m = orders->GetTuple1(it->first); 
-    M = static_cast<unsigned int>(0.5 * (m + 1) * (m + 2));
     // compute jpoly interp matrix
     Pm->Nx = npix;
     Pm->computeV(rspix, rspix+npix);
-    //std::cout << "time to compute Pm: " << clock.toc() << std::endl;
-    //clock.tic();
-    // get coeffs and evaluate image over ref tri;
-    cblas_dgemv ( CblasColMajor, CblasNoTrans, 
-                  npix, M, 1.0, Pm->V, npix, 
-                  coeffs->GetPointer(offset), 1, 
-                  0.0, img, 1);
-    //std::cout << "time to eval img: " << clock.toc() << std::endl;
-
-    //clock.tic();
-    // save the image data in channel
-    for (unsigned int i = 0; i < npix; ++i)
+    
+    if (useMultiChannel)
     {
-      if (img[i] < 0) { img[i] = 0; }
-      if (img[i] > 255) { img[i] = 255; }
-      color = static_cast<unsigned short>(std::round(img[i])); 
-      colors->SetComponent(it->second[i], channel, color);
+      // get order and offset
+      offset = offsets->GetTuple1(it->first);
+      m = orders->GetTuple1(it->first); 
+      M = static_cast<unsigned int>(0.5 * (m + 1) * (m + 2));
+      // offset to correct channel coeffs
+      cimg = coeffs->GetPointer(offset);      
+      // evaluate image over ref tri;
+      cblas_dgemv ( CblasColMajor, CblasNoTrans, 
+                    npix, M, 1.0, Pm->V, npix, 
+                    cimg, 1, 0.0, img, 1);
+      
+      // save the image data in channel
+      for (unsigned int i = 0; i < npix; ++i)
+      {
+        if (img[i] < 0) { img[i] = 0; }
+        if (img[i] > 255) { img[i] = 255; }
+        color = static_cast<unsigned short>(std::round(img[i])); 
+        colors->SetComponent(it->second[i], channel, color);
+      }
     }
-    //std::cout << "time to save img: " << clock.toc() << "\n\n"; 
-    if (!(it->first % 100)) 
+    else
+    {
+      for (unsigned int ichannel = 0; ichannel < 3; ++ichannel)
+      {
+        // get order and offset
+        offset = offsets->GetComponent(it->first, ichannel);
+        m = orders->GetComponent(it->first, ichannel); 
+        M = static_cast<unsigned int>(0.5 * (m + 1) * (m + 2));
+        // copy correct channel coeffs
+        for (unsigned int i = 0; i < M; ++i)
+        {
+          cimg[i] = coeffs->GetComponent(offset+i, ichannel);
+        }
+        // evaluate image over ref tri;
+        cblas_dgemv ( CblasColMajor, CblasNoTrans, 
+                      npix, M, 1.0, Pm->V, npix, 
+                      cimg, 1, 0.0, img, 1);
+        
+        // save the image data in channel
+        for (unsigned int i = 0; i < npix; ++i)
+        {
+          if (img[i] < 0) { img[i] = 0; }
+          if (img[i] > 255) { img[i] = 255; }
+          color = static_cast<unsigned short>(std::round(img[i])); 
+          colors->SetComponent(it->second[i], ichannel, color);
+        }
+      } 
+    }
+    
+    if (!(it->first % 200)) 
     { 
       std::cout << "Progress : " << std::setprecision(2) 
                 << ((double)it->first / (double) pixInTri.size()) * 100 
@@ -700,17 +791,130 @@ void Decompressor::decompressChannel( unsigned int channel )
   free(rspix);
   free(img);
   delete Pm;
-
+  if (not useMultiChannel)
+  {
+    free(cimg);
+  }
 
 }
 
-void Decompressor::run( unsigned int _nthreads )
+void Decompressor::decompressChannel  ( unsigned int channel )
 {
-  this->nthreads = _nthreads;
-  decompressChannel(0);
-  std::cout << "decompressed channel 1" << std::endl;
-  decompressChannel(1);
-  std::cout << "decompressed channel 2" << std::endl;
-  decompressChannel(2); 
-  std::cout << "decompressed channel 3" << std::endl;
+  vtkSmartPointer<vtkPolyData> polytri;
+  vtkSmartPointer<vtkDoubleArray> coeffs;
+  vtkSmartPointer<vtkIntArray> offsets;
+  vtkSmartPointer<vtkUnsignedIntArray> orders;
+
+  if (useMultiChannel)
+  {
+    switch (channel)
+    { 
+      case 0:
+      {
+        polytri = polytri1;
+        coeffs = coeffs1;
+        offsets = offsets1;
+        orders = orders1;
+        break;
+      }
+      case 1:
+      {
+        polytri = polytri2;
+        coeffs = coeffs2;
+        offsets = offsets2;
+        orders = orders2;
+        break;
+      }
+      case 2:
+      {
+        polytri = polytri3;
+        coeffs = coeffs3;
+        offsets = offsets3;
+        orders = orders3;
+        break;
+      }
+      default:
+      {
+        std::cerr << "channel must be 0,1,2\n"; 
+        exit(1);
+      }
+    }
+
+  }
+  else
+  {
+    polytri = this->polytri;
+    coeffs = this->coeffs;
+    offsets = this->offsets;
+    orders = this->orders;
+  }
+
+  decompressChannel_help  ( channel, polytri, coeffs, offsets, orders );
 }
+
+void Decompressor::run()
+{
+  if (useMultiChannel)
+  {
+    decompressChannel(0);
+    std::cout << "decompressed channel 1" << std::endl;
+    decompressChannel(1);
+    std::cout << "decompressed channel 2" << std::endl;
+    decompressChannel(2); 
+    std::cout << "decompressed channel 3" << std::endl;
+  }
+  else
+  {
+    decompressChannel(0);
+    std::cout << "decompressed all channels" << std::endl;
+  }
+}
+
+/* 
+
+  m-adaptive compression code 
+   
+    while (m <= mmax)
+    {
+      unsigned int M = static_cast<unsigned int>(0.5 * (m + 1) * (m + 2));
+      unsigned int Mprev = static_cast<unsigned int>(0.5 * m * (m + 1));
+      Pm->computeCoeffsM(interpc, R, S, W, cimg, m, hasweights);
+      hasweights = true;
+      blknorm = cblas_dnrm2(M-Mprev, cimg+Mprev, 1);
+      if (blknorm < blknormtol)
+      { 
+        for (unsigned int j = 0; j < M; ++j)
+        {
+          coeffs->InsertNextValue(cimg[j]);
+        }
+        offsets->SetValue(i, offset);
+        orders->SetValue(i, m);
+        offset += M;
+        break;
+      }
+      m += 2; 
+    }
+    // if blknormtol never statisfied
+    if (m > mmax)
+    {
+      for (unsigned int j = 0; j < Mmax; ++j)
+      {
+        coeffs->InsertNextValue(cimg[j]);
+      }
+      offsets->SetValue(i, offset);
+      orders->SetValue(i, mmax);
+      offset += Mmax;
+    }
+
+
+  pix to tri map checks
+
+      if (rspix[i] < 0 || rspix[i] > 1 || rspix[i+npix] < 0 || rspix[i+npix] > 1-rspix[i])
+      {
+        std::cerr << "outside of triangle" << std::endl;
+        std::cerr << rspix[i] << " " << rspix[i+npix] << " " 
+                  << ret << std::setprecision(17) 
+                  << rspix[i+npix]-(1-rspix[i]) << std::endl;
+      }
+
+*/

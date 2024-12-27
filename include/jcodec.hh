@@ -40,7 +40,7 @@ void readQuad ( const std::string& trix,
 
 struct Triangulator
 {
-  unsigned int N, m, M, nthreads;
+  unsigned int N, m, M;
   unsigned int nSamp, nRuns;
   double a, b, c;
   jPoly<double> *Pm = 0, *Pmx = 0, *Pmy = 0;
@@ -48,10 +48,12 @@ struct Triangulator
   double *Dx = 0, *Dy = 0; 
   double *X = 0, *Y = 0, *W = 0; 
   double *cimg = 0, *cdimg = 0, *dimgr = 0, *dimgt = 0;
-  double *interpc = 0; 
+  double *interpc = 0;
+  bool useMultiChannel;
+ 
   vtkSmartPointer<vtkImageData> imagedata;
   vtkSmartPointer<vtkImageInterpolator> interpolator; 
-  vtkSmartPointer<vtkPolyData> polytri1, polytri2, polytri3; 
+  vtkSmartPointer<vtkPolyData> polytri, polytri1, polytri2, polytri3; 
   
   std::string trix, triy, triw; 
   
@@ -62,12 +64,14 @@ struct Triangulator
                   const std::string& _triy,
                   const std::string& _triw,
                   vtkSmartPointer<vtkImageData> _imagedata,
-                  vtkSmartPointer<vtkImageInterpolator> _interpolator, 
-                  unsigned int _nthreads  );
+                  vtkSmartPointer<vtkImageInterpolator> _interpolator,
+                  bool _useMultiChannel );
   
   vtkSmartPointer<vtkDelaunay2D> triangulateEntropy ( double* intgn, unsigned int channel  );
+  double triangulateEntropy_help  ( double* intgn, unsigned int channel,
+                                    vtkSmartPointer<vtkPolyData> polytri );
                                                 
-  void run();    
+  void run  ( );    
   
   ~Triangulator();
 };
@@ -78,25 +82,31 @@ struct Compressor
   // since integral(p21 * f) is exact for f of deg <= 21 with 
   // quad order m=42
   //unsigned int N = 325, mmax = 21, nthreads, Mmax;
-  unsigned int N = 325, mmax = 10, nthreads, Mmax;
+  unsigned int N = 325, mmax = 10, Mmax;
   std::string trix = "xtri_N325_n24_M946_m42.txt";
   std::string triy = "ytri_N325_n24_M946_m42.txt";
   std::string triw = "wtri_N325_n24_M946_m42.txt";
   double *R = 0, *S = 0, *W = 0, *cimg = 0;
   double *interpc = 0;
+  bool useMultiChannel;
   jPoly<double>* Pm;
   double a, b, c;
   vtkSmartPointer<vtkImageInterpolator> interpolator; 
-  vtkSmartPointer<vtkPolyData> polytri1, polytri2, polytri3; 
-  vtkSmartPointer<vtkDoubleArray> coeffs1, coeffs2, coeffs3;
-  vtkSmartPointer<vtkIntArray> offsets1, offsets2, offsets3;
-  vtkSmartPointer<vtkUnsignedIntArray> orders1, orders2, orders3;
+  vtkSmartPointer<vtkPolyData> polytri, polytri1, polytri2, polytri3; 
+  vtkSmartPointer<vtkDoubleArray> coeffs, coeffs1, coeffs2, coeffs3;
+  vtkSmartPointer<vtkIntArray> offsets, offsets1, offsets2, offsets3;
+  vtkSmartPointer<vtkUnsignedIntArray> orders, orders1, orders2, orders3;
  
   Compressor  ( Triangulator* T );
 
-  void compressChannel  ( unsigned int channel, double blknormtol );
+  void compressChannel  ( unsigned int channel );
+  void compressChannel_help ( unsigned int channel,
+                              vtkSmartPointer<vtkPolyData> polytri,
+                              vtkSmartPointer<vtkDoubleArray> coeffs,
+                              vtkSmartPointer<vtkIntArray> offsets,
+                              vtkSmartPointer<vtkUnsignedIntArray> orders );
  
-  void run  ( double ctol );
+  void run  ( );
 
   ~Compressor();
 
@@ -104,10 +114,10 @@ struct Compressor
 
 struct Decompressor
 {
-  vtkSmartPointer<vtkPolyData> polytri1, polytri2, polytri3; 
-  vtkSmartPointer<vtkDoubleArray> coeffs1, coeffs2, coeffs3;
-  vtkSmartPointer<vtkIntArray> offsets1, offsets2, offsets3;
-  vtkSmartPointer<vtkUnsignedIntArray> orders1, orders2, orders3;
+  vtkSmartPointer<vtkPolyData> polytri, polytri1, polytri2, polytri3; 
+  vtkSmartPointer<vtkDoubleArray> coeffs, coeffs1, coeffs2, coeffs3;
+  vtkSmartPointer<vtkIntArray> offsets, offsets1, offsets2, offsets3;
+  vtkSmartPointer<vtkUnsignedIntArray> orders, orders1, orders2, orders3;
   vtkSmartPointer<vtkImageData> imagedata;
   vtkSmartPointer<vtkUnsignedShortArray> colors;
   vtkSmartPointer<vtkPoints> pixels;
@@ -115,19 +125,25 @@ struct Decompressor
   //unsigned int mmax = 21, Mmax = 253, nthreads;
   //unsigned int mmax = 5, Mmax = 21, nthreads;
   //unsigned int mmax = 15, Mmax = 136, nthreads;
-  unsigned int mmax = 10, Mmax = 66, nthreads;
+  unsigned int mmax = 10, Mmax = 66;
   double bounds[6];
+  bool useMultiChannel;
 
-
-  Decompressor  ( const char* channel1, 
-                  const char* channel2, 
-                  const char* channel3 );
+  Decompressor  ( bool useMultiChannel,
+                  const char* channel1, 
+                  const char* channel2 = 0, 
+                  const char* channel3 = 0 );
 
   void decompressChannel  ( unsigned int channel  );
+  void decompressChannel_help ( unsigned int channel,
+                                vtkSmartPointer<vtkPolyData> polytri,
+                                vtkSmartPointer<vtkDoubleArray> coeffs,
+                                vtkSmartPointer<vtkIntArray> offsets,
+                                vtkSmartPointer<vtkUnsignedIntArray> orders );
 
-  void writeImage (const char* fname);
+  void writeImage ( const char* fname );
 
-  void run ( unsigned int nthreads );
+  void run ();
   
   ~Decompressor(){}
 
