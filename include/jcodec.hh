@@ -112,8 +112,10 @@ struct Decompressor
   vtkSmartPointer<vtkUnsignedShortArray> colors;
   vtkSmartPointer<vtkPoints> pixels;
   double a, b, c;
-  unsigned int mmax = 21, Mmax = 253, nthreads;
-  //unsigned int mmax = 10, Mmax = 66, nthreads;
+  //unsigned int mmax = 21, Mmax = 253, nthreads;
+  //unsigned int mmax = 5, Mmax = 21, nthreads;
+  //unsigned int mmax = 15, Mmax = 136, nthreads;
+  unsigned int mmax = 10, Mmax = 66, nthreads;
   double bounds[6];
 
 

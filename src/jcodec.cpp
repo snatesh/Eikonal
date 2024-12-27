@@ -537,7 +537,7 @@ void Decompressor::writeImage(const char* fname)
   
   vtkSmartPointer<vtkImageCast> cast = vtkSmartPointer<vtkImageCast>::New();
   cast->SetInputData(imagedata);
-  cast->SetOutputScalarTypeToUnsignedShort();
+  cast->SetOutputScalarTypeToUnsignedChar();
   cast->Update(); 
   
   //vtkSmartPointer<vtkPNGWriter> png = vtkSmartPointer<vtkPNGWriter>::New();
@@ -683,30 +683,15 @@ void Decompressor::decompressChannel( unsigned int channel )
     // save the image data in channel
     for (unsigned int i = 0; i < npix; ++i)
     {
-      if (img[i] <= 0)
-      {
-        img[i] = 0;
-        //std::cerr << "color is non-positive " << img[i] << std::endl;
-        // set to nearest non-negative color
-        //for (unsigned int j = i; j < npix; ++j)
-        //{
-        //  if (img[j] >= 0) { img[i] = img[j]; break; }
-        //}
-        //if (i == npix-1)
-        //{
-        //  for (int j = i; j >= 0; --j)
-        //  {
-        //    if (img[j] >= 0) { img[i] = img[j]; break; }
-        //  }  
-        //}
-      }
+      if (img[i] < 0) { img[i] = 0; }
+      if (img[i] > 255) { img[i] = 255; }
       color = static_cast<unsigned short>(std::round(img[i])); 
       colors->SetComponent(it->second[i], channel, color);
     }
     //std::cout << "time to save img: " << clock.toc() << "\n\n"; 
     if (!(it->first % 100)) 
     { 
-      std::cout << "Proggress : " << std::setprecision(2) 
+      std::cout << "Progress : " << std::setprecision(2) 
                 << ((double)it->first / (double) pixInTri.size()) * 100 
                 << "%\n";
     } 

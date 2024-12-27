@@ -1,6 +1,7 @@
 #include<jcodec.hh>
 #include <vtkImageViewer2.h>
 #include <vtkJPEGReader.h>
+#include <vtkPNGReader.h>
 #include <vtkNamedColors.h>
 #include <vtkProperty.h>
 #include <vtkRenderWindow.h>
@@ -48,36 +49,15 @@ int main(int argc, char* argv[])
     double a = 0.5, b = 0.5, c = 0.5;
     unsigned int N = 55;
     unsigned int m = 6;
-    unsigned int nthreads = 10;
+    unsigned int nthreads = 1;
     double ctol = atof(argv[5]);
     // Read the image
-    vtkNew<vtkJPEGReader> jpegReader;
-    jpegReader->SetFileName(argv[2]);
-    jpegReader->Update();
-    vtkSmartPointer<vtkImageData> imagedata = jpegReader->GetOutput(); 
-
-    // create cubic interpolator on image
-     vtkSmartPointer<vtkImageInterpolator> interpolator = 
-      vtkSmartPointer<vtkImageInterpolator>::New();
-    interpolator->Initialize(imagedata);
-    interpolator->SetInterpolationModeToCubic();
-    // get triangulation settings
-    unsigned int nSamp = static_cast<unsigned int>(atoi(argv[3]));
-    unsigned int nRuns = static_cast<unsigned int>(atoi(argv[4]));
-    Triangulator* T = new Triangulator  ( N, m, a, b, c, nSamp, nRuns, 
-                                          "xtri_N55_n9_M91_m12.txt",
-                                          "ytri_N55_n9_M91_m12.txt",            
-                                          "wtri_N55_n9_M91_m12.txt",
-                                           imagedata, interpolator, nthreads);
-    T->run();
-    Compressor* C = new Compressor(T);
-    C->run(ctol);
-    // write grids with compressed data
-    writeVTP(T->polytri1, "channel1.vtp");
-    writeVTP(T->polytri2, "channel2.vtp");
-    writeVTP(T->polytri3, "channel3.vtp");
-  
-    // Visualize original image
+    vtkSmartPointer<vtkPNGReader> pngReader = vtkSmartPointer<vtkPNGReader>::New();
+    pngReader->SetFileName(argv[2]);
+    pngReader->Update();
+    vtkSmartPointer<vtkImageData> imagedata = pngReader->GetOutput(); 
+    
+    // View the image
     vtkNew<vtkNamedColors> colors;
     vtkNew<vtkImageViewer2> imageViewer;
     imageViewer->SetInputData(imagedata);
@@ -91,6 +71,33 @@ int main(int argc, char* argv[])
     imageViewer->Render();
     renderWindowInteractor->Start();
 
+    // create cubic interpolator on image
+     vtkSmartPointer<vtkImageInterpolator> interpolator = 
+      vtkSmartPointer<vtkImageInterpolator>::New();
+    interpolator->Initialize(imagedata);
+    interpolator->SetInterpolationModeToCubic();
+    
+    // get triangulation settings
+    unsigned int nSamp = static_cast<unsigned int>(atoi(argv[3]));
+    unsigned int nRuns = static_cast<unsigned int>(atoi(argv[4]));
+    
+    // triangulate
+    Triangulator* T = new Triangulator  ( N, m, a, b, c, nSamp, nRuns, 
+                                          "xtri_N55_n9_M91_m12.txt",
+                                          "ytri_N55_n9_M91_m12.txt",            
+                                          "wtri_N55_n9_M91_m12.txt",
+                                           imagedata, interpolator, nthreads);
+    T->run();
+
+    // compress
+    Compressor* C = new Compressor(T);
+    C->run(ctol);
+
+    // write grids with compressed data
+    writeVTP(T->polytri1, "channel1.vtp");
+    writeVTP(T->polytri2, "channel2.vtp");
+    writeVTP(T->polytri3, "channel3.vtp");
+
     // clean
     delete T;
     delete C;
@@ -102,7 +109,7 @@ int main(int argc, char* argv[])
     channel1 = argv[2];
     channel2 = argv[3];
     channel3 = argv[4];
-    unsigned int nthreads = 6;
+    unsigned int nthreads = 1;
     // test decompressor reading
     Decompressor* D = new Decompressor ( channel1, channel2, channel3 );
     D->run(nthreads);
