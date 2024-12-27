@@ -48,7 +48,7 @@ int main(int argc, char* argv[])
     double a = 0.5, b = 0.5, c = 0.5;
     unsigned int N = 55;
     unsigned int m = 6;
-    unsigned int nthreads = 6;
+    unsigned int nthreads = 10;
     double ctol = atof(argv[5]);
     // Read the image
     vtkNew<vtkJPEGReader> jpegReader;
@@ -102,9 +102,10 @@ int main(int argc, char* argv[])
     channel1 = argv[2];
     channel2 = argv[3];
     channel3 = argv[4];
+    unsigned int nthreads = 6;
     // test decompressor reading
-    Decompressor* D = new Decompressor ( "test1.vtp", "test2.vtp", "test3.vtp" );
-    D->run();
+    Decompressor* D = new Decompressor ( channel1, channel2, channel3 );
+    D->run(nthreads);
     D->writeImage("test.tiff");
     delete D;
   }

@@ -77,7 +77,8 @@ struct Compressor
   // we can get coeffs up to/including the 21st poly subspace
   // since integral(p21 * f) is exact for f of deg <= 21 with 
   // quad order m=42
-  unsigned int N = 325, mmax = 21, nthreads, Mmax;
+  //unsigned int N = 325, mmax = 21, nthreads, Mmax;
+  unsigned int N = 325, mmax = 10, nthreads, Mmax;
   std::string trix = "xtri_N325_n24_M946_m42.txt";
   std::string triy = "ytri_N325_n24_M946_m42.txt";
   std::string triw = "wtri_N325_n24_M946_m42.txt";
@@ -108,10 +109,11 @@ struct Decompressor
   vtkSmartPointer<vtkIntArray> offsets1, offsets2, offsets3;
   vtkSmartPointer<vtkUnsignedIntArray> orders1, orders2, orders3;
   vtkSmartPointer<vtkImageData> imagedata;
-  vtkSmartPointer<vtkUnsignedCharArray> colors;
+  vtkSmartPointer<vtkUnsignedShortArray> colors;
   vtkSmartPointer<vtkPoints> pixels;
   double a, b, c;
-  unsigned int mmax = 21, Mmax = 253;
+  unsigned int mmax = 21, Mmax = 253, nthreads;
+  //unsigned int mmax = 10, Mmax = 66, nthreads;
   double bounds[6];
 
 
@@ -123,7 +125,7 @@ struct Decompressor
 
   void writeImage (const char* fname);
 
-  void run ();
+  void run ( unsigned int nthreads );
   
   ~Decompressor(){}
 

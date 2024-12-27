@@ -7,6 +7,7 @@
 #include <vtkPNGWriter.h>
 #include <vtkImageCast.h>
 #include <vtkTIFFWriter.h>
+#include <timer.hh>
 
 vtkSmartPointer<vtkDelaunay2D> triangulateUniform ( int* dims, 
                                                     double* origin,
@@ -402,38 +403,50 @@ void Compressor::compressChannel  ( unsigned int channel, double blknormtol )
       ONLY on first run */
     bool hasweights = false;
     m = 1; double blknorm;
-    m = mmax; 
-    while (m <= mmax)
+    m = mmax;
+    unsigned int M = static_cast<unsigned int>(0.5 * (m + 1) * (m + 2));
+    unsigned int Mprev = static_cast<unsigned int>(0.5 * m * (m + 1));
+    Pm->computeCoeffs(interpc, R, S, W, cimg);
+    for (unsigned int j = 0; j < Mmax; ++j)
     {
-      unsigned int M = static_cast<unsigned int>(0.5 * (m + 1) * (m + 2));
-      unsigned int Mprev = static_cast<unsigned int>(0.5 * m * (m + 1));
-      Pm->computeCoeffsM(interpc, R, S, W, cimg, m, hasweights);
-      hasweights = true;
-      blknorm = cblas_dnrm2(M-Mprev, cimg+Mprev, 1);
-      if (blknorm < blknormtol)
-      { 
-        for (unsigned int j = 0; j < M; ++j)
-        {
-          coeffs->InsertNextValue(cimg[j]);
-        }
-        offsets->SetValue(i, offset);
-        orders->SetValue(i, m);
-        offset += M;
-        break;
-      }
-      m += 2; 
+      coeffs->InsertNextValue(cimg[j]);
     }
-    // if blknormtol never statisfied
-    if (m > mmax)
-    {
-      for (unsigned int j = 0; j < Mmax; ++j)
-      {
-        coeffs->InsertNextValue(cimg[j]);
-      }
-      offsets->SetValue(i, offset);
-      orders->SetValue(i, mmax);
-      offset += Mmax;
-    }
+    offsets->SetValue(i, offset);
+    orders->SetValue(i, mmax);
+    offset += Mmax;
+    
+   
+    //while (m <= mmax)
+    //{
+    //  unsigned int M = static_cast<unsigned int>(0.5 * (m + 1) * (m + 2));
+    //  unsigned int Mprev = static_cast<unsigned int>(0.5 * m * (m + 1));
+    //  Pm->computeCoeffsM(interpc, R, S, W, cimg, m, hasweights);
+    //  hasweights = true;
+    //  blknorm = cblas_dnrm2(M-Mprev, cimg+Mprev, 1);
+    //  if (blknorm < blknormtol)
+    //  { 
+    //    for (unsigned int j = 0; j < M; ++j)
+    //    {
+    //      coeffs->InsertNextValue(cimg[j]);
+    //    }
+    //    offsets->SetValue(i, offset);
+    //    orders->SetValue(i, m);
+    //    offset += M;
+    //    break;
+    //  }
+    //  m += 2; 
+    //}
+    //// if blknormtol never statisfied
+    //if (m > mmax)
+    //{
+    //  for (unsigned int j = 0; j < Mmax; ++j)
+    //  {
+    //    coeffs->InsertNextValue(cimg[j]);
+    //  }
+    //  offsets->SetValue(i, offset);
+    //  orders->SetValue(i, mmax);
+    //  offset += Mmax;
+    //}
   }
   polytri->GetFieldData()->AddArray(coeffs);
   polytri->GetCellData()->AddArray(offsets); 
@@ -510,7 +523,7 @@ Decompressor::Decompressor  ( const char* channel1,
 
   this->a = 0.5; this->b = 0.5; this->c = 0.5;
 
-  this->colors = vtkSmartPointer<vtkUnsignedCharArray>::New();
+  this->colors = vtkSmartPointer<vtkUnsignedShortArray>::New();
   this->colors->SetName("colors");
   this->colors->SetNumberOfComponents(3);
   this->colors->SetNumberOfTuples(imagedata->GetNumberOfPoints());
@@ -524,7 +537,7 @@ void Decompressor::writeImage(const char* fname)
   
   vtkSmartPointer<vtkImageCast> cast = vtkSmartPointer<vtkImageCast>::New();
   cast->SetInputData(imagedata);
-  cast->SetOutputScalarTypeToUnsignedChar();
+  cast->SetOutputScalarTypeToUnsignedShort();
   cast->Update(); 
   
   //vtkSmartPointer<vtkPNGWriter> png = vtkSmartPointer<vtkPNGWriter>::New();
@@ -612,88 +625,103 @@ void Decompressor::decompressChannel( unsigned int channel )
   // allocate buffer for pixels in tri to ref 
   double* rspix = (double*) calloc(maxpix * 2, sizeof(double));  
   double* img = (double*) calloc(maxpix, sizeof(double));
+  jPoly<double>* Pm = new jPoly<double>(maxpix, mmax, a, b, c, nthreads); 
   // iterate over triangles
 
-  double v1t[3], v2t[3], v3t[3], x[3], r[3], tmpwts[3], dist2;
+  double v1t[3], v2t[3], v3t[3], tmpwts[3], r[3], dist2;
   int offset, npix, subid;
   unsigned int m, M;
-  unsigned char color;
-  it = pixInTri.begin();
-  while (it != pixInTri.end())
+  unsigned short color;
+  //timer clock;
+  for (it = pixInTri.begin(); it != pixInTri.end(); ++it)
   {
     // get tri verts
     vtkSmartPointer<vtkIdList> ptids = vtkSmartPointer<vtkIdList>::New();
-    std::cout << it->first << std::endl;
     polytri->GetCellPoints(it->first, ptids); vtkIndent indent;
-    ptids->PrintSelf(std::cout, indent);
+    //ptids->PrintSelf(std::cout, indent);
     polytri->GetPoints()->GetPoint(ptids->GetId(0), v1t);
     polytri->GetPoints()->GetPoint(ptids->GetId(1), v2t);
     polytri->GetPoints()->GetPoint(ptids->GetId(2), v3t);
     
     // get pixels inside current triangle
     // and get position in reference
+    //clock.tic();
     npix = it->second.size();
     for (unsigned int i = 0; i < npix; ++i)
-    {
-      pixels->GetPoint(it->second[i], x);
-      int ret = polytri->GetCell(it->first)->EvaluatePosition(x, nullptr, subid, r, dist2, tmpwts);
+    { 
+      polytri->GetCell(it->first)->EvaluatePosition(pixels->GetPoint(it->second[i]), nullptr, subid, r, dist2, tmpwts);
       rspix[i] = r[0]; rspix[i+npix] = r[1];
-      if (rspix[i] < 0 || rspix[i] > 1 || rspix[i+npix] < 0 || rspix[i+npix] > 1-rspix[i])
-      {
-        std::cerr << "outside of triangle" << std::endl;
-        std::cerr << rspix[i] << " " << rspix[i+npix] << " " 
-                  << ret << std::setprecision(17) 
-                  << rspix[i+npix]-(1-rspix[i]) << std::endl;
-      }
+      //if (rspix[i] < 0 || rspix[i] > 1 || rspix[i+npix] < 0 || rspix[i+npix] > 1-rspix[i])
+      //{
+      //  std::cerr << "outside of triangle" << std::endl;
+      //  std::cerr << rspix[i] << " " << rspix[i+npix] << " " 
+      //            << ret << std::setprecision(17) 
+      //            << rspix[i+npix]-(1-rspix[i]) << std::endl;
+      //}
     }
+    //std::cout << "time to find pix in tri: " << clock.toc() << std::endl;
 
     // get order and offset
+
+    //clock.tic();
     offset = offsets->GetTuple1(it->first);
     m = orders->GetTuple1(it->first); 
     M = static_cast<unsigned int>(0.5 * (m + 1) * (m + 2));
-    // compute jpoly matrix
-    jPoly<double>* Pm = new jPoly<double>(npix, m, a, b, c, 1); 
+    // compute jpoly interp matrix
+    Pm->Nx = npix;
     Pm->computeV(rspix, rspix+npix);
+    //std::cout << "time to compute Pm: " << clock.toc() << std::endl;
+    //clock.tic();
     // get coeffs and evaluate image over ref tri;
     cblas_dgemv ( CblasColMajor, CblasNoTrans, 
                   npix, M, 1.0, Pm->V, npix, 
                   coeffs->GetPointer(offset), 1, 
                   0.0, img, 1);
+    //std::cout << "time to eval img: " << clock.toc() << std::endl;
+
+    //clock.tic();
     // save the image data in channel
     for (unsigned int i = 0; i < npix; ++i)
     {
       if (img[i] <= 0)
       {
+        img[i] = 0;
         //std::cerr << "color is non-positive " << img[i] << std::endl;
         // set to nearest non-negative color
-        for (unsigned int j = i; j < npix; ++j)
-        {
-          if (img[j] >= 0) { img[i] = img[j]; break; }
-        }
-        if (i == npix-1)
-        {
-          for (int j = i; j >= 0; --j)
-          {
-            if (img[j] >= 0) { img[i] = img[j]; break; }
-          }  
-        }
+        //for (unsigned int j = i; j < npix; ++j)
+        //{
+        //  if (img[j] >= 0) { img[i] = img[j]; break; }
+        //}
+        //if (i == npix-1)
+        //{
+        //  for (int j = i; j >= 0; --j)
+        //  {
+        //    if (img[j] >= 0) { img[i] = img[j]; break; }
+        //  }  
+        //}
       }
-      color = static_cast<unsigned char>(std::round(img[i])); 
+      color = static_cast<unsigned short>(std::round(img[i])); 
       colors->SetComponent(it->second[i], channel, color);
+    }
+    //std::cout << "time to save img: " << clock.toc() << "\n\n"; 
+    if (!(it->first % 100)) 
+    { 
+      std::cout << "Proggress : " << std::setprecision(2) 
+                << ((double)it->first / (double) pixInTri.size()) * 100 
+                << "%\n";
     } 
-    
-    delete Pm;
-    ++it;
   }
 
   free(rspix);
   free(img);
+  delete Pm;
 
 
 }
 
-void Decompressor::run()
+void Decompressor::run( unsigned int _nthreads )
 {
+  this->nthreads = _nthreads;
   decompressChannel(0);
   std::cout << "decompressed channel 1" << std::endl;
   decompressChannel(1);
