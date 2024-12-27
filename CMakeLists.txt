@@ -77,7 +77,7 @@ set(EikonalSRC src/eikonal.cpp)
 set(EikonalWeightedSRC src/eikonal_weighted.cpp)
 set(nullspaceSRC  src/nullspace.cpp)
 #set(eikonalSRC src/eikonal.cpp)
-set(readjpgsrc src/readjpg.cpp)
+set(jcodec_mainsrc src/jcodec_main.cpp)
 set(readnefsrc src/readnef.cpp)
 set(jcodecSRC include/jcodec.hh src/jcodec.cpp)
 
@@ -211,15 +211,15 @@ add_executable(EikonalW ${EikonalWeightedSRC})
 set_target_properties(EikonalW PROPERTIES COMPILE_FLAGS "-DWITHOUT_NUMPY")
 target_link_libraries(EikonalW eikonal)  
 
-add_executable(readjpg ${readjpgsrc})
-target_link_libraries(readjpg jcodec)
+add_executable(jcodec_main ${jcodec_mainsrc})
+target_link_libraries(jcodec_main jcodec)
 
 add_executable(readnef ${readnefsrc})
 target_link_libraries(readnef ${VTK_LIBRARIES})
 
 # vtk_module_autoinit is needed
 vtk_module_autoinit(
-  TARGETS readjpg readnef
+  TARGETS jcodec_main readnef
   MODULES ${VTK_LIBRARIES}
 )
 
@@ -241,5 +241,5 @@ install(TARGETS Eikonal ARCHIVE DESTINATION bin LIBRARY DESTINATION bin)
 install(TARGETS nullspace ARCHIVE DESTINATION bin LIBRARY DESTINATION bin)
 install(TARGETS EikonalW ARCHIVE DESTINATION bin LIBRARY DESTINATION bin)
 install(TARGETS jcodec ARCHIVE DESTINATION bin LIBRARY DESTINATION lib)
-install(TARGETS readjpg ARCHIVE DESTINATION bin LIBRARY DESTINATION bin)
+install(TARGETS jcodec_main ARCHIVE DESTINATION bin LIBRARY DESTINATION bin)
 install(TARGETS readnef ARCHIVE DESTINATION bin LIBRARY DESTINATION bin)

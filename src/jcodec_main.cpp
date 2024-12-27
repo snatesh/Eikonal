@@ -34,9 +34,9 @@ int usage(char* argv[])
 
 int main(int argc, char* argv[])
 {
-
+  if (argc == 1) { return usage(argv); }
   unsigned int mode = static_cast<unsigned int>(atoi(argv[1]));
-  if (mode != 0 && mode != 1)
+  if (mode != 0 && mode != 1 || argc == 1)
   {
     return usage(argv);
   }
@@ -73,9 +73,9 @@ int main(int argc, char* argv[])
     Compressor* C = new Compressor(T);
     C->run(ctol);
     // write grids with compressed data
-    writeVTP(T->polytri1, "test1.vtp");
-    writeVTP(T->polytri2, "test2.vtp");
-    writeVTP(T->polytri3, "test3.vtp");
+    writeVTP(T->polytri1, "channel1.vtp");
+    writeVTP(T->polytri2, "channel2.vtp");
+    writeVTP(T->polytri3, "channel3.vtp");
   
     // Visualize original image
     vtkNew<vtkNamedColors> colors;
