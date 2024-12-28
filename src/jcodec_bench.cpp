@@ -18,7 +18,7 @@ int main(int argc, char* argv[])
   
   int mode = atoi(argv[1]);
   
-  std::string path = "./raw_images";
+  std::string path = "./rgb8bit";
   std::set<std::string> images;
   std::map<std::string, std::vector<int>> sizes;  
 
@@ -31,9 +31,9 @@ int main(int argc, char* argv[])
       std::string fNoExt = p.stem().string();
       images.insert(fNoExt);
       
-      std::filesystem::path ppng(path+"/"+fNoExt+".png"); 
+      std::filesystem::path pppm(path+"/"+fNoExt+".ppm"); 
       std::filesystem::path pjpg(path+"/"+fNoExt+".jpg");
-      sizes[fNoExt].push_back(std::filesystem::file_size(ppng)); 
+      sizes[fNoExt].push_back(std::filesystem::file_size(pppm)); 
       sizes[fNoExt].push_back(std::filesystem::file_size(pjpg)); 
     }
   }
@@ -44,12 +44,13 @@ int main(int argc, char* argv[])
     std::ofstream benchref("benchjpg.txt");
     if (benchref.is_open())
     {
-      double ssim; auto it = images.begin();
+      double ssimave; auto it = images.begin();
       while (it != images.end() )
       {
-        std::string pref = "./raw_images/" + *it;
-        ssim = ssim_jpg ( pref.c_str() );
-        benchref << *it << " " << sizes[*it][0] << " " << sizes[*it][1] << " " << ssim << std::endl;
+        std::string f1 = "./rgb8bit/" + *it + ".ppm";
+        std::string f2 = "./rgb8bit/" + *it + ".jpg";
+        ssimave = ssim ( f1.c_str(), f2.c_str() );
+        benchref << *it << " " << sizes[*it][0] << " " << sizes[*it][1] << " " << ssimave << std::endl;
         it++;
       }
       benchref.close();
@@ -63,42 +64,47 @@ int main(int argc, char* argv[])
   else
   {
     bool useMultiChannel = false;
-    unsigned int nSamp = 10, nRuns = 3;
+    unsigned int nSamp = 10, nRuns = 4;
     std::ofstream benchrun("benchjcodec.txt");
     if (benchrun.is_open())
     {
       auto it = images.begin();
       while (it != images.end())
       {
-        unsigned int order = 5;         
-        double totalBytes[16], ssims[16];
-        unsigned int orders[16];
-        for (unsigned int i = 0; i < 16; ++i)
+        unsigned int order = 15;         
+        double totalBytes[1], ssimaves[1];
+        unsigned int orders[1];
+        std::string f1 = "./rgb8bit/" + *it + ".ppm";
+        Triangulator* T = jcompress_triangulate ( f1.c_str(), 
+                                                  nSamp, nRuns, order,
+                                                  useMultiChannel, false );
+        for (unsigned int i = 0; i < 1; ++i)
         {
           // input file name
-          std::string pref = "./raw_images/" + *it;
-          std::string pngfile = "./raw_images/" + *it + ".png";
-          std::string decopref = *it + "_" + std::to_string(order) + "_deco";
+          std::string f3 = "./rgb8bit/" + *it + ".jpg";
+          std::string f2 = *it + "_" + std::to_string(order) + "_deco" + ".ppm";
           // output file names
           std::string vtpfile = *it + "_" + std::to_string(order) + ".vtp";
           // decompress with current order
-          totalBytes[i] = jcompress ( pngfile.c_str(),
+          totalBytes[i] = jcompress ( T, f1.c_str(),
                                       nSamp, nRuns, order,
                                       useMultiChannel, false );
+          std::cout << "jpg size: " << sizes[*it][1] / 1.e6 << " MB" << std::endl;
           orders[i] = order;
           // decompress and write decofile
-          jdecompress  ( useMultiChannel, 
-                         vtpfile.c_str() );
-          ssims[i] = ssim_png( pref.c_str(), decopref.c_str() ); 
+          jdecompress  ( useMultiChannel, "ppm", vtpfile.c_str() );
+          ssimaves[i] = ssim ( f1.c_str(), f2.c_str() );
+          std::cout << "jpg ssim: " << ssim ( f1.c_str(), f3.c_str() ) << std::endl;
           order += 1;
         }
         benchrun << *it << " " << sizes[*it][0] <<  " " << sizes[*it][1] << " ";
-        for (unsigned int i = 0; i < 16; ++i)
+        for (unsigned int i = 0; i < 1; ++i)
         {
-          benchrun << totalBytes[i] << " " << ssims[i] << " ";
+          benchrun << totalBytes[i] << " " << ssimaves[i] << " ";
         }
         benchrun << std::endl;
         it++;
+        delete T;
       }
       benchrun.close();
     }

@@ -82,8 +82,7 @@ struct Compressor
   // we can get coeffs up to/including the 21st poly subspace
   // since integral(p21 * f) is exact for f of deg <= 21 with 
   // quad order m=42
-  //unsigned int N = 325, mmax = 21, nthreads, Mmax;
-  unsigned int N = 325, mmax = 10, Mmax, morder = 0;
+  unsigned int N = 325, Mmax, morder;
   std::string trix = "xtri_N325_n24_M946_m42.txt";
   std::string triy = "ytri_N325_n24_M946_m42.txt";
   std::string triw = "wtri_N325_n24_M946_m42.txt";
@@ -99,7 +98,7 @@ struct Compressor
   vtkSmartPointer<vtkIntArray> offsets, offsets1, offsets2, offsets3;
   vtkSmartPointer<vtkUnsignedIntArray> orders, orders1, orders2, orders3;
  
-  Compressor  ( Triangulator* T );
+  Compressor  ( Triangulator* T , unsigned int order );
 
   void compressChannel  ( unsigned int channel );
   void compressChannel_help ( unsigned int channel,
@@ -108,7 +107,6 @@ struct Compressor
                               vtkSmartPointer<vtkIntArray> offsets,
                               vtkSmartPointer<vtkUnsignedIntArray> orders );
  
-  void setOrder(unsigned int m);
   void run  ( );
 
   ~Compressor();
@@ -142,7 +140,8 @@ struct Decompressor
                                 vtkSmartPointer<vtkIntArray> offsets,
                                 vtkSmartPointer<vtkUnsignedIntArray> orders );
 
-  void writeImage ( const char* fname );
+  void writeImage ( const std::string& pref,
+                    const std::string& ext );
 
   void run ();
   
@@ -152,6 +151,22 @@ struct Decompressor
 
 /* main wrappers for compression pipeline */
 void writeVTP(vtkSmartPointer<vtkPolyData> polytri, const char* ofname);
+
+Triangulator* jcompress_triangulate ( const char* fname, 
+                                      unsigned int nSamp,
+                                      unsigned int nRuns,
+                                      unsigned int order,
+                                      bool useMultiChannel,
+                                      bool viz );
+
+double jcompress  ( Triangulator* T,
+                    const char* fname, 
+                    unsigned int nSamp,
+                    unsigned int nRuns,
+                    unsigned int order,
+                    bool useMultiChannel,
+                    bool viz );
+
 double jcompress  ( const char* fname, 
                     unsigned int nSamp,
                     unsigned int nRuns,
@@ -159,7 +174,8 @@ double jcompress  ( const char* fname,
                     bool useMultiChannel,
                     bool viz );
 
-void jdecompress  ( bool useMultiChannel, 
+void jdecompress  ( bool useMultiChannel,
+                    const char* fmt, 
                     const char* channel1,
                     const char* channel2 = 0,
                     const char* channel3 = 0 );
@@ -171,9 +187,8 @@ vtkSmartPointer<vtkImageData> readImage ( const std::string& pref,
 
 double ssim ( vtkSmartPointer<vtkImageData> img1,
               vtkSmartPointer<vtkImageData> img2 ); 
-double ssim_png ( const char* pref );
-double ssim_png ( const char* pref1, const char* pref2 );
-double ssim_jpg ( const char* pref );
+double ssim ( const char* f1WithExt, const char* f2WithExt );
+
 
 
 

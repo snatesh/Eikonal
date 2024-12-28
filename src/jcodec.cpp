@@ -5,8 +5,12 @@
 #include <vtkInformation.h>
 #include <vtkCellTreeLocator.h>
 #include <vtkPNGWriter.h>
-#include <vtkImageCast.h>
 #include <vtkTIFFWriter.h>
+#include <vtkJPEGWriter.h>
+#include <vtkPNMWriter.h>
+#include <vtkXMLPolyDataWriter.h>
+#include <vtkImageWriter.h>
+#include <vtkImageCast.h>
 #include <vtkImageViewer2.h>
 #include <vtkJPEGReader.h>
 #include <vtkPNGReader.h>
@@ -14,13 +18,14 @@
 #include <vtkProperty.h>
 #include <vtkRenderWindow.h>
 #include <vtkRenderWindowInteractor.h>
+#include <vtkAttributeSmoothingFilter.h>
 #include <vtkRenderer.h>
-#include <vtkXMLPolyDataWriter.h>
 #include <vtkImageSSIM.h>
 #include <vtkImageReader2.h>
 #include <vtkTIFFReader.h>
 #include <vtkImageSSIM.h>
 #include <vtkPointData.h>
+#include <vtkPNMReader.h>
 #include <map>
 #include <vector>
 #include <timer.hh>
@@ -349,10 +354,11 @@ void Triangulator::run()
   }
 }
 
-Compressor::Compressor  ( Triangulator* T )
+Compressor::Compressor  ( Triangulator* T, unsigned int order)
 {
   unsigned int nthreads = 1;
   this->useMultiChannel = T->useMultiChannel;
+  this->morder = order;
   if (useMultiChannel)
   { 
     this->polytri1 = T->polytri1; 
@@ -370,7 +376,8 @@ Compressor::Compressor  ( Triangulator* T )
   }
   else
   {
-    this->polytri = T->polytri;
+    this->polytri = vtkSmartPointer<vtkPolyData>::New();
+    this->polytri->DeepCopy(T->polytri);
     this->coeffs = vtkSmartPointer<vtkDoubleArray>::New();
     this->offsets = vtkSmartPointer<vtkIntArray>::New();
     this->orders = vtkSmartPointer<vtkUnsignedIntArray>::New();
@@ -381,7 +388,7 @@ Compressor::Compressor  ( Triangulator* T )
   this->W = (double*) calloc(this->N, sizeof(double));
   this->interpc = (double*) calloc(this->N, sizeof(double));
   this->a = T->a; this->b = T->b; this->c = T->c;
-  this->Pm = new jPoly<double>(N, mmax, a, b, c, nthreads); 
+  this->Pm = new jPoly<double>(N, morder, a, b, c, nthreads); 
   this->Mmax = Pm->Np;
   // storage buffer for img coefs
   this->cimg = (double*) calloc(Mmax, sizeof(double)); 
@@ -398,11 +405,6 @@ Compressor::~Compressor()
   if (cimg) { free(cimg); cimg = 0; }
 }
 
-void Compressor::setOrder ( unsigned int m )
-{
-  this->morder = m;
-}
-
 void Compressor::compressChannel_help ( unsigned int channel,
                                         vtkSmartPointer<vtkPolyData> polytri,
                                         vtkSmartPointer<vtkDoubleArray> coeffs,
@@ -414,7 +416,7 @@ void Compressor::compressChannel_help ( unsigned int channel,
   double invIxe[4], gradnorm;
   
   vtkSmartPointer<vtkIdList> ptids = vtkSmartPointer<vtkIdList>::New();
-  unsigned int m;
+  unsigned int m = this->morder; 
   int offset = 0;
   // loop over each triangle 
   for (int i = 0; i < polytri->GetNumberOfCells(); ++i)
@@ -433,14 +435,6 @@ void Compressor::compressChannel_help ( unsigned int channel,
     polytri->GetPoints()->GetPoint(ptids->GetId(0), v1t);
     polytri->GetPoints()->GetPoint(ptids->GetId(1), v2t);
     polytri->GetPoints()->GetPoint(ptids->GetId(2), v3t);
-    if (this->morder > 0) 
-    { 
-      m = this->morder; 
-    }
-    else
-    {
-      m = mmax;
-    }
     unsigned int M = static_cast<unsigned int>(0.5 * (m + 1) * (m + 2));
     Pm->computeCoeffs(interpc, R, S, W, cimg);
     if (useMultiChannel)
@@ -554,13 +548,17 @@ void Compressor::run  ( )
   {
     std::cout << "Number of triangles: " 
               << polytri->GetNumberOfCells() << std::endl;
-    std::cout << "Order per triangle: " 
-              << ((morder > 0) ? morder : mmax) << std::endl;
+    std::cout << "Order per triangle: " << morder << std::endl; 
     compressChannel(0);
-    totalBytes =  polytri->GetNumberOfCells() *
-                  ( 4 * Mmax + 36);
+    unsigned int M = static_cast<unsigned int>(0.5 * (morder+1)*(morder+2));
+    /* (ntri*(mcoeff floats/channel)*(3 channels)*(4bytes/float) 
+      + ntri*(3 indices)*(4 bytes/int) 
+      + npts * (2 floats for x,y)*(4 bytes/float) 
+    */
+    totalBytes =  polytri->GetNumberOfCells() * (M * 12 + 12) +
+                  polytri->GetNumberOfPoints() * 8; 
     std::cout << "compressed all channels into "
-              << totalBytes / 1e6 << " megabytes\n";
+              << totalBytes / 1e6 << " MB\n";
   }
 }
 
@@ -662,28 +660,57 @@ Decompressor::Decompressor  ( bool _useMultiChannel,
   this->colors->SetNumberOfTuples(imagedata->GetNumberOfPoints());
 }
 
-void Decompressor::writeImage ( const char* fname )
+void Decompressor::writeImage ( const std::string& pref,
+                                const std::string& ext )
 {
   imagedata->GetPointData()->AddArray(colors);
   imagedata->GetPointData()->SetActiveScalars("colors"); 
-  
+  std::string fname = pref + ext;
+
+  vtkSmartPointer<vtkImageWriter> writer;
+  if (ext == ".jpg" || ext == ".jpeg")
+  {
+    vtkSmartPointer<vtkJPEGWriter> jpgwriter = 
+      vtkSmartPointer<vtkJPEGWriter>::New();
+    writer = jpgwriter; 
+  }
+  else if (ext == ".png")
+  {
+    vtkSmartPointer<vtkPNGWriter> pngwriter = 
+      vtkSmartPointer<vtkPNGWriter>::New();
+    writer = pngwriter;
+  }
+  else if (ext == ".tiff")
+  {
+    vtkSmartPointer<vtkTIFFWriter> tiffwriter = 
+      vtkSmartPointer<vtkTIFFWriter>::New();
+    writer = tiffwriter;
+  }
+  else if (ext == ".ppm")
+  {
+    vtkSmartPointer<vtkPNMWriter> ppmwriter = 
+      vtkSmartPointer<vtkPNMWriter>::New();
+    writer = ppmwriter; 
+  }
+
+  //vtkSmartPointer<vtkAttributeSmoothingFilter> smoother 
+  //  = vtkSmartPointer<vtkAttributeSmoothingFilter>::New();
+  //smoother->SetInputData(imagedata);
+  //smoother->SetSmoothingStrategyToAllButBoundary();
+  //smoother->SetNumberOfIterations(5);
+  //smoother->SetRelaxationFactor(0.1); 
+  //smoother->Update();
+ 
   vtkSmartPointer<vtkImageCast> cast = vtkSmartPointer<vtkImageCast>::New();
   cast->SetInputData(imagedata);
+  //cast->SetInputData(smoother->GetOutput());
   cast->SetOutputScalarTypeToUnsignedChar();
   cast->Update(); 
   
-  vtkSmartPointer<vtkPNGWriter> png = vtkSmartPointer<vtkPNGWriter>::New();
   vtkSmartPointer<vtkImageData> imagecast = cast->GetOutput();
-  png->SetFileName(fname);
-  png->SetInputData(imagecast);
-  png->Write(); 
-  //vtkSmartPointer<vtkTIFFWriter> tiff = vtkSmartPointer<vtkTIFFWriter>::New();
-  //vtkSmartPointer<vtkImageData> imagecast = cast->GetOutput();
-  //tiff->SetFileName(fname);
-  //tiff->SetInputData(imagecast);
-  //tiff->SetCompression(vtkTIFFWriter::NoCompression);
-  //tiff->Write(); 
- 
+  writer->SetFileName(fname.c_str());
+  writer->SetInputData(imagecast);
+  writer->Write(); 
 }
 
 void Decompressor::decompressChannel_help ( unsigned int channel,
@@ -913,15 +940,47 @@ void writeVTP(vtkSmartPointer<vtkPolyData> polytri, const char* ofname)
   writer->Write();
 }
 
-
-double jcompress  ( const char* fname, 
-                    unsigned int nSamp,
-                    unsigned int nRuns,
-                    unsigned int order,
-                    bool useMultiChannel,
-                    bool viz )
+vtkSmartPointer<vtkImageData> readImage ( const std::string& pref,
+                                          const std::string& ext )
 {
+  std::string fname = pref + ext;
+  vtkSmartPointer<vtkImageReader2> reader;
+  if (ext == ".jpg" || ext == ".jpeg")
+  {
+    vtkSmartPointer<vtkJPEGReader> jpgreader = 
+      vtkSmartPointer<vtkJPEGReader>::New();
+    reader = jpgreader; 
+  }
+  else if (ext == ".png")
+  {
+    vtkSmartPointer<vtkPNGReader> pngreader = 
+      vtkSmartPointer<vtkPNGReader>::New();
+    reader = pngreader;
+  }
+  else if (ext == ".tiff")
+  {
+    vtkSmartPointer<vtkTIFFReader> tiffreader = 
+      vtkSmartPointer<vtkTIFFReader>::New();
+    reader = tiffreader;
+  }
+  else if (ext == ".ppm")
+  {
+    vtkSmartPointer<vtkPNMReader> ppmreader = 
+      vtkSmartPointer<vtkPNMReader>::New();
+    reader = ppmreader; 
+  }
+  reader->SetFileName(fname.c_str());
+  reader->Update();
+  return reader->GetOutput();
+}
 
+Triangulator* jcompress_triangulate ( const char* fname, 
+                                      unsigned int nSamp,
+                                      unsigned int nRuns,
+                                      unsigned int order,
+                                      bool useMultiChannel,
+                                      bool viz )
+{
   // jacobi poly
   double a = 0.5, b = 0.5, c = 0.5;
   // triangulation quad settings
@@ -929,11 +988,11 @@ double jcompress  ( const char* fname,
   unsigned int m = 6;
 
   // Read the image
-  vtkSmartPointer<vtkPNGReader> reader = vtkSmartPointer<vtkPNGReader>::New();
-  reader->SetFileName(fname);
-  reader->Update();
-  vtkSmartPointer<vtkImageData> imagedata = reader->GetOutput(); 
-  
+  std::string fWithExt(fname);
+  std::filesystem::path p(fWithExt);
+  std::string fout = p.stem().string();
+  std::string fWithoutExt = p.parent_path().string() + "/" + fout;
+  vtkSmartPointer<vtkImageData> imagedata = readImage(fWithoutExt.c_str(), p.extension().c_str()); 
   // View the image
   if (viz)
   {
@@ -964,16 +1023,26 @@ double jcompress  ( const char* fname,
                                         imagedata, interpolator, 
                                         useMultiChannel );
   T->run();
+  return T;
+}
 
+double jcompress  ( Triangulator* T,
+                    const char* fname, 
+                    unsigned int nSamp,
+                    unsigned int nRuns,
+                    unsigned int order,
+                    bool useMultiChannel,
+                    bool viz )
+{
   // compress
-  Compressor* C = new Compressor(T);
-  C->setOrder(order);
+  Compressor* C = new Compressor(T, order);
   C->run();
   
   // write grids with compressed data
   std::string fWithExt(fname);
   std::filesystem::path p(fWithExt);
   std::string fout = p.stem().string();
+  std::string fWithoutExt = p.parent_path().string() + "/" + fout;
   if (useMultiChannel)
   {
     std::string fout1 = fout + "_" + std::to_string(order) + "_" + "1.vtp";
@@ -986,7 +1055,52 @@ double jcompress  ( const char* fname,
   else
   {
     std::string fout1 = fout + "_" + std::to_string(order) + ".vtp";
-    writeVTP(T->polytri, fout1.c_str());
+    writeVTP(C->polytri, fout1.c_str());
+  }
+
+  double totalBytes = C->totalBytes;
+   
+  // clean
+  delete C;
+  
+  return totalBytes;
+}
+
+
+
+double jcompress  ( const char* fname, 
+                    unsigned int nSamp,
+                    unsigned int nRuns,
+                    unsigned int order,
+                    bool useMultiChannel,
+                    bool viz )
+{
+  // triangulate
+  Triangulator* T = jcompress_triangulate ( fname, nSamp, nRuns, order,
+                                            useMultiChannel, viz );
+
+  // compress
+  Compressor* C = new Compressor(T, order);
+  C->run();
+  
+  // write grids with compressed data
+  std::string fWithExt(fname);
+  std::filesystem::path p(fWithExt);
+  std::string fout = p.stem().string();
+  std::string fWithoutExt = p.parent_path().string() + "/" + fout;
+  if (useMultiChannel)
+  {
+    std::string fout1 = fout + "_" + std::to_string(order) + "_" + "1.vtp";
+    std::string fout2 = fout + "_" + std::to_string(order) + "_" + "2.vtp";
+    std::string fout3 = fout + "_" + std::to_string(order) + "_" + "3.vtp";
+    writeVTP(T->polytri1, fout1.c_str());
+    writeVTP(T->polytri2, fout2.c_str());
+    writeVTP(T->polytri3, fout3.c_str());
+  }
+  else
+  {
+    std::string fout1 = fout + "_" + std::to_string(order) + ".vtp";
+    writeVTP(C->polytri, fout1.c_str());
   }
 
   double totalBytes = C->totalBytes;
@@ -998,7 +1112,8 @@ double jcompress  ( const char* fname,
   return totalBytes;
 }
 
-void jdecompress  ( bool useMultiChannel, 
+void jdecompress  ( bool useMultiChannel,
+                    const char* fmt, 
                     const char* channel1,
                     const char* channel2,
                     const char* channel3 )
@@ -1016,38 +1131,10 @@ void jdecompress  ( bool useMultiChannel,
   unsigned int order = D->mmax;
   std::string fWithExt(channel1);
   std::filesystem::path p(fWithExt);
-  std::string fout = p.stem().string() + "_deco.png";
-  D->writeImage(fout.c_str());
+  std::string ext(fmt); ext = "." + ext;
+  std::string fout = p.stem().string() + "_deco";
+  D->writeImage(fout, ext);
   delete D;
-}
-
-
-vtkSmartPointer<vtkImageData> readImage ( const std::string& pref,
-                                          const std::string& ext )
-{
-  std::string fname = pref + ext;
-  vtkSmartPointer<vtkImageReader2> reader;
-  if (ext == ".jpg" || ext == ".jpeg")
-  {
-    vtkSmartPointer<vtkJPEGReader> jpgreader = 
-      vtkSmartPointer<vtkJPEGReader>::New();
-    reader = jpgreader; 
-  }
-  else if (ext == ".png")
-  {
-    vtkSmartPointer<vtkPNGReader> pngreader = 
-      vtkSmartPointer<vtkPNGReader>::New();
-    reader = pngreader;
-  }
-  else if (ext == ".tiff")
-  {
-    vtkSmartPointer<vtkTIFFReader> tiffreader = 
-      vtkSmartPointer<vtkTIFFReader>::New();
-    reader = tiffreader;
-  }
-  reader->SetFileName(fname.c_str());
-  reader->Update();
-  return reader->GetOutput();
 }
 
 double ssim ( vtkSmartPointer<vtkImageData> img1,
@@ -1075,26 +1162,37 @@ double ssim ( vtkSmartPointer<vtkImageData> img1,
   return ave;
 } 
 
-// ssim between pref.png and pref.jpg
-double ssim_jpg (const char* pref )
+double ssim ( const char* F1WithExt, const char* F2WithExt )
 {
-  return ssim ( readImage(pref, ".png"),
-                readImage(pref, ".jpg") );
-}
+  std::string f1WithExt(F1WithExt);
+  std::filesystem::path p1(f1WithExt);
+  std::string f1 = p1.stem().string();
+  std::string ext1 = p1.extension();
+  std::string f1WithoutExt;
+  if (not p1.parent_path().string().empty())
+  {
+    f1WithoutExt = p1.parent_path().string() + "/" + f1; 
+  }
+  else
+  {
+    f1WithoutExt = f1;
+  }
 
-// ssim between pref.png and pref_deco.png
-double ssim_png (const char* pref )
-{
-  std::string pref1(pref);
-  pref1 = pref1 + "_deco";
-  return ssim ( readImage(pref, ".png"),
-                readImage(pref1, ".png") );
-}
-
-double ssim_png ( const char* pref1, const char* pref2 )
-{
-  return ssim ( readImage(pref1, ".png"),
-                readImage(pref2, ".png") );
+  std::string f2WithExt(F2WithExt);
+  std::filesystem::path p2(f2WithExt);
+  std::string f2 = p2.stem().string();
+  std::string ext2 = p2.extension();
+  std::string f2WithoutExt;
+  if (not p2.parent_path().string().empty())
+  {
+    f2WithoutExt = p2.parent_path().string() + "/" + f2;
+  }
+  else
+  {
+    f2WithoutExt = f2;
+  }
+  return ssim ( readImage(f1WithoutExt, ext1),  
+                readImage(f2WithoutExt, ext2) );
 
 }
 

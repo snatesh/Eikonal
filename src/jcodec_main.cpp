@@ -5,8 +5,9 @@ int usage(char* argv[])
   std::cout << "Usage: " << argv[0]
             << " mode multichannel args\n"
             << " if (mode=0), args = filename.jpg nSamp nRuns order \n"
-            << " if (mode=1) and (multichannel=1), args = channel1.vtp channel2.vtp channel3.vtp\n"
-            << " if (mode=1) and (multichannel=0), args = channel123.vtp\n";
+            << " if (mode=1) and (multichannel=1), args = f1.vtp f2.vtp f3.vtp out_fmt)\n"
+            << " if (mode=1) and (multichannel=0), args = f.vtp out_fmt\n"
+            << " where out_fmt can be png, jpg, ppm, tiff\n";
   return EXIT_FAILURE;
 
 }
@@ -36,19 +37,22 @@ int main(int argc, char* argv[])
   }
   else if (mode == 1)
   {
-    if (argc != 6 && argc != 4) { return usage(argv); }
-    const char *channel1 = 0, *channel2 = 0, *channel3 = 0;
+    if (argc != 7 && argc != 5) { return usage(argv); }
+    const char *channel1 = 0, *channel2 = 0, *channel3 = 0, *out_fmt;
     if (useMultiChannel)
     {
-      if (argc != 6) { return usage(argv); }
-      channel1 = argv[2]; channel2 = argv[3]; channel3 = argv[4];
+      if (argc != 7) { return usage(argv); }
+
+      channel1 = argv[3]; channel2 = argv[4]; channel3 = argv[5];
+      out_fmt = argv[6];
     }
     else
     {
-      if (argc != 4) { return usage(argv); } 
-      channel1 = argv[3];
+      if (argc != 5) { return usage(argv); } 
+      channel1 = argv[3]; out_fmt = argv[4];
     }
-    jdecompress ( useMultiChannel, channel1, channel2, channel3 );
+    std::cout << out_fmt << std::endl;
+    jdecompress ( useMultiChannel, out_fmt, channel1, channel2, channel3 );
   }
   else
   {
