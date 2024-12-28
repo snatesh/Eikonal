@@ -78,9 +78,8 @@ set(EikonalWeightedSRC src/eikonal_weighted.cpp)
 set(nullspaceSRC  src/nullspace.cpp)
 #set(eikonalSRC src/eikonal.cpp)
 set(jcodec_mainsrc src/jcodec_main.cpp)
-set(readnefsrc src/readnef.cpp)
 set(jcodecSRC include/jcodec.hh src/jcodec.cpp)
-set(ssimSRC src/ssim.cpp)
+set(jcodec_benchSRC src/jcodec_bench.cpp)
 
 # set build output paths
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
@@ -215,15 +214,12 @@ target_link_libraries(EikonalW eikonal)
 add_executable(jcodec_main ${jcodec_mainsrc})
 target_link_libraries(jcodec_main jcodec)
 
-add_executable(ssim ${ssimSRC})
-target_link_libraries(ssim ${VTK_LIBRARIES})
-
-add_executable(readnef ${readnefsrc})
-target_link_libraries(readnef ${VTK_LIBRARIES})
+add_executable(jcodec_bench ${jcodec_benchSRC})
+target_link_libraries(jcodec_bench jcodec)
 
 # vtk_module_autoinit is needed
 vtk_module_autoinit(
-  TARGETS jcodec_main readnef ssim
+  TARGETS jcodec_main jcodec_bench
   MODULES ${VTK_LIBRARIES}
 )
 
@@ -246,5 +242,4 @@ install(TARGETS nullspace ARCHIVE DESTINATION bin LIBRARY DESTINATION bin)
 install(TARGETS EikonalW ARCHIVE DESTINATION bin LIBRARY DESTINATION bin)
 install(TARGETS jcodec ARCHIVE DESTINATION bin LIBRARY DESTINATION lib)
 install(TARGETS jcodec_main ARCHIVE DESTINATION bin LIBRARY DESTINATION bin)
-install(TARGETS ssim ARCHIVE DESTINATION bin LIBRARY DESTINATION bin)
-install(TARGETS readnef ARCHIVE DESTINATION bin LIBRARY DESTINATION bin)
+install(TARGETS jcodec_bench ARCHIVE DESTINATION bin LIBRARY DESTINATION bin)

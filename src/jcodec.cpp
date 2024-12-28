@@ -1,13 +1,30 @@
-#include<jcodec.hh>
-#include<vtkCellData.h>
-#include<vtkFieldData.h>
-#include<vtkXMLPolyDataReader.h>
-#include<vtkInformation.h>
+#include <jcodec.hh>
+#include <vtkCellData.h>
+#include <vtkFieldData.h>
+#include <vtkXMLPolyDataReader.h>
+#include <vtkInformation.h>
 #include <vtkCellTreeLocator.h>
 #include <vtkPNGWriter.h>
 #include <vtkImageCast.h>
 #include <vtkTIFFWriter.h>
+#include <vtkImageViewer2.h>
+#include <vtkJPEGReader.h>
+#include <vtkPNGReader.h>
+#include <vtkNamedColors.h>
+#include <vtkProperty.h>
+#include <vtkRenderWindow.h>
+#include <vtkRenderWindowInteractor.h>
+#include <vtkRenderer.h>
+#include <vtkXMLPolyDataWriter.h>
+#include <vtkImageSSIM.h>
+#include <vtkImageReader2.h>
+#include <vtkTIFFReader.h>
+#include <vtkImageSSIM.h>
+#include <vtkPointData.h>
+#include <map>
+#include <vector>
 #include <timer.hh>
+#include <filesystem>
 
 vtkSmartPointer<vtkDelaunay2D> triangulateUniform ( int* dims, 
                                                     double* origin,
@@ -381,6 +398,11 @@ Compressor::~Compressor()
   if (cimg) { free(cimg); cimg = 0; }
 }
 
+void Compressor::setOrder ( unsigned int m )
+{
+  this->morder = m;
+}
+
 void Compressor::compressChannel_help ( unsigned int channel,
                                         vtkSmartPointer<vtkPolyData> polytri,
                                         vtkSmartPointer<vtkDoubleArray> coeffs,
@@ -411,38 +433,35 @@ void Compressor::compressChannel_help ( unsigned int channel,
     polytri->GetPoints()->GetPoint(ptids->GetId(0), v1t);
     polytri->GetPoints()->GetPoint(ptids->GetId(1), v2t);
     polytri->GetPoints()->GetPoint(ptids->GetId(2), v3t);
-    /* starting with linear order, get coeffs 
-      of increasing order and stop when norm of 
-      last block is within blknormtol 
-
-      we must multiply interpolated 
-      vals by quadrature weights 
-      ONLY on first run */
-    bool hasweights = false;
-    m = 1; double blknorm;
-    m = mmax;
+    if (this->morder > 0) 
+    { 
+      m = this->morder; 
+    }
+    else
+    {
+      m = mmax;
+    }
     unsigned int M = static_cast<unsigned int>(0.5 * (m + 1) * (m + 2));
-    unsigned int Mprev = static_cast<unsigned int>(0.5 * m * (m + 1));
     Pm->computeCoeffs(interpc, R, S, W, cimg);
     if (useMultiChannel)
     {
-      for (unsigned int j = 0; j < Mmax; ++j)
+      for (unsigned int j = 0; j < M; ++j)
       {
         coeffs->InsertNextValue(cimg[j]);
       }
       offsets->SetValue(i, offset);
-      orders->SetValue(i, mmax);
+      orders->SetValue(i, m);
     }
     else
     {
-      for (unsigned int j = 0; j < Mmax; ++j)
+      for (unsigned int j = 0; j < M; ++j)
       {
         coeffs->InsertComponent(offset+j, channel, cimg[j]);
       }
       offsets->SetComponent(i, channel, offset);
-      orders->SetComponent(i, channel, mmax);
+      orders->SetComponent(i, channel, m);
     }
-    offset += Mmax;
+    offset += M;
   }
 }
 
@@ -533,8 +552,15 @@ void Compressor::run  ( )
   }
   else
   {
+    std::cout << "Number of triangles: " 
+              << polytri->GetNumberOfCells() << std::endl;
+    std::cout << "Order per triangle: " 
+              << ((morder > 0) ? morder : mmax) << std::endl;
     compressChannel(0);
-    std::cout << "compressed all channels" << std::endl;
+    totalBytes =  polytri->GetNumberOfCells() *
+                  ( 4 * Mmax + 36);
+    std::cout << "compressed all channels into "
+              << totalBytes / 1e6 << " megabytes\n";
   }
 }
 
@@ -543,7 +569,6 @@ Decompressor::Decompressor  ( bool _useMultiChannel,
                               const char* channel2, 
                               const char* channel3  )
 {
-
   if (_useMultiChannel && (!channel2 || !channel3))
   {
     std::cerr << "missing channel files" << std::endl;
@@ -585,18 +610,23 @@ Decompressor::Decompressor  ( bool _useMultiChannel,
     // read compressed channel file
     vtkSmartPointer<vtkXMLPolyDataReader> reader =
       vtkSmartPointer<vtkXMLPolyDataReader>::New();
-
     reader->SetFileName(channel1); reader->Update();
-
     this->polytri = reader->GetOutput();
+    
     // read coefficient and offset arrays
     this->offsets = vtkIntArray::SafeDownCast(polytri->GetCellData()->GetAbstractArray(0));
     this->orders = vtkUnsignedIntArray::SafeDownCast(polytri->GetCellData()->GetAbstractArray(1));
     this->coeffs = vtkDoubleArray::SafeDownCast(polytri->GetFieldData()->GetAbstractArray(0));
-    // initialize decompressed image data
     polytri->GetBounds(this->bounds);
+    
+    // set decompression order from compressed file
+    double tup[3];
+    orders->GetTuple(0, tup);
+    this->mmax = static_cast<unsigned int>(tup[0]); 
+    this->Mmax = static_cast<unsigned int>(0.5*(mmax+1)*(mmax+2));
   }
   
+  // initialize decompressed image data
   this->imagedata = vtkSmartPointer<vtkImageData>::New();
   int dims[3]; 
   dims[0] = bounds[1]+1; dims[1] = bounds[3]+1; dims[2] = 1;
@@ -757,8 +787,8 @@ void Decompressor::decompressChannel_help ( unsigned int channel,
       {
         // get order and offset
         offset = offsets->GetComponent(it->first, ichannel);
-        m = orders->GetComponent(it->first, ichannel); 
-        M = static_cast<unsigned int>(0.5 * (m + 1) * (m + 2));
+        m = mmax;
+        M = Mmax; 
         // copy correct channel coeffs
         for (unsigned int i = 0; i < M; ++i)
         {
@@ -777,7 +807,7 @@ void Decompressor::decompressChannel_help ( unsigned int channel,
           color = static_cast<unsigned short>(std::round(img[i])); 
           colors->SetComponent(it->second[i], ichannel, color);
         }
-      } 
+      }
     }
     
     if (!(it->first % 200)) 
@@ -866,11 +896,210 @@ void Decompressor::run()
   else
   {
     decompressChannel(0);
+
     std::cout << "decompressed all channels" << std::endl;
   }
+  
 }
 
-/* 
+
+void writeVTP(vtkSmartPointer<vtkPolyData> polytri, const char* ofname)
+{
+  // write mesh
+  vtkNew<vtkXMLPolyDataWriter> writer;
+  writer->SetFileName(ofname);
+  writer->SetInputData(polytri);  
+  writer->SetDataModeToBinary();
+  writer->Write();
+}
+
+
+double jcompress  ( const char* fname, 
+                    unsigned int nSamp,
+                    unsigned int nRuns,
+                    unsigned int order,
+                    bool useMultiChannel,
+                    bool viz )
+{
+
+  // jacobi poly
+  double a = 0.5, b = 0.5, c = 0.5;
+  // triangulation quad settings
+  unsigned int N = 55;
+  unsigned int m = 6;
+
+  // Read the image
+  vtkSmartPointer<vtkPNGReader> reader = vtkSmartPointer<vtkPNGReader>::New();
+  reader->SetFileName(fname);
+  reader->Update();
+  vtkSmartPointer<vtkImageData> imagedata = reader->GetOutput(); 
+  
+  // View the image
+  if (viz)
+  {
+    vtkSmartPointer<vtkNamedColors> colors = vtkSmartPointer<vtkNamedColors>::New();
+    vtkSmartPointer<vtkImageViewer2> imageViewer = vtkSmartPointer<vtkImageViewer2>::New();
+    imageViewer->SetInputData(imagedata);
+    vtkNew<vtkRenderWindowInteractor> renderWindowInteractor;
+    imageViewer->SetupInteractor(renderWindowInteractor);
+    imageViewer->Render();
+    imageViewer->GetRenderer()->ResetCamera();
+    imageViewer->GetRenderer()->SetBackground(
+        colors->GetColor3d("DarkSlateGray").GetData());
+    imageViewer->GetRenderWindow()->SetWindowName(fname);
+    imageViewer->Render();
+    renderWindowInteractor->Start();
+  }
+  // create cubic interpolator on image
+   vtkSmartPointer<vtkImageInterpolator> interpolator = 
+    vtkSmartPointer<vtkImageInterpolator>::New();
+  interpolator->Initialize(imagedata);
+  interpolator->SetInterpolationModeToCubic();
+  
+  // triangulate
+  Triangulator* T = new Triangulator  ( N, m, a, b, c, nSamp, nRuns, 
+                                        "xtri_N55_n9_M91_m12.txt",
+                                        "ytri_N55_n9_M91_m12.txt",            
+                                        "wtri_N55_n9_M91_m12.txt",
+                                        imagedata, interpolator, 
+                                        useMultiChannel );
+  T->run();
+
+  // compress
+  Compressor* C = new Compressor(T);
+  C->setOrder(order);
+  C->run();
+  
+  // write grids with compressed data
+  std::string fWithExt(fname);
+  std::filesystem::path p(fWithExt);
+  std::string fout = p.stem().string();
+  if (useMultiChannel)
+  {
+    std::string fout1 = fout + "_" + std::to_string(order) + "_" + "1.vtp";
+    std::string fout2 = fout + "_" + std::to_string(order) + "_" + "2.vtp";
+    std::string fout3 = fout + "_" + std::to_string(order) + "_" + "3.vtp";
+    writeVTP(T->polytri1, fout1.c_str());
+    writeVTP(T->polytri2, fout2.c_str());
+    writeVTP(T->polytri3, fout3.c_str());
+  }
+  else
+  {
+    std::string fout1 = fout + "_" + std::to_string(order) + ".vtp";
+    writeVTP(T->polytri, fout1.c_str());
+  }
+
+  double totalBytes = C->totalBytes;
+   
+  // clean
+  delete T;
+  delete C;
+  
+  return totalBytes;
+}
+
+void jdecompress  ( bool useMultiChannel, 
+                    const char* channel1,
+                    const char* channel2,
+                    const char* channel3 )
+{
+  Decompressor* D;
+  if (useMultiChannel)
+  {
+    D = new Decompressor ( useMultiChannel, channel1, channel2, channel3 );
+  }
+  else
+  {
+    D = new Decompressor ( useMultiChannel, channel1 ); 
+  }
+  D->run();
+  unsigned int order = D->mmax;
+  std::string fWithExt(channel1);
+  std::filesystem::path p(fWithExt);
+  std::string fout = p.stem().string() + "_deco.png";
+  D->writeImage(fout.c_str());
+  delete D;
+}
+
+
+vtkSmartPointer<vtkImageData> readImage ( const std::string& pref,
+                                          const std::string& ext )
+{
+  std::string fname = pref + ext;
+  vtkSmartPointer<vtkImageReader2> reader;
+  if (ext == ".jpg" || ext == ".jpeg")
+  {
+    vtkSmartPointer<vtkJPEGReader> jpgreader = 
+      vtkSmartPointer<vtkJPEGReader>::New();
+    reader = jpgreader; 
+  }
+  else if (ext == ".png")
+  {
+    vtkSmartPointer<vtkPNGReader> pngreader = 
+      vtkSmartPointer<vtkPNGReader>::New();
+    reader = pngreader;
+  }
+  else if (ext == ".tiff")
+  {
+    vtkSmartPointer<vtkTIFFReader> tiffreader = 
+      vtkSmartPointer<vtkTIFFReader>::New();
+    reader = tiffreader;
+  }
+  reader->SetFileName(fname.c_str());
+  reader->Update();
+  return reader->GetOutput();
+}
+
+double ssim ( vtkSmartPointer<vtkImageData> img1,
+              vtkSmartPointer<vtkImageData> img2 )
+{
+
+  vtkSmartPointer<vtkImageSSIM> ssim = vtkSmartPointer<vtkImageSSIM>::New();
+  ssim->SetInputToRGB();
+  ssim->SetInputData(img1); 
+  ssim->SetImageData(img2);  
+  ssim->Update();
+  
+  vtkSmartPointer<vtkImageData> ssim_output =  ssim->GetOutput();
+  double tup[3], ave = 0;
+  int numtuples = ssim_output->GetPointData()->GetNumberOfTuples();
+  vtkSmartPointer<vtkDataArray> scalars = ssim_output->GetPointData()->GetScalars();
+  for (unsigned int i = 0; i < numtuples; ++i)
+  {
+    scalars->GetTuple(i, tup);
+    ave += (tup[0] + tup[1] + tup[2]) / 3;
+  }
+  ave /= numtuples; 
+ 
+  std::cout << "ssim average: " << ave << std::endl;
+  return ave;
+} 
+
+// ssim between pref.png and pref.jpg
+double ssim_jpg (const char* pref )
+{
+  return ssim ( readImage(pref, ".png"),
+                readImage(pref, ".jpg") );
+}
+
+// ssim between pref.png and pref_deco.png
+double ssim_png (const char* pref )
+{
+  std::string pref1(pref);
+  pref1 = pref1 + "_deco";
+  return ssim ( readImage(pref, ".png"),
+                readImage(pref1, ".png") );
+}
+
+double ssim_png ( const char* pref1, const char* pref2 )
+{
+  return ssim ( readImage(pref1, ".png"),
+                readImage(pref2, ".png") );
+
+}
+
+
+/************************************ 
 
   m-adaptive compression code 
    
@@ -917,4 +1146,4 @@ void Decompressor::run()
                   << rspix[i+npix]-(1-rspix[i]) << std::endl;
       }
 
-*/
+*************************************/
