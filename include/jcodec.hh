@@ -6,6 +6,7 @@
 #include <vtkDelaunay2D.h>
 #include <vtkSmartPointer.h>
 #include <vtkImageInterpolator.h>
+#include <vtkCellTreeLocator.h>
 #include <vtkIncrementalOctreePointLocator.h>
 #include <vtkSmartPointer.h>
 #include <vtkImageData.h>
@@ -95,7 +96,7 @@ struct Compressor
   vtkSmartPointer<vtkImageInterpolator> interpolator; 
   vtkSmartPointer<vtkPolyData> polytri, polytri1, polytri2, polytri3; 
   vtkSmartPointer<vtkDoubleArray> coeffs, coeffs1, coeffs2, coeffs3;
-  vtkSmartPointer<vtkIntArray> offsets, offsets1, offsets2, offsets3;
+  vtkSmartPointer<vtkIntArray> offsets, offsets1, offsets2, offsets3, celltypes;
   vtkSmartPointer<vtkUnsignedIntArray> orders, orders1, orders2, orders3;
  
   Compressor  ( Triangulator* T , unsigned int order );
@@ -106,6 +107,7 @@ struct Compressor
                               vtkSmartPointer<vtkDoubleArray> coeffs,
                               vtkSmartPointer<vtkIntArray> offsets,
                               vtkSmartPointer<vtkUnsignedIntArray> orders );
+  void smoothCoeffs ( );
  
   void run  ( );
 
@@ -123,6 +125,7 @@ struct Decompressor
   vtkSmartPointer<vtkImageData> imagedata;
   vtkSmartPointer<vtkUnsignedShortArray> colors;
   vtkSmartPointer<vtkPoints> pixels;
+  vtkSmartPointer<vtkCellTreeLocator> triloc;
   double a, b, c;
   unsigned int mmax, Mmax;
   double bounds[6];
@@ -140,6 +143,8 @@ struct Decompressor
                                 vtkSmartPointer<vtkIntArray> offsets,
                                 vtkSmartPointer<vtkUnsignedIntArray> orders );
 
+  void smoothImage ( );
+
   void writeImage ( const std::string& pref,
                     const std::string& ext );
 
@@ -149,7 +154,7 @@ struct Decompressor
 
 };
 
-/* main wrappers for compression pipeline */
+/* wrappers for compression pipeline */
 void writeVTP(vtkSmartPointer<vtkPolyData> polytri, const char* ofname);
 
 Triangulator* jcompress_triangulate ( const char* fname, 

@@ -51,7 +51,6 @@ int main(int argc, char* argv[])
       if (argc != 5) { return usage(argv); } 
       channel1 = argv[3]; out_fmt = argv[4];
     }
-    std::cout << out_fmt << std::endl;
     jdecompress ( useMultiChannel, out_fmt, channel1, channel2, channel3 );
   }
   else

@@ -1,9 +1,11 @@
 #include <jcodec.hh>
 #include <vtkCellData.h>
 #include <vtkFieldData.h>
+#include <vtkPolyDataEdgeConnectivityFilter.h>
+#include <vtkLine.h>
+#include <vtkExtractEdges.h>
 #include <vtkXMLPolyDataReader.h>
 #include <vtkInformation.h>
-#include <vtkCellTreeLocator.h>
 #include <vtkPNGWriter.h>
 #include <vtkTIFFWriter.h>
 #include <vtkJPEGWriter.h>
@@ -30,6 +32,7 @@
 #include <vector>
 #include <timer.hh>
 #include <filesystem>
+#include <legQuad.hh>
 
 vtkSmartPointer<vtkDelaunay2D> triangulateUniform ( int* dims, 
                                                     double* origin,
@@ -531,6 +534,141 @@ void Compressor::compressChannel  ( unsigned int channel )
   polytri->GetFieldData()->AddArray(coeffs);
   polytri->GetCellData()->AddArray(offsets); 
   polytri->GetCellData()->AddArray(orders); 
+
+
+}
+
+void Compressor::smoothCoeffs ( )
+{
+  if (not useMultiChannel)
+  {
+    celltypes = vtkSmartPointer<vtkIntArray>::New();
+    celltypes->SetNumberOfComponents(1);
+    celltypes->SetNumberOfTuples(polytri->GetNumberOfCells());
+    celltypes->SetName("celltype");
+
+    vtkSmartPointer<vtkIdList> cellPtIds = vtkSmartPointer<vtkIdList>::New();
+    cellPtIds->SetNumberOfIds(3);
+    vtkSmartPointer<vtkIdList> idList = vtkSmartPointer<vtkIdList>::New();
+    idList->SetNumberOfIds(2);
+    vtkSmartPointer<vtkIdList> neighborCellIds = vtkSmartPointer<vtkIdList>::New();
+
+    std::map<int, std::vector<int>> neighbors;
+
+    // loop over triangles to classify cells
+    for (int icell = 0; icell < polytri->GetNumberOfCells(); ++icell)
+    {
+      // get ptids defining cell
+      polytri->GetCellPoints(icell, cellPtIds);
+
+      // find neighbors of first edge
+      idList->SetId(0, cellPtIds->GetId(0));
+      idList->SetId(1, cellPtIds->GetId(1));
+      polytri->GetCellNeighbors(icell, idList, neighborCellIds);
+      if (neighborCellIds->GetNumberOfIds() > 0)
+      {
+        neighbors[icell].push_back(neighborCellIds->GetId(0));
+      }
+      // find neighbors of second edge
+      idList->SetId(0, cellPtIds->GetId(1));
+      idList->SetId(1, cellPtIds->GetId(2));
+      polytri->GetCellNeighbors(icell, idList, neighborCellIds);
+      if (neighborCellIds->GetNumberOfIds() > 0)
+      { 
+        neighbors[icell].push_back(neighborCellIds->GetId(0));
+      }
+      // find neighbors of third edge
+      idList->SetId(0, cellPtIds->GetId(2));
+      idList->SetId(1, cellPtIds->GetId(0));
+      polytri->GetCellNeighbors(icell, idList, neighborCellIds);
+      if (neighborCellIds->GetNumberOfIds() > 0)
+      { 
+        neighbors[icell].push_back(neighborCellIds->GetId(0)); 
+      } 
+    }
+
+    for (auto it = neighbors.begin(); it != neighbors.end(); ++it)
+    {
+      for (unsigned int i = 0; i < it->second.size(); ++i)
+      {
+        std::cout << it->second[i] << " ";
+      }
+      std::cout << std::endl;
+      celltypes->SetComponent(it->first, 0, it->second.size());
+    } 
+  
+    polytri->GetCellData()->AddArray(celltypes); 
+    std::cout << N << " " << Mmax << std::endl;
+
+    // test legendre quad
+    legQuad<double>* legq = new legQuad<double>(30); 
+    legq->shift();
+
+    double sum = 0; 
+    for (unsigned int i = 0; i < 30; ++i)
+    {
+      sum += std::exp(std::sin(legq->x[i]*legq->x[i])) * legq->w[i];
+    }
+    std::cout << std::setprecision(17) << sum << std::endl;
+    delete legq;
+
+    /* TODO: Outline for coefficient smoothing 
+
+    1) neighbors[i] gives the triangles in
+       the element patch of triangle i
+    2) for each of these adjacent triangles
+        - get the shared edge and evaluate
+          the end points parametrically
+          - if p1[0] == 0 and p1[1] == 0 and 
+               p2[0] == 1 and p2[1] == 0,
+            we are on the bottom edge of Tref
+          - if p1[0] == 1 and p1[1] == 0 and 
+               p2[0] == 0 and p2[1] == 1,
+            we are on the hypotenuse of Tref
+          - if p1[0] == 0 and p1[1] == 1 and
+               p2[0] == 0 and p2[1] == 0,
+            we are on the left edge of Tref
+          - NOTE: must check that this ordering is always the case
+    3) based on the edge location, create an array of (x,y)
+       tuples where 
+          - if on bottom (x,y) = (legx, 0)
+          - if on hyp    (x,y) = (legx, 1-legx)
+          - if on left   (x,y) = (0, legx)
+          - NOTE: these can be precomputed once and re-used
+          - do this for each shared edge
+    4) Assemble the matrix (eij is edge between triangle i an j)
+        | P(interior) |
+        | w'*P(ei1)   |
+        | w'*P(ei2)   |
+        | w'*P(ei3)   |
+      - NOTE: for boundary triangles i, there are either 1 or 2
+              adjacent triangles, so the number of weighted
+              rows is reduced by 1 or 2.
+      - NOTE: this can be precomputed and re-used 
+    5) Assemble the right hand side vector 
+        (ci_k are coeffs on triangle i for channel j)
+        (adjacent triangles are numbered 1,2,3)
+        | P(interior) * [ci_1 ci_2 ci_3] |
+        | w'*P(ei1)   * [c1_1 c1_2 c1_3] |
+        | w'*P(ei2)   * [c2_1 c2_2 c2_3] |
+        | w'*P(ei3)   * [c3_1 c3_2 c3_3] |
+      - NOTE: for boundary triangles i, there are either 1 or 2
+              adjacent triangles, so the number of weighted
+              rows is reduced by 1 or 2.
+      - NOTE: Should use precomputed matrix to evaluate this RHS 
+   6) Solve in the least-squares sense for coeffs 
+      which enforce these continuity conditions
+   7) Update the coeffs array (indexed by offset) in 
+      the polytri instance 
+  */
+
+
+  }
+  else
+  {
+    std::cerr << "not supported for separate triangulations per channel\n";
+    exit(1);
+  }
 }
 
 void Compressor::run  ( )
@@ -550,12 +688,13 @@ void Compressor::run  ( )
               << polytri->GetNumberOfCells() << std::endl;
     std::cout << "Order per triangle: " << morder << std::endl; 
     compressChannel(0);
+    smoothCoeffs ( );
     unsigned int M = static_cast<unsigned int>(0.5 * (morder+1)*(morder+2));
     /* (ntri*(mcoeff floats/channel)*(3 channels)*(4bytes/float) 
-      + ntri*(3 indices)*(4 bytes/int) 
+      + ntri*(3 short indices)*(2 bytes/short) 
       + npts * (2 floats for x,y)*(4 bytes/float) 
     */
-    totalBytes =  polytri->GetNumberOfCells() * (M * 12 + 12) +
+    totalBytes =  polytri->GetNumberOfCells() * (M * 12 + 6) +
                   polytri->GetNumberOfPoints() * 8; 
     std::cout << "compressed all channels into "
               << totalBytes / 1e6 << " MB\n";
@@ -572,6 +711,7 @@ Decompressor::Decompressor  ( bool _useMultiChannel,
     std::cerr << "missing channel files" << std::endl;
   }
   this->useMultiChannel = _useMultiChannel;
+  this->triloc = vtkSmartPointer<vtkCellTreeLocator>::New();
 
   if (useMultiChannel)
   {
@@ -622,6 +762,9 @@ Decompressor::Decompressor  ( bool _useMultiChannel,
     orders->GetTuple(0, tup);
     this->mmax = static_cast<unsigned int>(tup[0]); 
     this->Mmax = static_cast<unsigned int>(0.5*(mmax+1)*(mmax+2));
+    // build locator
+    triloc->SetDataSet(polytri);
+    triloc->BuildLocator(); 
   }
   
   // initialize decompressed image data
@@ -659,6 +802,46 @@ Decompressor::Decompressor  ( bool _useMultiChannel,
   this->colors->SetNumberOfComponents(3);
   this->colors->SetNumberOfTuples(imagedata->GetNumberOfPoints());
 }
+
+
+void Decompressor::smoothImage ( )
+{
+  // get edges
+  vtkSmartPointer<vtkExtractEdges> edgeFilter = 
+    vtkSmartPointer<vtkExtractEdges>::New(); 
+  edgeFilter->SetInputData(this->polytri);
+  edgeFilter->Update();
+  vtkSmartPointer<vtkPolyData> edges = edgeFilter->GetOutput();  
+  unsigned int nEdges = edges->GetNumberOfCells();  
+  unsigned int nPix = pixels->GetNumberOfPoints();
+  double pw = std::sqrt(2.0), alpha = 2;
+  double rad = pw * alpha; 
+  std::map<int, std::vector<int>> pixByEdge;
+  vtkSmartPointer<vtkLine> line;
+  double d2l, t;
+  for (int iedge = 0; iedge < nEdges; ++iedge)
+  {
+    line = vtkLine::SafeDownCast(edges->GetCell(iedge));
+    for (int iPix = 0; iPix < nPix; ++iPix)
+    {
+      d2l = vtkLine::DistanceToLine(pixels->GetPoint(iPix), 
+                                    line->GetPoints()->GetPoint(0), 
+                                    line->GetPoints()->GetPoint(1),
+                                    t, nullptr);
+      if (d2l <= rad)
+      {
+        edges->GetPoints()->InsertNextPoint(pixels->GetPoint(iPix));
+      }
+    }
+
+  }
+   
+
+ 
+  std::cout << edges->GetNumberOfCells() << std::endl; 
+  writeVTP(edges, "edges.vtp");
+
+} 
 
 void Decompressor::writeImage ( const std::string& pref,
                                 const std::string& ext )
@@ -724,11 +907,13 @@ void Decompressor::decompressChannel_help ( unsigned int channel,
   {
     cimg = (double*) calloc(Mmax, sizeof(double)); 
   }
-  // build locator on image triangulation
-  vtkSmartPointer<vtkCellTreeLocator> triloc =
-    vtkSmartPointer<vtkCellTreeLocator>::New();
-  triloc->SetDataSet(polytri);
-  triloc->BuildLocator(); 
+  else
+  {
+    // build locator on image triangulation
+    triloc->Initialize();
+    triloc->SetDataSet(polytri);
+    triloc->BuildLocator(); 
+  }
   
   // build pix-tri map (pixInTri[j] are the pixels indices in triangle j)
   std::map<int, std::vector<int>> pixInTri;
@@ -777,7 +962,11 @@ void Decompressor::decompressChannel_help ( unsigned int channel,
     npix = it->second.size();
     for (unsigned int i = 0; i < npix; ++i)
     { 
-      polytri->GetCell(it->first)->EvaluatePosition(pixels->GetPoint(it->second[i]), nullptr, subid, r, dist2, tmpwts);
+      polytri->GetCell(it->first)->
+        EvaluatePosition(pixels->GetPoint(it->second[i]), 
+                                          nullptr, 
+                                          subid, r, 
+                                          dist2, tmpwts);
       rspix[i] = r[0]; rspix[i+npix] = r[1];
 
     }
@@ -802,6 +991,7 @@ void Decompressor::decompressChannel_help ( unsigned int channel,
       // save the image data in channel
       for (unsigned int i = 0; i < npix; ++i)
       {
+        // clip out of bounds colors
         if (img[i] < 0) { img[i] = 0; }
         if (img[i] > 255) { img[i] = 255; }
         color = static_cast<unsigned short>(std::round(img[i])); 
@@ -923,10 +1113,9 @@ void Decompressor::run()
   else
   {
     decompressChannel(0);
-
+    smoothImage();
     std::cout << "decompressed all channels" << std::endl;
   }
-  
 }
 
 
@@ -1013,7 +1202,7 @@ Triangulator* jcompress_triangulate ( const char* fname,
    vtkSmartPointer<vtkImageInterpolator> interpolator = 
     vtkSmartPointer<vtkImageInterpolator>::New();
   interpolator->Initialize(imagedata);
-  interpolator->SetInterpolationModeToCubic();
+  interpolator->SetInterpolationModeToLinear();
   
   // triangulate
   Triangulator* T = new Triangulator  ( N, m, a, b, c, nSamp, nRuns, 

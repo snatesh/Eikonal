@@ -260,20 +260,19 @@ class jPoly
         jpoly<T>(this->ydx, Nx, n + 1, c - 0.5, b - 0.5, this->Pk);
 
         // get bndry pts
-        //std::vector<int> x1inds, x0inds, y0inds, y1mxinds;
-        int x1ind, nx1 = 0;
+        std::vector<int> x1inds, x0inds, y0inds, y1mxinds;
         for (unsigned int i = 0; i < Nx; ++i)
         {
-          if (std::abs(X[i]-1) < 1e-15) {x1ind = i; nx1 = 1; break;}
-          //if (std::abs(X[i]) < 1e-15) {x0inds.push_back(i);}
-          //if (std::abs(Y[i]) < 1e-15) {y0inds.push_back(i);}
-          //if (std::abs(Y[i]-(1-X[i])) < 1e-15) {y1mxinds.push_back(i);}
+          if (std::abs(X[i]-1) < 1e-15) {x1inds.push_back(i);}
+          if (std::abs(X[i]) < 1e-15) {x0inds.push_back(i);}
+          if (std::abs(Y[i]) < 1e-15) {y0inds.push_back(i);}
+          if (std::abs(Y[i]-(1-X[i])) < 1e-15) {y1mxinds.push_back(i);}
         }
 
-        //int nx1 = x1inds.size();
-        //int nx0 = x0inds.size();
-        //int ny0 = y0inds.size();
-        //int ny1mx = y1mxinds.size();
+        int nx1 = x1inds.size();
+        int nx0 = x0inds.size();
+        int ny0 = y0inds.size();
+        int ny1mx = y1mxinds.size();
         //std::cout << nx1 << " " << nx0 << " " << ny0 << " " << ny1mx << std::endl;
         if (not this->weighted)
         { 
@@ -295,58 +294,58 @@ class jPoly
               // substitute limit relation for X=1
               if (nx1 > 0)
               {
-                //for (unsigned int i = 0; i < nx1; ++i)
-                //{
-                if (kk != 0)
+                for (unsigned int i = 0; i < nx1; ++i)
                 {
-                  v[x1ind] =  
-                    ( 1.0 / H[kk + (n+1)*nn] * tgamma(nn+kk+b+c+1) / 
-                    ( tgamma(nn-kk+1) * tgamma(nn+kk+b+c-(nn-kk)+1) ) ) *
-                    ( pochhammer<T>(kk+c+b, kk) / (pow(2.0,kk) * tgamma(kk+1)) ) *
-                    pow(2.0*Y[x1ind], kk);
+                  if (kk != 0)
+                  {
+                    v[x1inds[i]] =  
+                      ( 1.0 / H[kk + (n+1)*nn] * tgamma(nn+kk+b+c+1) / 
+                      ( tgamma(nn-kk+1) * tgamma(nn+kk+b+c-(nn-kk)+1) ) ) *
+                      ( pochhammer<T>(kk+c+b, kk) / (pow(2.0,kk) * tgamma(kk+1)) ) *
+                      pow(2.0*Y[x1inds[i]], kk);
+                  }
+                  else
+                  {
+                    v[x1inds[i]] = 1;
+                  }
                 }
-                else
-                {
-                  v[x1ind] = 1;
-                }
-                //}
               }
-              //if (nx0 > 0)
-              //{
-              //  #pragma omp simd
-              //  for (unsigned int i = 0; i < nx0; ++i)
-              //  {
-              //    v[x0inds[i]] = 
-              //      1.0 / H[kk + (n+1)*nn] *
-              //      ( std::pow(-1.0, nn-kk) * tgamma(nn-kk+a-0.5+1) / 
-              //      ( tgamma(nn-kk+1) * tgamma(nn-kk+a-0.5-(nn-kk)+1) ) ) *
-              //      Pk[x0inds[i] + Nx*kk];
-              //  }
-              //}
-              //if (ny0 > 0)
-              //{
-              //  #pragma omp simd
-              //  for (unsigned int i = 0; i < ny0; ++i)
-              //  {
-              //    v[y0inds[i]] = 
-              //      1.0 / H[kk + (n+1)*nn] *
-              //      pnmk[y0inds[i] + Nx*(nn-kk)] * std::pow(mxp1[y0inds[i]], kk) *
-              //      std::pow(-1.0, kk) * tgamma(kk+b-0.5+1) /
-              //      ( tgamma(kk+1) * tgamma(kk+b-0.5-(kk)+1));
-              //  }
-              //}
-              //if (ny1mx > 0)
-              //{
-              //  #pragma omp simd
-              //  for (unsigned int i = 0; i < ny1mx; ++i)
-              //  {
-              //    v[y1mxinds[i]] = 
-              //      1.0 / H[kk + (n+1)*nn] *
-              //      pnmk[y1mxinds[i] + Nx*(nn-kk)] * std::pow(mxp1[y1mxinds[i]], kk) * 
-              //      tgamma(kk+c-0.5+1) / 
-              //      ( tgamma(kk+1) * tgamma(kk+c-0.5-(kk)+1));
-              //  }
-              //}
+              if (nx0 > 0)
+              {
+                #pragma omp simd
+                for (unsigned int i = 0; i < nx0; ++i)
+                {
+                  v[x0inds[i]] = 
+                    1.0 / H[kk + (n+1)*nn] *
+                    ( std::pow(-1.0, nn-kk) * tgamma(nn-kk+a-0.5+1) / 
+                    ( tgamma(nn-kk+1) * tgamma(nn-kk+a-0.5-(nn-kk)+1) ) ) *
+                    Pk[x0inds[i] + Nx*kk];
+                }
+              }
+              if (ny0 > 0)
+              {
+                #pragma omp simd
+                for (unsigned int i = 0; i < ny0; ++i)
+                {
+                  v[y0inds[i]] = 
+                    1.0 / H[kk + (n+1)*nn] *
+                    pnmk[y0inds[i] + Nx*(nn-kk)] * std::pow(mxp1[y0inds[i]], kk) *
+                    std::pow(-1.0, kk) * tgamma(kk+b-0.5+1) /
+                    ( tgamma(kk+1) * tgamma(kk+b-0.5-(kk)+1));
+                }
+              }
+              if (ny1mx > 0)
+              {
+                #pragma omp simd
+                for (unsigned int i = 0; i < ny1mx; ++i)
+                {
+                  v[y1mxinds[i]] = 
+                    1.0 / H[kk + (n+1)*nn] *
+                    pnmk[y1mxinds[i] + Nx*(nn-kk)] * std::pow(mxp1[y1mxinds[i]], kk) * 
+                    tgamma(kk+c-0.5+1) / 
+                    ( tgamma(kk+1) * tgamma(kk+c-0.5-(kk)+1));
+                }
+              }
             }
             ind = ind + nn + 1;
           }

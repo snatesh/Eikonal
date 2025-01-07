@@ -842,7 +842,8 @@ struct ngjQuad
         std::cout << "NLOPT converged with residual " << minF << std::endl;
       }
       nlopt_destroy(opt);
-      nlopt_destroy(opt_i);
+      
+      if (dim == 2) { nlopt_destroy(opt_i); }
       free(lb); free(ub);
       free(tolieq);
       optdata->minf = minF;

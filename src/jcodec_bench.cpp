@@ -85,7 +85,7 @@ int main(int argc, char* argv[])
           std::string f2 = *it + "_" + std::to_string(order) + "_deco" + ".ppm";
           // output file names
           std::string vtpfile = *it + "_" + std::to_string(order) + ".vtp";
-          // decompress with current order
+          // compress with current order
           totalBytes[i] = jcompress ( T, f1.c_str(),
                                       nSamp, nRuns, order,
                                       useMultiChannel, false );
@@ -94,7 +94,6 @@ int main(int argc, char* argv[])
           // decompress and write decofile
           jdecompress  ( useMultiChannel, "ppm", vtpfile.c_str() );
           ssimaves[i] = ssim ( f1.c_str(), f2.c_str() );
-          std::cout << "jpg ssim: " << ssim ( f1.c_str(), f3.c_str() ) << std::endl;
           order += 1;
         }
         benchrun << *it << " " << sizes[*it][0] <<  " " << sizes[*it][1] << " ";

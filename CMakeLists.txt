@@ -49,7 +49,7 @@ find_package(VTK REQUIRED)
 #)
 
 if (NOT VTK_FOUND)
-  message(FATAL_ERROR "JPEGReader: Unable to find the VTK build folder.")
+  message(FATAL_ERROR "Unable to find the VTK build folder.")
 endif()
 
 
@@ -183,7 +183,7 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 else()
   set_source_files_properties(${eikonalSRC} PROPERTIES COMPILE_FLAGS "-xHost -qopenmp -fpic ")
 endif()
-target_link_libraries(jcodec ${VTK_LIBRARIES} jpoly dmat lapacke)
+target_link_libraries(jcodec ${VTK_LIBRARIES} jpoly dmat legquad lapacke)
 
 
 set_target_properties(sfactors kmat dmat jmat jweight eikonal

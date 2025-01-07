@@ -100,10 +100,15 @@ int main(int argc, char* argv[])
  
   std::cout << "ssim average: " << ave << std::endl;
  
-  //vtkSmartPointer<vtkXMLImageDataWriter> writer = vtkSmartPointer<vtkXMLImageDataWriter>::New();
-  //writer->SetFileName("ssim.vti");
-  //writer->SetInputData(ssim_output);
-  //writer->SetDataModeToBinary();
-  //writer->Write();
+
   return 0;
 }
+
+/*  
+vtkSmartPointer<vtkXMLImageDataWriter> writer = 
+    vtkSmartPointer<vtkXMLImageDataWriter>::New();
+writer->SetFileName("ssim.vti");
+writer->SetInputData(ssim_output);
+writer->SetDataModeToBinary();
+writer->Write();
+*/
