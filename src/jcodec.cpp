@@ -554,10 +554,62 @@ void Compressor::smoothCoeffs ( )
     vtkSmartPointer<vtkIdList> neighborCellIds = vtkSmartPointer<vtkIdList>::New();
 
     std::map<int, std::vector<int>> neighbors;
+    // create legendre quad
+    unsigned int nleg = 30;
+    legQuad<double>* legq = new legQuad<double>(nleg); 
+    legq->shift();
+    // construct cart-prod for bottom, left and hyp edges of tref
+    double* lX = (double*) calloc(nleg, sizeof(double));
+    double* lY = (double*) calloc(nleg, sizeof(double));
+    double* bX = (double*) calloc(nleg, sizeof(double));
+    double* bY = (double*) calloc(nleg, sizeof(double));
+    double* hX = (double*) calloc(nleg, sizeof(double));
+    double* hY = (double*) calloc(nleg, sizeof(double));
 
+    for (unsigned int i = 0; i < nleg; ++i)
+    { 
+      lY[i] = legq->x[i];
+      bX[i] = legq->x[i];
+      hX[i] = legq->x[i];
+      hY[i] = 1.0 - hX[i];
+    }
+    // create polynomial evaluators for the boundary
+    jPoly<double>* lPm = new jPoly<double>(lX, lY, nleg, Mmax, a, b, c, 1);
+    jPoly<double>* bPm = new jPoly<double>(bX, bY, nleg, Mmax, a, b, c, 1);
+    jPoly<double>* hPm = new jPoly<double>(hX, hY, nleg, Mmax, a, b, c, 1);
+    
+
+    // storage for channel coeffs on tri
+    double* cimg1 = (double*) calloc(Mmax, sizeof(double));
+    double* cimg2 = (double*) calloc(Mmax, sizeof(double));
+    double* cimg3 = (double*) calloc(Mmax, sizeof(double));
+    double* cimg11 = (double*) calloc(Mmax, sizeof(double));
+
+    // storage for color on bndry
+    double* imgbnd = (double*) calloc(nleg, sizeof(double));
+    double* imgbnd1 = (double*) calloc(nleg, sizeof(double));
+
+    int subid, offset1, offset2, offset3;
+    int offset11, offset21, offset31;
+    double pcoords00[3], pcoords01[3];
+    double pcoords10[3], pcoords11[3];
+    double pcoords20[3], pcoords31[3];
+    double wts[3], dist2;
     // loop over triangles to classify cells
     for (int icell = 0; icell < polytri->GetNumberOfCells(); ++icell)
     {
+      // first copy channel coeffs into stor
+      offset1 = offsets->GetComponent(icell, 0);
+      offset2 = offsets->GetComponent(icell, 1);
+      offset3 = offsets->GetComponent(icell, 2);
+      // copy  channel coeffs
+      for (unsigned int i = 0; i < Mmax; ++i)
+      {
+        cimg1[i] = coeffs->GetComponent(offset1+i, 0);
+        cimg2[i] = coeffs->GetComponent(offset2+i, 1);
+        cimg3[i] = coeffs->GetComponent(offset3+i, 2);
+      }
+
       // get ptids defining cell
       polytri->GetCellPoints(icell, cellPtIds);
 
@@ -568,6 +620,62 @@ void Compressor::smoothCoeffs ( )
       if (neighborCellIds->GetNumberOfIds() > 0)
       {
         neighbors[icell].push_back(neighborCellIds->GetId(0));
+        // eval pcoord of endpts of edge in icell
+        polytri->GetCell(icell)->
+          EvaluatePosition( polytri->GetPoints()->GetPoint(cellPtIds->GetId(0)),
+                            nullptr, subid, pcoords00, dist2, wts );
+        polytri->GetCell(icell)->
+          EvaluatePosition( polytri->GetPoints()->GetPoint(cellPtIds->GetId(1)),
+                            nullptr, subid, pcoords01, dist2, wts );
+        // eval pcoord of first endpt of edge in neighbor cell
+        polytri->GetCell(neighborCellIds->GetId(0))->
+          EvaluatePosition( polytri->GetPoints()->GetPoint(cellPtIds->GetId(0)),
+                            nullptr, subid, pcoords10, dist2, wts );
+        polytri->GetCell(neighborCellIds->GetId(0))->
+          EvaluatePosition( polytri->GetPoints()->GetPoint(cellPtIds->GetId(1)),
+                            nullptr, subid, pcoords11, dist2, wts );
+
+
+
+        // check on bottom edge
+        if (pcoords00[0] == 0 && pcoords00[1] == 0 &&
+            pcoords01[0] == 1 && pcoords01[1] == 0 &&
+            pcoords10[0] == 0 && pcoords10[1] == 0 &&
+            pcoords11[0] == 1 && pcoords11[1] == 0 )
+        {
+          // evaluate r color over bottom edge in icell
+          cblas_dgemv ( CblasColMajor, CblasNoTrans, 
+                        nleg, Mmax, 1.0, bPm->V, nleg, 
+                        cimg1, 1, 0.0, imgbnd, 1 );
+          // evaluate r color over bottom edge (if same) in neighbor cell
+          offset11 = offsets->GetComponent(neighborCellIds->GetId(0), 0);
+          for (unsigned int i = 0; i < Mmax; ++i)
+          {
+            cimg11[i] = coeffs->GetComponent(offset11+i, 0);
+          }         
+          // evaluate r color over bottom edge in icell
+          cblas_dgemv ( CblasColMajor, CblasNoTrans, 
+                        nleg, Mmax, 1.0, bPm->V, nleg, 
+                        cimg11, 1, 0.0, imgbnd1, 1 );
+          double sum1 = 0, sum2 = 0;
+          for (unsigned int k = 0; k < nleg; ++k)
+          {
+            sum1 += legq->w[k] * imgbnd[k];
+            sum2 += legq->w[k] * imgbnd1[k];
+          } 
+
+          std::cout << "diff of r integral on bndry: " 
+                    << sum1 << " " << sum2 << std::endl;
+
+        }
+       
+        //std::cout << pcoords00[0] << " " << pcoords00[1] << " "
+        //          << pcoords01[0] << " " << pcoords01[1] << "\n";
+        //std::cout << pcoords10[0] << " " << pcoords10[1] << " "
+        //          << pcoords11[0] << " " << pcoords11[1] << "\n\n";
+
+ 
+ 
       }
       // find neighbors of second edge
       idList->SetId(0, cellPtIds->GetId(1));
@@ -584,33 +692,36 @@ void Compressor::smoothCoeffs ( )
       if (neighborCellIds->GetNumberOfIds() > 0)
       { 
         neighbors[icell].push_back(neighborCellIds->GetId(0)); 
-      } 
+      }
     }
 
-    for (auto it = neighbors.begin(); it != neighbors.end(); ++it)
-    {
-      for (unsigned int i = 0; i < it->second.size(); ++i)
-      {
-        std::cout << it->second[i] << " ";
-      }
-      std::cout << std::endl;
-      celltypes->SetComponent(it->first, 0, it->second.size());
-    } 
+    //for (auto it = neighbors.begin(); it != neighbors.end(); ++it)
+    //{
+    //  for (unsigned int i = 0; i < it->second.size(); ++i)
+    //  {
+    //    std::cout << it->second[i] << " ";
+    //  }
+    //  std::cout << std::endl;
+    //  celltypes->SetComponent(it->first, 0, it->second.size());
+    //} 
   
     polytri->GetCellData()->AddArray(celltypes); 
     std::cout << N << " " << Mmax << std::endl;
 
-    // test legendre quad
-    legQuad<double>* legq = new legQuad<double>(30); 
-    legq->shift();
 
-    double sum = 0; 
-    for (unsigned int i = 0; i < 30; ++i)
-    {
-      sum += std::exp(std::sin(legq->x[i]*legq->x[i])) * legq->w[i];
-    }
-    std::cout << std::setprecision(17) << sum << std::endl;
     delete legq;
+    free(lX); free(lY);
+    free(bX); free(bY);
+    free(hX); free(hY);
+    delete lPm;
+    delete bPm;
+    delete hPm;
+    free(cimg1);
+    free(cimg2);
+    free(cimg3);
+    free(cimg11);
+    free(imgbnd);
+    free(imgbnd1);
 
     /* TODO: Outline for coefficient smoothing 
 
@@ -1113,7 +1224,7 @@ void Decompressor::run()
   else
   {
     decompressChannel(0);
-    smoothImage();
+    //smoothImage();
     std::cout << "decompressed all channels" << std::endl;
   }
 }
