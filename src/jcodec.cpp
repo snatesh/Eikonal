@@ -822,7 +822,8 @@ void Compressor::smoothCoeffs ( )
     // continuity matrices
 
     // fully interior
-    double* cMat = (double*) calloc((N+3)*Mmax, sizeof(double)); 
+    double* cMat = (double*) calloc((N+3)*Mmax, sizeof(double));
+    double* cMat_cpy = (double*) calloc((N+3)*Mmax, sizeof(double)); 
     // on boundary with 2 neighbors
     double* cMat_bnd12 = (double*) calloc((N+2)*Mmax, sizeof(double));
     double* cMat_bnd13 = (double*) calloc((N+2)*Mmax, sizeof(double));
@@ -866,7 +867,7 @@ void Compressor::smoothCoeffs ( )
         cMat_bnd3[i + (N+1)*j]  = pmv;
       } 
     }
-  
+ 
     // fully interior 
     cblas_dgemv ( CblasColMajor, CblasTrans, 
                   nleg, Mmax, 1.0, bPm->V, nleg,
@@ -877,6 +878,7 @@ void Compressor::smoothCoeffs ( )
     cblas_dgemv ( CblasColMajor, CblasTrans, 
                   nleg, Mmax, 1.0, lPm->V, nleg,
                   legq->w, 1, 0.0, &cMat[N+2], N+3 );
+
     // two neighbors - bottom and hyp
     cblas_dgemv ( CblasColMajor, CblasTrans, 
                   nleg, Mmax, 1.0, bPm->V, nleg,
@@ -917,6 +919,8 @@ void Compressor::smoothCoeffs ( )
     double pcoords10[3], pcoords11[3];
     double wts[3], dist2;
     double sum1, sum2, sum3;
+    double sum11, sum21, sum31;
+    double sum12, sum22, sum32;
     lapack_int rank[1]; 
     // loop over triangles to classify cells
     for (int icell = 0; icell < polytri->GetNumberOfCells(); ++icell)
@@ -948,15 +952,24 @@ void Compressor::smoothCoeffs ( )
       idList->SetId(0, cellPtIds->GetId(0));
       idList->SetId(1, cellPtIds->GetId(1));
       polytri->GetCellNeighbors(icell, idList, neighborCellIds);
-      // populate cRHS for channel 0
-      cblas_dgemv ( CblasColMajor, CblasNoTrans,
-                    N, Mmax, 1.0, Pm->V, N,
-                    cimg1, 1, 0.0, cRHS, 1 );      
+
       cblas_dcopy ( N, cRHS, 1, cRHS_bnd1, 1 );
       cblas_dcopy ( N, cRHS, 1, cRHS_bnd2, 1 );
 
       sum1 = smoothCoeffs_help  ( 0, icell, nleg, lPm, bPm, hPm,
                                   cimg1, cimg11, imgbnd, imgbnd1,
+                                  pcoords10, pcoords11,
+                                  offset11, subid, wts, dist2,
+                                  cellPtIds, neighborCellIds,
+                                  neighbors, 0 );              
+      sum11 = smoothCoeffs_help ( 1, icell, nleg, lPm, bPm, hPm,
+                                  cimg2, cimg11, imgbnd, imgbnd1,
+                                  pcoords10, pcoords11,
+                                  offset11, subid, wts, dist2,
+                                  cellPtIds, neighborCellIds,
+                                  neighbors, 0 );              
+      sum12 = smoothCoeffs_help ( 2, icell, nleg, lPm, bPm, hPm,
+                                  cimg3, cimg11, imgbnd, imgbnd1,
                                   pcoords10, pcoords11,
                                   offset11, subid, wts, dist2,
                                   cellPtIds, neighborCellIds,
@@ -972,6 +985,18 @@ void Compressor::smoothCoeffs ( )
                                   offset11, subid, wts, dist2,
                                   cellPtIds, neighborCellIds,
                                   neighbors, 1 );              
+      sum21 = smoothCoeffs_help ( 1, icell, nleg, lPm, bPm, hPm,
+                                  cimg2, cimg11, imgbnd, imgbnd1,
+                                  pcoords10, pcoords11,
+                                  offset11, subid, wts, dist2,
+                                  cellPtIds, neighborCellIds,
+                                  neighbors, 1 );              
+      sum22 = smoothCoeffs_help ( 2, icell, nleg, lPm, bPm, hPm,
+                                  cimg3, cimg11, imgbnd, imgbnd1,
+                                  pcoords10, pcoords11,
+                                  offset11, subid, wts, dist2,
+                                  cellPtIds, neighborCellIds,
+                                  neighbors, 1 );              
 
       // find neighbors of third edge
       idList->SetId(0, cellPtIds->GetId(2));
@@ -983,35 +1008,84 @@ void Compressor::smoothCoeffs ( )
                                   offset11, subid, wts, dist2,
                                   cellPtIds, neighborCellIds,
                                   neighbors, 2 );             
-      if (neighbors[icell].size() == 3)
+      sum31 = smoothCoeffs_help ( 1, icell, nleg, lPm, bPm, hPm,
+                                  cimg2, cimg11, imgbnd, imgbnd1,
+                                  pcoords10, pcoords11,
+                                  offset11, subid, wts, dist2,
+                                  cellPtIds, neighborCellIds,
+                                  neighbors, 2 );             
+      sum32 = smoothCoeffs_help ( 2, icell, nleg, lPm, bPm, hPm,
+                                  cimg3, cimg11, imgbnd, imgbnd1,
+                                  pcoords10, pcoords11,
+                                  offset11, subid, wts, dist2,
+                                  cellPtIds, neighborCellIds,
+                                  neighbors, 2 );             
+      if (neighbors[icell].size() == 9)
       {
-        cRHS[N+1] = sum1;
-        cRHS[N+2] = sum2;
-        cRHS[N+3] = sum3;
-        if (LAPACKE_dgelsd  ( LAPACK_COL_MAJOR, N+3, Mmax, 1, cMat, 
+        // populate cRHS for channel 0
+        cblas_dgemv ( CblasColMajor, CblasNoTrans,
+                      N, Mmax, 1.0, Pm->V, N,
+                      cimg1, 1, 0.0, cRHS, 1 );      
+        cRHS[N] = sum1;
+        cRHS[N+1] = sum2;
+        cRHS[N+2] = sum3;
+        cblas_dcopy ( (N+3)*Mmax, cMat, 1, cMat_cpy, 1 );
+        if (LAPACKE_dgelsd  ( LAPACK_COL_MAJOR, N+3, Mmax, 1, cMat_cpy, 
+                              N+3, cRHS, N+3, S, -1.0, rank ) )
+        {
+          std::cerr << "ERROR: Lapack dgelsd: Pseudoinverse" << std::endl;
+        }
+        else
+        {
+          for (unsigned int i = 0; i < Mmax; ++i)
+          {
+            coeffs->SetComponent(offset1+i, 0, cRHS[i]);
+          }
+        }
+        // populate cRHS for channel 1
+        cblas_dgemv ( CblasColMajor, CblasNoTrans,
+                      N, Mmax, 1.0, Pm->V, N,
+                      cimg2, 1, 0.0, cRHS, 1 );      
+        cRHS[N] = sum11;
+        cRHS[N+1] = sum21;
+        cRHS[N+2] = sum31;
+        cblas_dcopy ( (N+3)*Mmax, cMat, 1, cMat_cpy, 1 );
+        if (LAPACKE_dgelsd  ( LAPACK_COL_MAJOR, N+3, Mmax, 1, cMat_cpy, 
+                              N+3, cRHS, N+3, S, -1.0, rank ) )
+        {
+          std::cerr << "ERROR: Lapack dgelsd: Pseudoinverse" << std::endl;
+        }
+        else
+        {
+          for (unsigned int i = 0; i < Mmax; ++i)
+          {
+            coeffs->SetComponent(offset2+i, 1, cRHS[i]);
+          }
+        }
+        // populate cRHS for channel 2
+        cblas_dgemv ( CblasColMajor, CblasNoTrans,
+                      N, Mmax, 1.0, Pm->V, N,
+                      cimg3, 1, 0.0, cRHS, 1 );      
+        cRHS[N] = sum12;
+        cRHS[N+1] = sum22;
+        cRHS[N+2] = sum32;
+        cblas_dcopy ( (N+3)*Mmax, cMat, 1, cMat_cpy, 1 );
+        if (LAPACKE_dgelsd  ( LAPACK_COL_MAJOR, N+3, Mmax, 1, cMat_cpy, 
                               N+3, cRHS, N+3, S, -1.0, rank ) )
         {
           std::cerr << "ERROR: Lapack *gelsd: Pseudoinverse" << std::endl;
         }
         else
         {
-          //for (unsigned int i = 0; i < Mmax; ++i)
-          //{
-          //  coeffs->SetComponent(offset1+i, 0, cRHS[i]);
-          //}
-          smoothCoeffs_help  ( 0, icell, nleg, lPm, bPm, hPm,
-                               cRHS, cimg11, imgbnd, imgbnd1,
-                               pcoords10, pcoords11,
-                               offset11, subid, wts, dist2,
-                               cellPtIds, neighborCellIds,
-                               neighbors, 2, true);             
+          for (unsigned int i = 0; i < Mmax; ++i)
+          {
+            coeffs->SetComponent(offset3+i, 2, cRHS[i]);
+          }
         }
-        
+        std::cout << "finished smoothing cell " << icell << std::endl;  
       } 
-      //std::cout << "\n num neighbors: " << neighbors[icell].size() << " "
-      //          << sum1 << " " << sum2 << " " << sum3 << std::endl;
-
     }
+ 
 
     //for (auto it = neighbors.begin(); it != neighbors.end(); ++it)
     //{
@@ -1022,9 +1096,9 @@ void Compressor::smoothCoeffs ( )
     //  std::cout << std::endl;
     //  celltypes->SetComponent(it->first, 0, it->second.size());
     //} 
-  
-    polytri->GetCellData()->AddArray(celltypes); 
-    std::cout << N << " " << Mmax << std::endl;
+    // 
+    //polytri->GetCellData()->AddArray(celltypes); 
+    //std::cout << N << " " << Mmax << std::endl;
 
 
     free(lX); free(lY);
@@ -1049,6 +1123,8 @@ void Compressor::smoothCoeffs ( )
     free(cRHS);
     free(cRHS_bnd1);
     free(cRHS_bnd2);
+    free(cMat_cpy);
+    free(S);
 
     /* TODO: Outline for coefficient smoothing 
 
@@ -1870,5 +1946,19 @@ double ssim ( const char* F1WithExt, const char* F2WithExt )
                   << ret << std::setprecision(17) 
                   << rspix[i+npix]-(1-rspix[i]) << std::endl;
       }
+  
+  dgelsd smoothing checks
+      double res = 0;
+      for (unsigned int i = Mmax; i < N+3; ++i)
+      {
+        res += cRHS[i] * cRHS[i];
+      }
+      std::cout << res << std::endl;
+      smoothCoeffs_help  ( 0, icell, nleg, lPm, bPm, hPm,
+                           cRHS, cimg11, imgbnd, imgbnd1,
+                           pcoords10, pcoords11,
+                           offset11, subid, wts, dist2,
+                           cellPtIds, neighborCellIds,
+                           neighbors, 2, true);             
 
 *************************************/

@@ -310,42 +310,42 @@ class jPoly
                   }
                 }
               }
-              if (nx0 > 0)
-              {
-                #pragma omp simd
-                for (unsigned int i = 0; i < nx0; ++i)
-                {
-                  v[x0inds[i]] = 
-                    1.0 / H[kk + (n+1)*nn] *
-                    ( std::pow(-1.0, nn-kk) * tgamma(nn-kk+a-0.5+1) / 
-                    ( tgamma(nn-kk+1) * tgamma(nn-kk+a-0.5-(nn-kk)+1) ) ) *
-                    Pk[x0inds[i] + Nx*kk];
-                }
-              }
-              if (ny0 > 0)
-              {
-                #pragma omp simd
-                for (unsigned int i = 0; i < ny0; ++i)
-                {
-                  v[y0inds[i]] = 
-                    1.0 / H[kk + (n+1)*nn] *
-                    pnmk[y0inds[i] + Nx*(nn-kk)] * std::pow(mxp1[y0inds[i]], kk) *
-                    std::pow(-1.0, kk) * tgamma(kk+b-0.5+1) /
-                    ( tgamma(kk+1) * tgamma(kk+b-0.5-(kk)+1));
-                }
-              }
-              if (ny1mx > 0)
-              {
-                #pragma omp simd
-                for (unsigned int i = 0; i < ny1mx; ++i)
-                {
-                  v[y1mxinds[i]] = 
-                    1.0 / H[kk + (n+1)*nn] *
-                    pnmk[y1mxinds[i] + Nx*(nn-kk)] * std::pow(mxp1[y1mxinds[i]], kk) * 
-                    tgamma(kk+c-0.5+1) / 
-                    ( tgamma(kk+1) * tgamma(kk+c-0.5-(kk)+1));
-                }
-              }
+              //if (nx0 > 0)
+              //{
+              //  #pragma omp simd
+              //  for (unsigned int i = 0; i < nx0; ++i)
+              //  {
+              //    v[x0inds[i]] = 
+              //      1.0 / H[kk + (n+1)*nn] *
+              //      ( std::pow(-1.0, nn-kk) * tgamma(nn-kk+a-0.5+1) / 
+              //      ( tgamma(nn-kk+1) * tgamma(nn-kk+a-0.5-(nn-kk)+1) ) ) *
+              //      Pk[x0inds[i] + Nx*kk];
+              //  }
+              //}
+              //if (ny0 > 0)
+              //{
+              //  #pragma omp simd
+              //  for (unsigned int i = 0; i < ny0; ++i)
+              //  {
+              //    v[y0inds[i]] = 
+              //      1.0 / H[kk + (n+1)*nn] *
+              //      pnmk[y0inds[i] + Nx*(nn-kk)] * std::pow(mxp1[y0inds[i]], kk) *
+              //      std::pow(-1.0, kk) * tgamma(kk+b-0.5+1) /
+              //      ( tgamma(kk+1) * tgamma(kk+b-0.5-(kk)+1));
+              //  }
+              //}
+              //if (ny1mx > 0)
+              //{
+              //  #pragma omp simd
+              //  for (unsigned int i = 0; i < ny1mx; ++i)
+              //  {
+              //    v[y1mxinds[i]] = 
+              //      1.0 / H[kk + (n+1)*nn] *
+              //      pnmk[y1mxinds[i] + Nx*(nn-kk)] * std::pow(mxp1[y1mxinds[i]], kk) * 
+              //      tgamma(kk+c-0.5+1) / 
+              //      ( tgamma(kk+1) * tgamma(kk+c-0.5-(kk)+1));
+              //  }
+              //}
             }
             ind = ind + nn + 1;
           }
