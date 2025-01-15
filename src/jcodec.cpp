@@ -32,7 +32,6 @@
 #include <vector>
 #include <timer.hh>
 #include <filesystem>
-#include <legQuad.hh>
 
 vtkSmartPointer<vtkDelaunay2D> triangulateUniform ( int* dims, 
                                                     double* origin,
@@ -401,6 +400,7 @@ Compressor::Compressor  ( Triangulator* T, unsigned int order)
 Compressor::~Compressor()
 {
   if (Pm) { delete Pm; Pm = 0; }
+  if (legq) { delete legq; legq = 0; }
   if (R) { free(R); R = 0; }
   if (S) { free(S); S = 0; }
   if (W) { free(W); W = 0; }
@@ -538,6 +538,236 @@ void Compressor::compressChannel  ( unsigned int channel )
 
 }
 
+double Compressor::smoothCoeffs_help  ( unsigned int channel,
+                                        unsigned int icell,
+                                        unsigned int nleg,
+                                        jPoly<double>* lPm,
+                                        jPoly<double>* bPm,
+                                        jPoly<double>* hPm,
+                                        double* cimg, double* cimg1,
+                                        double* imgbnd, double* imgbnd1,
+                                        double* pcoords10, double* pcoords11,
+                                        int offset1, int subid, double* wts, double dist2,
+                                        vtkSmartPointer<vtkIdList> cellPtIds,
+                                        vtkSmartPointer<vtkIdList> neighborCellIds,
+                                        std::map<int, std::vector<int>>& neighbors,
+                                        unsigned int edgenum, bool check )
+{
+
+  double sum1 = 0, sum2 = 0;
+  if (neighborCellIds->GetNumberOfIds() > 0)
+  {
+    neighbors[icell].push_back(neighborCellIds->GetId(0));
+    // get coeffs from neighbor cell
+    offset1 = offsets->GetComponent(neighborCellIds->GetId(0), channel);
+    for (unsigned int i = 0; i < Mmax; ++i)
+    {
+      cimg1[i] = coeffs->GetComponent(offset1+i, channel);
+    }         
+    if (edgenum == 0)
+    {
+      // eval pcoord of endpts of edge in neighbor cell
+      polytri->GetCell(neighborCellIds->GetId(0))->
+        EvaluatePosition( polytri->GetPoints()->GetPoint(cellPtIds->GetId(0)),
+                          nullptr, subid, pcoords10, dist2, wts );
+      polytri->GetCell(neighborCellIds->GetId(0))->
+        EvaluatePosition( polytri->GetPoints()->GetPoint(cellPtIds->GetId(1)),
+                          nullptr, subid, pcoords11, dist2, wts );
+      // evaluate channel color over bottom edge in icell
+      cblas_dgemv ( CblasColMajor, CblasNoTrans, 
+                    nleg, Mmax, 1.0, bPm->V, nleg, 
+                    cimg, 1, 0.0, imgbnd, 1 );
+      // if on bottom edge of neighbor cell
+      if ((pcoords10[0] == 0 && pcoords10[1] == 0 &&
+           pcoords11[0] == 1 && pcoords11[1] == 0) ||
+          (pcoords10[0] == 1 && pcoords10[1] == 0 &&
+           pcoords11[0] == 0 && pcoords10[1] == 0))
+      {
+        // evaluate channel color over bottom edge of neighbor cell
+        cblas_dgemv ( CblasColMajor, CblasNoTrans, 
+                      nleg, Mmax, 1.0, bPm->V, nleg, 
+                      cimg1, 1, 0.0, imgbnd1, 1 );
+        sum1 = 0, sum2 = 0;
+        for (unsigned int k = 0; k < nleg; ++k)
+        {
+          sum1 += legq->w[k] * imgbnd[k];
+          sum2 += legq->w[k] * imgbnd1[k];
+        } 
+      }
+      // if on left edge of neighbor cell
+      else if ((pcoords10[0] == 0 && pcoords10[1] == 1 && 
+                pcoords11[0] == 0 && pcoords11[1] == 0) ||
+               (pcoords10[0] == 0 && pcoords10[1] == 0 &&
+                pcoords11[0] == 0 && pcoords11[1] == 1))
+      {
+        // evaluate channel color over left edge of neighbor cell
+        cblas_dgemv ( CblasColMajor, CblasNoTrans, 
+                      nleg, Mmax, 1.0, lPm->V, nleg, 
+                      cimg1, 1, 0.0, imgbnd1, 1 );
+        sum1 = 0, sum2 = 0;
+        for (unsigned int k = 0; k < nleg; ++k)
+        {
+          sum1 += legq->w[k] * imgbnd[k];
+          sum2 += legq->w[k] * imgbnd1[k];
+        } 
+      }
+      // if on hyp edge of neighbor cell
+      else if ((pcoords10[0] == 1 && pcoords10[1] == 0 &&
+                pcoords11[0] == 0 && pcoords11[1] == 1) ||
+               (pcoords10[0] == 0 && pcoords10[1] == 1 &&
+                pcoords11[0] == 1 && pcoords11[1] == 0))
+      {
+        // evaluate channel color over hyp edge of neighbor cell
+        cblas_dgemv ( CblasColMajor, CblasNoTrans, 
+                      nleg, Mmax, 1.0, hPm->V, nleg, 
+                      cimg1, 1, 0.0, imgbnd1, 1 );
+        sum1 = 0, sum2 = 0;
+        for (unsigned int k = 0; k < nleg; ++k)
+        {
+          sum1 += legq->w[k] * imgbnd[k];
+          sum2 += legq->w[k] * imgbnd1[k];
+        } 
+      }
+    }
+    else if (edgenum == 1)
+    {
+      // eval pcoord of endpts of edge in neighbor cell
+      polytri->GetCell(neighborCellIds->GetId(0))->
+        EvaluatePosition( polytri->GetPoints()->GetPoint(cellPtIds->GetId(1)),
+                          nullptr, subid, pcoords10, dist2, wts );
+      polytri->GetCell(neighborCellIds->GetId(0))->
+        EvaluatePosition( polytri->GetPoints()->GetPoint(cellPtIds->GetId(2)),
+                          nullptr, subid, pcoords11, dist2, wts );
+      // evaluate channel color over hyp edge in icell
+      cblas_dgemv ( CblasColMajor, CblasNoTrans, 
+                    nleg, Mmax, 1.0, hPm->V, nleg, 
+                    cimg, 1, 0.0, imgbnd, 1 );
+      // if on bottom edge of neighbor cell
+      if ((pcoords10[0] == 0 && pcoords10[1] == 0 &&
+           pcoords11[0] == 1 && pcoords11[1] == 0) ||
+          (pcoords10[0] == 1 && pcoords10[1] == 0 &&
+           pcoords11[0] == 0 && pcoords10[1] == 0))
+      {
+        // evaluate channel color over bottom edge of neighbor cell
+        cblas_dgemv ( CblasColMajor, CblasNoTrans, 
+                      nleg, Mmax, 1.0, bPm->V, nleg, 
+                      cimg1, 1, 0.0, imgbnd1, 1 );
+        sum1 = 0, sum2 = 0;
+        for (unsigned int k = 0; k < nleg; ++k)
+        {
+          sum1 += legq->w[k] * imgbnd[k];
+          sum2 += legq->w[k] * imgbnd1[k];
+        } 
+      }
+      // if on left edge of neighbor cell
+      else if ((pcoords10[0] == 0 && pcoords10[1] == 1 && 
+                pcoords11[0] == 0 && pcoords11[1] == 0) ||
+               (pcoords10[0] == 0 && pcoords10[1] == 0 &&
+                pcoords11[0] == 0 && pcoords11[1] == 1))
+      {
+        // evaluate channel color over left edge of neighbor cell
+        cblas_dgemv ( CblasColMajor, CblasNoTrans, 
+                      nleg, Mmax, 1.0, lPm->V, nleg, 
+                      cimg1, 1, 0.0, imgbnd1, 1 );
+        sum1 = 0, sum2 = 0;
+        for (unsigned int k = 0; k < nleg; ++k)
+        {
+          sum1 += legq->w[k] * imgbnd[k];
+          sum2 += legq->w[k] * imgbnd1[k];
+        } 
+      }
+      // if on hyp edge of neighbor cell
+      else if ((pcoords10[0] == 1 && pcoords10[1] == 0 &&
+                pcoords11[0] == 0 && pcoords11[1] == 1) ||
+               (pcoords10[0] == 0 && pcoords10[1] == 1 &&
+                pcoords11[0] == 1 && pcoords11[1] == 0))
+      {
+        // evaluate channel color over hyp edge of neighbor cell
+        cblas_dgemv ( CblasColMajor, CblasNoTrans, 
+                      nleg, Mmax, 1.0, hPm->V, nleg, 
+                      cimg1, 1, 0.0, imgbnd1, 1 );
+        sum1 = 0, sum2 = 0;
+        for (unsigned int k = 0; k < nleg; ++k)
+        {
+          sum1 += legq->w[k] * imgbnd[k];
+          sum2 += legq->w[k] * imgbnd1[k];
+        } 
+      }
+
+    }
+    else if (edgenum == 2)
+    {
+      // eval pcoord of endpts of edge in neighbor cell
+      polytri->GetCell(neighborCellIds->GetId(0))->
+        EvaluatePosition( polytri->GetPoints()->GetPoint(cellPtIds->GetId(2)),
+                          nullptr, subid, pcoords10, dist2, wts );
+      polytri->GetCell(neighborCellIds->GetId(0))->
+        EvaluatePosition( polytri->GetPoints()->GetPoint(cellPtIds->GetId(0)),
+                          nullptr, subid, pcoords11, dist2, wts );
+      // evaluate channel color over left edge in icell
+      cblas_dgemv ( CblasColMajor, CblasNoTrans, 
+                    nleg, Mmax, 1.0, lPm->V, nleg, 
+                    cimg, 1, 0.0, imgbnd, 1 );
+      // if on bottom edge of neighbor cell
+      if ((pcoords10[0] == 0 && pcoords10[1] == 0 &&
+           pcoords11[0] == 1 && pcoords11[1] == 0) ||
+          (pcoords10[0] == 1 && pcoords10[1] == 0 &&
+           pcoords11[0] == 0 && pcoords10[1] == 0))
+      {
+        // evaluate channel color over bottom edge of neighbor cell
+        cblas_dgemv ( CblasColMajor, CblasNoTrans, 
+                      nleg, Mmax, 1.0, bPm->V, nleg, 
+                      cimg1, 1, 0.0, imgbnd1, 1 );
+        sum1 = 0, sum2 = 0;
+        for (unsigned int k = 0; k < nleg; ++k)
+        {
+          sum1 += legq->w[k] * imgbnd[k];
+          sum2 += legq->w[k] * imgbnd1[k];
+        } 
+      }
+      // if on left edge of neighbor cell
+      else if ((pcoords10[0] == 0 && pcoords10[1] == 1 && 
+                pcoords11[0] == 0 && pcoords11[1] == 0) ||
+               (pcoords10[0] == 0 && pcoords10[1] == 0 &&
+                pcoords11[0] == 0 && pcoords11[1] == 1))
+      {
+        // evaluate channel color over left edge of neighbor cell
+        cblas_dgemv ( CblasColMajor, CblasNoTrans, 
+                      nleg, Mmax, 1.0, lPm->V, nleg, 
+                      cimg1, 1, 0.0, imgbnd1, 1 );
+        sum1 = 0, sum2 = 0;
+        for (unsigned int k = 0; k < nleg; ++k)
+        {
+          sum1 += legq->w[k] * imgbnd[k];
+          sum2 += legq->w[k] * imgbnd1[k];
+        } 
+      }
+      // if on hyp edge of neighbor cell
+      else if ((pcoords10[0] == 1 && pcoords10[1] == 0 &&
+                pcoords11[0] == 0 && pcoords11[1] == 1) ||
+               (pcoords10[0] == 0 && pcoords10[1] == 1 &&
+                pcoords11[0] == 1 && pcoords11[1] == 0))
+      {
+        // evaluate channel color over hyp edge of neighbor cell
+        cblas_dgemv ( CblasColMajor, CblasNoTrans, 
+                      nleg, Mmax, 1.0, hPm->V, nleg, 
+                      cimg1, 1, 0.0, imgbnd1, 1 );
+        sum1 = 0, sum2 = 0;
+        for (unsigned int k = 0; k < nleg; ++k)
+        {
+          sum1 += legq->w[k] * imgbnd[k];
+          sum2 += legq->w[k] * imgbnd1[k];
+        } 
+      }
+    }
+  }
+  if (check)
+  {
+    std::cout << sum1 << " " << sum2 << std::endl;
+  }
+  return sum2;
+}
+
 void Compressor::smoothCoeffs ( )
 {
   if (not useMultiChannel)
@@ -556,7 +786,7 @@ void Compressor::smoothCoeffs ( )
     std::map<int, std::vector<int>> neighbors;
     // create legendre quad
     unsigned int nleg = 30;
-    legQuad<double>* legq = new legQuad<double>(nleg); 
+    this->legq = new legQuad<double>(nleg); 
     legq->shift();
     // construct cart-prod for bottom, left and hyp edges of tref
     double* lX = (double*) calloc(nleg, sizeof(double));
@@ -588,13 +818,106 @@ void Compressor::smoothCoeffs ( )
     // storage for color on bndry
     double* imgbnd = (double*) calloc(nleg, sizeof(double));
     double* imgbnd1 = (double*) calloc(nleg, sizeof(double));
+  
+    // continuity matrices
 
-    int subid, offset1, offset2, offset3;
-    int offset11, offset21, offset31;
-    double pcoords00[3], pcoords01[3];
+    // fully interior
+    double* cMat = (double*) calloc((N+3)*Mmax, sizeof(double)); 
+    // on boundary with 2 neighbors
+    double* cMat_bnd12 = (double*) calloc((N+2)*Mmax, sizeof(double));
+    double* cMat_bnd13 = (double*) calloc((N+2)*Mmax, sizeof(double));
+    double* cMat_bnd23 = (double*) calloc((N+2)*Mmax, sizeof(double));
+    // on boundary with 1 neighbor
+    double* cMat_bnd1 = (double*) calloc((N+1)*Mmax, sizeof(double));
+    double* cMat_bnd2 = (double*) calloc((N+1)*Mmax, sizeof(double));
+    double* cMat_bnd3 = (double*) calloc((N+1)*Mmax, sizeof(double));
+    // singular value storage for lsq-solve
+    double* S = (double*) calloc(Mmax, sizeof(double));
+    
+    // continuity right-hand-sides
+
+    // fully interior
+    double* cRHS = (double*) calloc(N+3, sizeof(double));
+    // on boundary with 1 neighbor
+    double* cRHS_bnd1 = (double*) calloc(N+1, sizeof(double));
+    // on boundary with 2 neighbors
+    double* cRHS_bnd2 = (double*) calloc(N+2, sizeof(double));
+    
+
+    /* populate cMat as
+      | P(int)    |
+      | w^T P(e01)| 
+      | w^T P(e02)| 
+      | w^T P(e03)| 
+    */
+    
+    double pmv;
+    for (unsigned int j = 0; j < Mmax; ++j)
+    {
+      for (unsigned int i = 0; i < N; ++i)
+      {
+        pmv = Pm->V[i + N*j]; 
+        cMat[i + (N+3)*j]       = pmv;
+        cMat_bnd12[i + (N+2)*j] = pmv; 
+        cMat_bnd13[i + (N+2)*j] = pmv; 
+        cMat_bnd23[i + (N+2)*j] = pmv;
+        cMat_bnd1[i + (N+1)*j]  = pmv;
+        cMat_bnd2[i + (N+1)*j]  = pmv;
+        cMat_bnd3[i + (N+1)*j]  = pmv;
+      } 
+    }
+  
+    // fully interior 
+    cblas_dgemv ( CblasColMajor, CblasTrans, 
+                  nleg, Mmax, 1.0, bPm->V, nleg,
+                  legq->w, 1, 0.0, &cMat[N], N+3 ); 
+    cblas_dgemv ( CblasColMajor, CblasTrans, 
+                  nleg, Mmax, 1.0, hPm->V, nleg,
+                  legq->w, 1, 0.0, &cMat[N+1], N+3 ); 
+    cblas_dgemv ( CblasColMajor, CblasTrans, 
+                  nleg, Mmax, 1.0, lPm->V, nleg,
+                  legq->w, 1, 0.0, &cMat[N+2], N+3 );
+    // two neighbors - bottom and hyp
+    cblas_dgemv ( CblasColMajor, CblasTrans, 
+                  nleg, Mmax, 1.0, bPm->V, nleg,
+                  legq->w, 1, 0.0, &cMat_bnd12[N], N+2 ); 
+    cblas_dgemv ( CblasColMajor, CblasTrans, 
+                  nleg, Mmax, 1.0, hPm->V, nleg,
+                  legq->w, 1, 0.0, &cMat_bnd12[N+1], N+2 ); 
+    // two neighbors - bottom and left  
+    cblas_dgemv ( CblasColMajor, CblasTrans, 
+                  nleg, Mmax, 1.0, bPm->V, nleg,
+                  legq->w, 1, 0.0, &cMat_bnd13[N], N+2 ); 
+    cblas_dgemv ( CblasColMajor, CblasTrans, 
+                  nleg, Mmax, 1.0, lPm->V, nleg,
+                  legq->w, 1, 0.0, &cMat_bnd13[N+1], N+2 ); 
+    // two neighbors - hyp and left 
+    cblas_dgemv ( CblasColMajor, CblasTrans, 
+                  nleg, Mmax, 1.0, hPm->V, nleg,
+                  legq->w, 1, 0.0, &cMat_bnd23[N], N+2 ); 
+    cblas_dgemv ( CblasColMajor, CblasTrans, 
+                  nleg, Mmax, 1.0, lPm->V, nleg,
+                  legq->w, 1, 0.0, &cMat_bnd23[N+1], N+2 ); 
+
+    // one neighbor - bottom
+    cblas_dgemv ( CblasColMajor, CblasTrans, 
+                  nleg, Mmax, 1.0, bPm->V, nleg,
+                  legq->w, 1, 0.0, &cMat_bnd1[N], N+1 ); 
+    // one neighbor - hyp
+    cblas_dgemv ( CblasColMajor, CblasTrans, 
+                  nleg, Mmax, 1.0, hPm->V, nleg,
+                  legq->w, 1, 0.0, &cMat_bnd2[N], N+1 ); 
+    // one neighbor - left
+    cblas_dgemv ( CblasColMajor, CblasTrans, 
+                  nleg, Mmax, 1.0, lPm->V, nleg,
+                  legq->w, 1, 0.0, &cMat_bnd3[N], N+1 ); 
+    
+
+    int subid, offset1, offset2, offset3, offset11;
     double pcoords10[3], pcoords11[3];
-    double pcoords20[3], pcoords31[3];
     double wts[3], dist2;
+    double sum1, sum2, sum3;
+    lapack_int rank[1]; 
     // loop over triangles to classify cells
     for (int icell = 0; icell < polytri->GetNumberOfCells(); ++icell)
     {
@@ -613,86 +936,81 @@ void Compressor::smoothCoeffs ( )
       // get ptids defining cell
       polytri->GetCellPoints(icell, cellPtIds);
 
+
+      /* edges are default numbered as
+          - 0 for bottom
+          - 1 for hyp
+          - 2 for left 
+         in parameteric space
+      */
+      
       // find neighbors of first edge
       idList->SetId(0, cellPtIds->GetId(0));
       idList->SetId(1, cellPtIds->GetId(1));
       polytri->GetCellNeighbors(icell, idList, neighborCellIds);
-      if (neighborCellIds->GetNumberOfIds() > 0)
-      {
-        neighbors[icell].push_back(neighborCellIds->GetId(0));
-        // eval pcoord of endpts of edge in icell
-        polytri->GetCell(icell)->
-          EvaluatePosition( polytri->GetPoints()->GetPoint(cellPtIds->GetId(0)),
-                            nullptr, subid, pcoords00, dist2, wts );
-        polytri->GetCell(icell)->
-          EvaluatePosition( polytri->GetPoints()->GetPoint(cellPtIds->GetId(1)),
-                            nullptr, subid, pcoords01, dist2, wts );
-        // eval pcoord of first endpt of edge in neighbor cell
-        polytri->GetCell(neighborCellIds->GetId(0))->
-          EvaluatePosition( polytri->GetPoints()->GetPoint(cellPtIds->GetId(0)),
-                            nullptr, subid, pcoords10, dist2, wts );
-        polytri->GetCell(neighborCellIds->GetId(0))->
-          EvaluatePosition( polytri->GetPoints()->GetPoint(cellPtIds->GetId(1)),
-                            nullptr, subid, pcoords11, dist2, wts );
+      // populate cRHS for channel 0
+      cblas_dgemv ( CblasColMajor, CblasNoTrans,
+                    N, Mmax, 1.0, Pm->V, N,
+                    cimg1, 1, 0.0, cRHS, 1 );      
+      cblas_dcopy ( N, cRHS, 1, cRHS_bnd1, 1 );
+      cblas_dcopy ( N, cRHS, 1, cRHS_bnd2, 1 );
 
+      sum1 = smoothCoeffs_help  ( 0, icell, nleg, lPm, bPm, hPm,
+                                  cimg1, cimg11, imgbnd, imgbnd1,
+                                  pcoords10, pcoords11,
+                                  offset11, subid, wts, dist2,
+                                  cellPtIds, neighborCellIds,
+                                  neighbors, 0 );              
 
-
-        // check on bottom edge
-        if (pcoords00[0] == 0 && pcoords00[1] == 0 &&
-            pcoords01[0] == 1 && pcoords01[1] == 0 &&
-            pcoords10[0] == 0 && pcoords10[1] == 0 &&
-            pcoords11[0] == 1 && pcoords11[1] == 0 )
-        {
-          // evaluate r color over bottom edge in icell
-          cblas_dgemv ( CblasColMajor, CblasNoTrans, 
-                        nleg, Mmax, 1.0, bPm->V, nleg, 
-                        cimg1, 1, 0.0, imgbnd, 1 );
-          // evaluate r color over bottom edge (if same) in neighbor cell
-          offset11 = offsets->GetComponent(neighborCellIds->GetId(0), 0);
-          for (unsigned int i = 0; i < Mmax; ++i)
-          {
-            cimg11[i] = coeffs->GetComponent(offset11+i, 0);
-          }         
-          // evaluate r color over bottom edge in icell
-          cblas_dgemv ( CblasColMajor, CblasNoTrans, 
-                        nleg, Mmax, 1.0, bPm->V, nleg, 
-                        cimg11, 1, 0.0, imgbnd1, 1 );
-          double sum1 = 0, sum2 = 0;
-          for (unsigned int k = 0; k < nleg; ++k)
-          {
-            sum1 += legq->w[k] * imgbnd[k];
-            sum2 += legq->w[k] * imgbnd1[k];
-          } 
-
-          std::cout << "diff of r integral on bndry: " 
-                    << sum1 << " " << sum2 << std::endl;
-
-        }
-       
-        //std::cout << pcoords00[0] << " " << pcoords00[1] << " "
-        //          << pcoords01[0] << " " << pcoords01[1] << "\n";
-        //std::cout << pcoords10[0] << " " << pcoords10[1] << " "
-        //          << pcoords11[0] << " " << pcoords11[1] << "\n\n";
-
- 
- 
-      }
       // find neighbors of second edge
       idList->SetId(0, cellPtIds->GetId(1));
       idList->SetId(1, cellPtIds->GetId(2));
       polytri->GetCellNeighbors(icell, idList, neighborCellIds);
-      if (neighborCellIds->GetNumberOfIds() > 0)
-      { 
-        neighbors[icell].push_back(neighborCellIds->GetId(0));
-      }
+      sum2 = smoothCoeffs_help  ( 0, icell, nleg, lPm, bPm, hPm,
+                                  cimg1, cimg11, imgbnd, imgbnd1,
+                                  pcoords10, pcoords11,
+                                  offset11, subid, wts, dist2,
+                                  cellPtIds, neighborCellIds,
+                                  neighbors, 1 );              
+
       // find neighbors of third edge
       idList->SetId(0, cellPtIds->GetId(2));
       idList->SetId(1, cellPtIds->GetId(0));
       polytri->GetCellNeighbors(icell, idList, neighborCellIds);
-      if (neighborCellIds->GetNumberOfIds() > 0)
-      { 
-        neighbors[icell].push_back(neighborCellIds->GetId(0)); 
-      }
+      sum3 = smoothCoeffs_help  ( 0, icell, nleg, lPm, bPm, hPm,
+                                  cimg1, cimg11, imgbnd, imgbnd1,
+                                  pcoords10, pcoords11,
+                                  offset11, subid, wts, dist2,
+                                  cellPtIds, neighborCellIds,
+                                  neighbors, 2 );             
+      if (neighbors[icell].size() == 3)
+      {
+        cRHS[N+1] = sum1;
+        cRHS[N+2] = sum2;
+        cRHS[N+3] = sum3;
+        if (LAPACKE_dgelsd  ( LAPACK_COL_MAJOR, N+3, Mmax, 1, cMat, 
+                              N+3, cRHS, N+3, S, -1.0, rank ) )
+        {
+          std::cerr << "ERROR: Lapack *gelsd: Pseudoinverse" << std::endl;
+        }
+        else
+        {
+          //for (unsigned int i = 0; i < Mmax; ++i)
+          //{
+          //  coeffs->SetComponent(offset1+i, 0, cRHS[i]);
+          //}
+          smoothCoeffs_help  ( 0, icell, nleg, lPm, bPm, hPm,
+                               cRHS, cimg11, imgbnd, imgbnd1,
+                               pcoords10, pcoords11,
+                               offset11, subid, wts, dist2,
+                               cellPtIds, neighborCellIds,
+                               neighbors, 2, true);             
+        }
+        
+      } 
+      //std::cout << "\n num neighbors: " << neighbors[icell].size() << " "
+      //          << sum1 << " " << sum2 << " " << sum3 << std::endl;
+
     }
 
     //for (auto it = neighbors.begin(); it != neighbors.end(); ++it)
@@ -709,7 +1027,6 @@ void Compressor::smoothCoeffs ( )
     std::cout << N << " " << Mmax << std::endl;
 
 
-    delete legq;
     free(lX); free(lY);
     free(bX); free(bY);
     free(hX); free(hY);
@@ -722,6 +1039,16 @@ void Compressor::smoothCoeffs ( )
     free(cimg11);
     free(imgbnd);
     free(imgbnd1);
+    free(cMat);
+    free(cMat_bnd12);
+    free(cMat_bnd13);
+    free(cMat_bnd23);
+    free(cMat_bnd1);
+    free(cMat_bnd2);
+    free(cMat_bnd3);
+    free(cRHS);
+    free(cRHS_bnd1);
+    free(cRHS_bnd2);
 
     /* TODO: Outline for coefficient smoothing 
 
@@ -799,7 +1126,7 @@ void Compressor::run  ( )
               << polytri->GetNumberOfCells() << std::endl;
     std::cout << "Order per triangle: " << morder << std::endl; 
     compressChannel(0);
-    smoothCoeffs ( );
+    smoothCoeffs();
     unsigned int M = static_cast<unsigned int>(0.5 * (morder+1)*(morder+2));
     /* (ntri*(mcoeff floats/channel)*(3 channels)*(4bytes/float) 
       + ntri*(3 short indices)*(2 bytes/short) 

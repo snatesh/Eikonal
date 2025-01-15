@@ -25,6 +25,7 @@
 #include<lapacke.h>
 #include<dMat.hh>
 #include<jPoly.hh>
+#include <legQuad.hh>
 
 
 vtkSmartPointer<vtkDelaunay2D> triangulateUniform ( int* dims, 
@@ -83,10 +84,11 @@ struct Compressor
   // we can get coeffs up to/including the 21st poly subspace
   // since integral(p21 * f) is exact for f of deg <= 21 with 
   // quad order m=42
-  unsigned int N = 325, Mmax, morder;
-  std::string trix = "xtri_N325_n24_M946_m42.txt";
-  std::string triy = "ytri_N325_n24_M946_m42.txt";
-  std::string triw = "wtri_N325_n24_M946_m42.txt";
+  unsigned int Mmax, morder;
+  unsigned int N = 435;  
+  std::string trix = "xtri_N435_n28_M1275_m49.txt";
+  std::string triy = "ytri_N435_n28_M1275_m49.txt";
+  std::string triw = "wtri_N435_n28_M1275_m49.txt";
   double *R = 0, *S = 0, *W = 0, *cimg = 0;
   double *interpc = 0;
   bool useMultiChannel;
@@ -98,6 +100,7 @@ struct Compressor
   vtkSmartPointer<vtkDoubleArray> coeffs, coeffs1, coeffs2, coeffs3;
   vtkSmartPointer<vtkIntArray> offsets, offsets1, offsets2, offsets3, celltypes;
   vtkSmartPointer<vtkUnsignedIntArray> orders, orders1, orders2, orders3;
+  legQuad<double>* legq = 0; 
  
   Compressor  ( Triangulator* T , unsigned int order );
 
@@ -108,7 +111,20 @@ struct Compressor
                               vtkSmartPointer<vtkIntArray> offsets,
                               vtkSmartPointer<vtkUnsignedIntArray> orders );
   void smoothCoeffs ( );
- 
+  double smoothCoeffs_help  ( unsigned int channel,
+                              unsigned int icell,
+                              unsigned int nleg,
+                              jPoly<double>* lPm,
+                              jPoly<double>* bPm,
+                              jPoly<double>* hPm,
+                              double* cimg, double* cimg1,
+                              double* imgbnd, double* imgbnd1,
+                              double* pcoords10, double* pcoords11,
+                              int offset1, int subid, double* wts, double dist2,
+                              vtkSmartPointer<vtkIdList> cellPtIds,
+                              vtkSmartPointer<vtkIdList> neighborCellIds, 
+                              std::map<int, std::vector<int>>& neighbors, 
+                              unsigned int edgenum, bool check = false);
   void run  ( );
 
   ~Compressor();

@@ -4,10 +4,10 @@ int usage(char* argv[])
 {
   std::cout << "Usage: " << argv[0]
             << " mode multichannel args\n"
-            << " if (mode=0), args = filename.jpg nSamp nRuns order \n"
+            << " if (mode=0), args = filename.in_fmt nSamp nRuns order \n"
             << " if (mode=1) and (multichannel=1), args = f1.vtp f2.vtp f3.vtp out_fmt)\n"
             << " if (mode=1) and (multichannel=0), args = f.vtp out_fmt\n"
-            << " where out_fmt can be png, jpg, ppm, tiff\n";
+            << " where in/out_fmt can be png, jpg, ppm, tiff\n";
   return EXIT_FAILURE;
 
 }
