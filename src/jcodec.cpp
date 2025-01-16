@@ -1521,7 +1521,7 @@ void Compressor::run  ( )
               << polytri->GetNumberOfCells() << std::endl;
     std::cout << "Order per triangle: " << morder << std::endl; 
     compressChannel(0);
-    smoothCoeffs();
+    //smoothCoeffs();
     unsigned int M = static_cast<unsigned int>(0.5 * (morder+1)*(morder+2));
     /* (ntri*(mcoeff floats/channel)*(3 channels)*(4bytes/float) 
       + ntri*(3 short indices)*(2 bytes/short) 
@@ -1944,7 +1944,9 @@ void writeCoeffs(vtkSmartPointer<vtkPolyData> polytri, const char* ofname)
   FILE* ofile = fopen(ofname,"w");
  
   // write num coeffs per cell
-  unsigned int m = orders->GetTuple1(0); 
+  double ms[3];
+  orders->GetTuple(0, ms); 
+  unsigned int m = static_cast<unsigned int>(ms[0]);
   unsigned int M = static_cast<unsigned int>(0.5 * (m + 1) * (m + 2));
   fprintf(ofile, "%u\n", M);
   // write coeffs 
@@ -2062,7 +2064,7 @@ double jcompress  ( Triangulator* T,
   // compress
   Compressor* C = new Compressor(T, order);
   C->run();
-  
+  double totalBytes; 
   // write grids with compressed data
   std::string fWithExt(fname);
   std::filesystem::path p(fWithExt);
@@ -2079,31 +2081,39 @@ double jcompress  ( Triangulator* T,
   }
   else
   {
-    std::string fout1 = fout + "_" + std::to_string(order) + ".vtp";
-    std::string fout2 = fout + "_" + std::to_string(order) + ".stl";
-    std::string fout3 = fout + "_" + std::to_string(order) + ".coeffs";
+    std::string fout1 = fout + "_" + std::to_string(nSamp) + "_" 
+                                   + std::to_string(nRuns) + "_"
+                                   +  std::to_string(order) + ".vtp";
+    std::string fout2 = fout + "_" + std::to_string(nSamp) + "_" 
+                                   + std::to_string(nRuns) + "_"
+                                   + std::to_string(order) + ".stl";
+    std::string fout3 = fout + "_" + std::to_string(nSamp) + "_" 
+                                   + std::to_string(nRuns) + "_"
+                                   + std::to_string(order) + ".coeffs";
+    std::string fout4 = fout + "_" + std::to_string(nSamp) + "_" 
+                                   + std::to_string(nRuns) + "_"
+                                   + std::to_string(order) + ".bench";
     writeVTP(C->polytri, fout1.c_str());
-    //writeSTL(C->polytri, fout2.c_str());
-    //writeCoeffs(C->polytri, fout3.c_str());
-    writeSTL(C->polytri, "bench.stl");
-    writeCoeffs(C->polytri, "bench.coeffs"); 
-  
-  }
+    writeSTL(C->polytri, fout2.c_str());
+    writeCoeffs(C->polytri, fout3.c_str());
+      
+    std::string command = "./lz.sh " + fout4 + " " + fout2 + " " + fout3;
 
-  FILE* fp = popen("./lz.sh", "r");
-  if (fp == NULL)
-  {
-    printf("Failed to run script\n");
-  } 
-  char buffer[1024];
-  while (fgets(buffer, sizeof(buffer), fp) != NULL){}
-  if (buffer[strlen(buffer) - 1] == '\n')
-  {
-    buffer[strlen(buffer) - 1] == '\0';
-  } 
-  double totalBytes = atof(buffer);
-  pclose(fp);
-  // double totalBytes = C->totalBytes;
+    FILE* fp = popen(command.c_str(), "r");
+    if (fp == NULL)
+    {
+      printf("Failed to run script\n");
+    } 
+    char buffer[1024];
+    while (fgets(buffer, sizeof(buffer), fp) != NULL){}
+    if (buffer[strlen(buffer) - 1] == '\n')
+    {
+      buffer[strlen(buffer) - 1] == '\0';
+    } 
+    totalBytes = atof(buffer);
+    pclose(fp);
+    // double totalBytes = C->totalBytes;
+  }
    
   // clean
   delete C;
