@@ -470,6 +470,9 @@ class jPoly
 
 };
 
+template long double jpoly<long double> ( const long double a, const long double b, 
+                                     const unsigned int n,
+                                     const long double x );
 template double jpoly<double> ( const double a, const double b, 
                                 const unsigned int n,
                                 const double x );
@@ -479,6 +482,9 @@ template float jpoly<float> ( const float a, const float b,
                               const float x );
 
 
+template void jpoly<long double>  ( const long double* x, unsigned int Nx, 
+                                    unsigned int Np, const long double a, 
+                                    const long double b, long double* V );
 template void jpoly<double> ( const double* x, unsigned int Nx, 
                               unsigned int Np, const double a, 
                               const double b, double* V );
@@ -486,6 +492,8 @@ template void jpoly<double> ( const double* x, unsigned int Nx,
 template void jpoly<float> (  const float* x, unsigned int Nx, 
                               unsigned int Np, const float a, 
                               const float b, float* V );
+
+template class jPoly<long double>;
 
 template class jPoly<double>;
 

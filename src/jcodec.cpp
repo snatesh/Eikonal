@@ -28,10 +28,15 @@
 #include <vtkImageSSIM.h>
 #include <vtkPointData.h>
 #include <vtkPNMReader.h>
+#include <vtkLZMADataCompressor.h>
+#include <vtkLZ4DataCompressor.h>
+#include <vtkZLibDataCompressor.h>
+#include <vtkSTLWriter.h>
 #include <map>
 #include <vector>
 #include <timer.hh>
 #include <filesystem>
+#include <fstream>
 
 vtkSmartPointer<vtkDelaunay2D> triangulateUniform ( int* dims, 
                                                     double* origin,
@@ -768,6 +773,302 @@ double Compressor::smoothCoeffs_help  ( unsigned int channel,
   return sum2;
 }
 
+void Compressor::smoothCoeffs_alt ( )
+{
+  if (not useMultiChannel)
+  {
+    celltypes = vtkSmartPointer<vtkIntArray>::New();
+    celltypes->SetNumberOfComponents(1);
+    celltypes->SetNumberOfTuples(polytri->GetNumberOfCells());
+    celltypes->SetName("celltype");
+
+    vtkSmartPointer<vtkIdList> cellPtIds = vtkSmartPointer<vtkIdList>::New();
+    cellPtIds->SetNumberOfIds(3);
+    vtkSmartPointer<vtkIdList> idList = vtkSmartPointer<vtkIdList>::New();
+    idList->SetNumberOfIds(2);
+    vtkSmartPointer<vtkIdList> neighborCellIds = vtkSmartPointer<vtkIdList>::New();
+
+    std::map<int, std::vector<int>> neighbors;
+    // create legendre quad
+    unsigned int nleg = 30;
+    this->legq = new legQuad<double>(nleg); 
+    legq->shift();
+    // construct cart-prod for bottom, left and hyp edges of tref
+    double* lX = (double*) calloc(nleg, sizeof(double));
+    double* lY = (double*) calloc(nleg, sizeof(double));
+    double* bX = (double*) calloc(nleg, sizeof(double));
+    double* bY = (double*) calloc(nleg, sizeof(double));
+    double* hX = (double*) calloc(nleg, sizeof(double));
+    double* hY = (double*) calloc(nleg, sizeof(double));
+
+    for (unsigned int i = 0; i < nleg; ++i)
+    { 
+      lY[i] = legq->x[i];
+      bX[i] = legq->x[i];
+      hX[i] = legq->x[i];
+      hY[i] = 1.0 - hX[i];
+    }
+    // create polynomial evaluators for the boundary
+    jPoly<double>* lPm = new jPoly<double>(lX, lY, nleg, Mmax, a, b, c, 1);
+    jPoly<double>* bPm = new jPoly<double>(bX, bY, nleg, Mmax, a, b, c, 1);
+    jPoly<double>* hPm = new jPoly<double>(hX, hY, nleg, Mmax, a, b, c, 1);
+    
+
+    // storage for channel coeffs on tri
+    double* cimg1 = (double*) calloc(Mmax, sizeof(double));
+    double* cimg2 = (double*) calloc(Mmax, sizeof(double));
+    double* cimg3 = (double*) calloc(Mmax, sizeof(double));
+    double* cimg11 = (double*) calloc(Mmax, sizeof(double));
+
+    // storage for color on bndry
+    double* imgbnd = (double*) calloc(nleg, sizeof(double));
+    double* imgbnd1 = (double*) calloc(nleg, sizeof(double));
+  
+    // continuity matrices
+
+    // fully interior
+    double* cMat = (double*) calloc((N+3)*Mmax, sizeof(double));
+    double* invcMat = (double*) calloc(Mmax*(N+3), sizeof(double));
+    // singular value storage for gesdd
+    double* S = (double*) calloc(N+3, sizeof(double));
+    double* invS = (double*) calloc((N+3)*Mmax, sizeof(double));
+    double* U = (double*) calloc((N+3)*(N+3), sizeof(double));
+    double* VT = (double*) calloc(Mmax*Mmax, sizeof(double));
+    double* invSTUT = (double*) calloc(Mmax*(N+3), sizeof(double));
+
+    // continuity right-hand-sides
+
+    // fully interior
+    double* cRHS = (double*) calloc((N+3)*3, sizeof(double));
+    double* xRHS = (double*) calloc(Mmax*3, sizeof(double));
+
+    /* populate cMat as
+      | P(int)    |
+      | w^T P(e01)| 
+      | w^T P(e02)| 
+      | w^T P(e03)| 
+    */
+    
+    for (unsigned int j = 0; j < Mmax; ++j)
+    {
+      for (unsigned int i = 0; i < N; ++i)
+      {
+        cMat[i + (N+3)*j] = Pm->V[i + N*j];
+      } 
+    }
+
+
+    // fully interior 
+    cblas_dgemv ( CblasColMajor, CblasTrans, 
+                  nleg, Mmax, 1.0, bPm->V, nleg,
+                  legq->w, 1, 0.0, &cMat[N], N+3 ); 
+    cblas_dgemv ( CblasColMajor, CblasTrans, 
+                  nleg, Mmax, 1.0, hPm->V, nleg,
+                  legq->w, 1, 0.0, &cMat[N+1], N+3 ); 
+    cblas_dgemv ( CblasColMajor, CblasTrans, 
+                  nleg, Mmax, 1.0, lPm->V, nleg,
+                  legq->w, 1, 0.0, &cMat[N+2], N+3 );
+    // compute SVD of cMat
+    if (  LAPACKE_dgesdd  ( LAPACK_COL_MAJOR, 'A',
+                            N+3, Mmax, cMat, N+3,
+                            S, U, N+3, VT, Mmax ) )
+    {
+      std::cerr << "ERROR: Lapack dgesdd - Could not compute SVD of cMat\n";
+    }
+    else
+    {
+      // compute S^{-1}
+      for (unsigned int i = 0; i < Mmax; ++i)
+      {
+        invS[i + (N+3)*i] = 1.0 / S[i];
+      } 
+      // compute S^{-T}UT
+      cblas_dgemm ( CblasColMajor, CblasTrans, CblasTrans,
+                    Mmax, N+3, N+3, 
+                    1, invS, N+3, U, N+3, 
+                    0, invSTUT, Mmax  );
+      // compute cMat^{-1} = VS^{-1}UT
+      cblas_dgemm ( CblasColMajor, CblasTrans, CblasNoTrans,
+                    Mmax, N+3, Mmax,
+                    1, VT, Mmax, invSTUT, Mmax,
+                    0, invcMat, Mmax );      
+ 
+    }
+
+    int subid, offset1, offset2, offset3, offset11;
+    double pcoords10[3], pcoords11[3];
+    double wts[3], dist2;
+    double sum1, sum2, sum3;
+    double sum11, sum21, sum31;
+    double sum12, sum22, sum32;
+    lapack_int rank[1]; 
+    // loop over triangles to classify cells
+    for (int icell = 0; icell < polytri->GetNumberOfCells(); ++icell)
+    {
+      // first copy channel coeffs into stor
+      offset1 = offsets->GetComponent(icell, 0);
+      offset2 = offsets->GetComponent(icell, 1);
+      offset3 = offsets->GetComponent(icell, 2);
+      // copy  channel coeffs
+      for (unsigned int i = 0; i < Mmax; ++i)
+      {
+        cimg1[i] = coeffs->GetComponent(offset1+i, 0);
+        cimg2[i] = coeffs->GetComponent(offset2+i, 1);
+        cimg3[i] = coeffs->GetComponent(offset3+i, 2);
+      }
+
+      // get ptids defining cell
+      polytri->GetCellPoints(icell, cellPtIds);
+
+
+      /* edges are default numbered as
+          - 0 for bottom
+          - 1 for hyp
+          - 2 for left 
+         in parameteric space
+      */
+      
+      // find neighbors of first edge
+      idList->SetId(0, cellPtIds->GetId(0));
+      idList->SetId(1, cellPtIds->GetId(1));
+      polytri->GetCellNeighbors(icell, idList, neighborCellIds);
+      
+      sum1 = smoothCoeffs_help  ( 0, icell, nleg, lPm, bPm, hPm,
+                                  cimg1, cimg11, imgbnd, imgbnd1,
+                                  pcoords10, pcoords11,
+                                  offset11, subid, wts, dist2,
+                                  cellPtIds, neighborCellIds,
+                                  neighbors, 0 );              
+      sum11 = smoothCoeffs_help ( 1, icell, nleg, lPm, bPm, hPm,
+                                  cimg2, cimg11, imgbnd, imgbnd1,
+                                  pcoords10, pcoords11,
+                                  offset11, subid, wts, dist2,
+                                  cellPtIds, neighborCellIds,
+                                  neighbors, 0 );              
+      sum12 = smoothCoeffs_help ( 2, icell, nleg, lPm, bPm, hPm,
+                                  cimg3, cimg11, imgbnd, imgbnd1,
+                                  pcoords10, pcoords11,
+                                  offset11, subid, wts, dist2,
+                                  cellPtIds, neighborCellIds,
+                                  neighbors, 0 );              
+
+      // find neighbors of second edge
+      idList->SetId(0, cellPtIds->GetId(1));
+      idList->SetId(1, cellPtIds->GetId(2));
+      polytri->GetCellNeighbors(icell, idList, neighborCellIds);
+      sum2 = smoothCoeffs_help  ( 0, icell, nleg, lPm, bPm, hPm,
+                                  cimg1, cimg11, imgbnd, imgbnd1,
+                                  pcoords10, pcoords11,
+                                  offset11, subid, wts, dist2,
+                                  cellPtIds, neighborCellIds,
+                                  neighbors, 1 );              
+      sum21 = smoothCoeffs_help ( 1, icell, nleg, lPm, bPm, hPm,
+                                  cimg2, cimg11, imgbnd, imgbnd1,
+                                  pcoords10, pcoords11,
+                                  offset11, subid, wts, dist2,
+                                  cellPtIds, neighborCellIds,
+                                  neighbors, 1 );              
+      sum22 = smoothCoeffs_help ( 2, icell, nleg, lPm, bPm, hPm,
+                                  cimg3, cimg11, imgbnd, imgbnd1,
+                                  pcoords10, pcoords11,
+                                  offset11, subid, wts, dist2,
+                                  cellPtIds, neighborCellIds,
+                                  neighbors, 1 );              
+
+      // find neighbors of third edge
+      idList->SetId(0, cellPtIds->GetId(2));
+      idList->SetId(1, cellPtIds->GetId(0));
+      polytri->GetCellNeighbors(icell, idList, neighborCellIds);
+      sum3 = smoothCoeffs_help  ( 0, icell, nleg, lPm, bPm, hPm,
+                                  cimg1, cimg11, imgbnd, imgbnd1,
+                                  pcoords10, pcoords11,
+                                  offset11, subid, wts, dist2,
+                                  cellPtIds, neighborCellIds,
+                                  neighbors, 2 );             
+      sum31 = smoothCoeffs_help ( 1, icell, nleg, lPm, bPm, hPm,
+                                  cimg2, cimg11, imgbnd, imgbnd1,
+                                  pcoords10, pcoords11,
+                                  offset11, subid, wts, dist2,
+                                  cellPtIds, neighborCellIds,
+                                  neighbors, 2 );             
+      sum32 = smoothCoeffs_help ( 2, icell, nleg, lPm, bPm, hPm,
+                                  cimg3, cimg11, imgbnd, imgbnd1,
+                                  pcoords10, pcoords11,
+                                  offset11, subid, wts, dist2,
+                                  cellPtIds, neighborCellIds,
+                                  neighbors, 2 );             
+      if (neighbors[icell].size() == 9)
+      {
+        // populate cRHS for channel 0 
+        cblas_dgemv ( CblasColMajor, CblasNoTrans,
+                      N, Mmax, 1.0, Pm->V, N,
+                      cimg1, 1, 0.0, cRHS, 1 );      
+        cRHS[N] = sum1;
+        cRHS[N+1] = sum2;
+        cRHS[N+2] = sum3;
+        // populate cRHS for channel 1
+        cblas_dgemv ( CblasColMajor, CblasNoTrans,
+                      N, Mmax, 1.0, Pm->V, N,
+                      cimg2, 1, 0.0, &cRHS[N+3], 1 );      
+        cRHS[N + (N+3)] = sum11;
+        cRHS[N+1 + (N+3)] = sum21;
+        cRHS[N+2 + (N+3)] = sum31;
+        // populate cRHS for channel 2
+        cblas_dgemv ( CblasColMajor, CblasNoTrans,
+                      N, Mmax, 1.0, Pm->V, N,
+                      cimg3, 1, 0.0, &cRHS[2*(N+3)], 1 );      
+        cRHS[N + 2*(N+3)] = sum12;
+        cRHS[N+1 + 2*(N+3)] = sum22;
+        cRHS[N+2 + 2*(N+3)] = sum32;
+        
+        // solve for new coeffs
+        cblas_dgemm ( CblasColMajor, CblasNoTrans, CblasNoTrans,
+                      Mmax, 3, N+3, 1, invcMat, Mmax, 
+                      cRHS, N+3, 0.0,
+                      xRHS, Mmax );
+        for (unsigned int i = 0; i < Mmax; ++i)
+        {
+          coeffs->SetComponent(offset1+i, 0, xRHS[i]);
+          coeffs->SetComponent(offset2+i, 1, xRHS[i + Mmax]);
+          coeffs->SetComponent(offset3+i, 2, xRHS[i + 2*Mmax]);
+        }
+        if (!(icell % 1000)) 
+        { 
+          std::cout << "Smoothing Progress : " << std::setprecision(2) 
+                    << ((double)icell / (double) polytri->GetNumberOfCells()) * 100 
+                    << "%\n";
+        }
+      } 
+    }
+ 
+    free(lX); free(lY);
+    free(bX); free(bY);
+    free(hX); free(hY);
+    delete lPm;
+    delete bPm;
+    delete hPm;
+    free(cimg1);
+    free(cimg2);
+    free(cimg3);
+    free(cimg11);
+    free(imgbnd);
+    free(imgbnd1);
+    free(cMat);
+    free(cRHS);
+    free(S);
+    free(U);  
+    free(VT);
+    free(invcMat);
+    free(invS);
+    free(invSTUT);
+    free(xRHS);
+  }
+  else
+  {
+    std::cerr << "not supported for separate triangulations per channel\n";
+    exit(1);
+  }
+}
 void Compressor::smoothCoeffs ( )
 {
   if (not useMultiChannel)
@@ -823,6 +1124,7 @@ void Compressor::smoothCoeffs ( )
 
     // fully interior
     double* cMat = (double*) calloc((N+3)*Mmax, sizeof(double));
+    double* invcMat = (double*) calloc(Mmax*(N+3), sizeof(double));
     double* cMat_cpy = (double*) calloc((N+3)*Mmax, sizeof(double)); 
     // on boundary with 2 neighbors
     double* cMat_bnd12 = (double*) calloc((N+2)*Mmax, sizeof(double));
@@ -832,13 +1134,18 @@ void Compressor::smoothCoeffs ( )
     double* cMat_bnd1 = (double*) calloc((N+1)*Mmax, sizeof(double));
     double* cMat_bnd2 = (double*) calloc((N+1)*Mmax, sizeof(double));
     double* cMat_bnd3 = (double*) calloc((N+1)*Mmax, sizeof(double));
-    // singular value storage for lsq-solve
-    double* S = (double*) calloc(Mmax, sizeof(double));
-    
+    // singular value storage for gesdd
+    double* S = (double*) calloc(N+3, sizeof(double));
+    double* invS = (double*) calloc((N+3)*Mmax, sizeof(double));
+    double* U = (double*) calloc((N+3)*(N+3), sizeof(double));
+    double* VT = (double*) calloc(Mmax*Mmax, sizeof(double));
+    double* invSTUT = (double*) calloc(Mmax*(N+3), sizeof(double));
+
     // continuity right-hand-sides
 
     // fully interior
-    double* cRHS = (double*) calloc(N+3, sizeof(double));
+    double* cRHS = (double*) calloc((N+3)*3, sizeof(double));
+    double* xRHS = (double*) calloc(Mmax*3, sizeof(double));
     // on boundary with 1 neighbor
     double* cRHS_bnd1 = (double*) calloc(N+1, sizeof(double));
     // on boundary with 2 neighbors
@@ -867,7 +1174,8 @@ void Compressor::smoothCoeffs ( )
         cMat_bnd3[i + (N+1)*j]  = pmv;
       } 
     }
- 
+
+
     // fully interior 
     cblas_dgemv ( CblasColMajor, CblasTrans, 
                   nleg, Mmax, 1.0, bPm->V, nleg,
@@ -878,6 +1186,33 @@ void Compressor::smoothCoeffs ( )
     cblas_dgemv ( CblasColMajor, CblasTrans, 
                   nleg, Mmax, 1.0, lPm->V, nleg,
                   legq->w, 1, 0.0, &cMat[N+2], N+3 );
+    // compute SVD of cMat
+    if (  LAPACKE_dgesdd  ( LAPACK_COL_MAJOR, 'A',
+                            N+3, Mmax, cMat, N+3,
+                            S, U, N+3, VT, Mmax ) )
+    {
+      std::cerr << "ERROR: Lapack dgesdd - Could not compute SVD of cMat\n";
+    }
+    else
+    {
+      // compute S^{-1}
+      for (unsigned int i = 0; i < Mmax; ++i)
+      {
+        invS[i + (N+3)*i] = 1.0 / S[i];
+      } 
+      // compute S^{-T}UT
+      cblas_dgemm ( CblasColMajor, CblasTrans, CblasTrans,
+                    Mmax, N+3, N+3, 
+                    1, invS, N+3, U, N+3, 
+                    0, invSTUT, Mmax  );
+      // compute cMat^{-1} = VS^{-1}UT
+      cblas_dgemm ( CblasColMajor, CblasTrans, CblasNoTrans,
+                    Mmax, N+3, Mmax,
+                    1, VT, Mmax, invSTUT, Mmax,
+                    0, invcMat, Mmax );      
+ 
+    }
+ 
 
     // two neighbors - bottom and hyp
     cblas_dgemv ( CblasColMajor, CblasTrans, 
@@ -1022,67 +1357,45 @@ void Compressor::smoothCoeffs ( )
                                   neighbors, 2 );             
       if (neighbors[icell].size() == 9)
       {
-        // populate cRHS for channel 0
+        // populate cRHS for channel 0 
         cblas_dgemv ( CblasColMajor, CblasNoTrans,
                       N, Mmax, 1.0, Pm->V, N,
                       cimg1, 1, 0.0, cRHS, 1 );      
         cRHS[N] = sum1;
         cRHS[N+1] = sum2;
         cRHS[N+2] = sum3;
-        cblas_dcopy ( (N+3)*Mmax, cMat, 1, cMat_cpy, 1 );
-        if (LAPACKE_dgelsd  ( LAPACK_COL_MAJOR, N+3, Mmax, 1, cMat_cpy, 
-                              N+3, cRHS, N+3, S, -1.0, rank ) )
-        {
-          std::cerr << "ERROR: Lapack dgelsd: Pseudoinverse" << std::endl;
-        }
-        else
-        {
-          for (unsigned int i = 0; i < Mmax; ++i)
-          {
-            coeffs->SetComponent(offset1+i, 0, cRHS[i]);
-          }
-        }
         // populate cRHS for channel 1
         cblas_dgemv ( CblasColMajor, CblasNoTrans,
                       N, Mmax, 1.0, Pm->V, N,
-                      cimg2, 1, 0.0, cRHS, 1 );      
-        cRHS[N] = sum11;
-        cRHS[N+1] = sum21;
-        cRHS[N+2] = sum31;
-        cblas_dcopy ( (N+3)*Mmax, cMat, 1, cMat_cpy, 1 );
-        if (LAPACKE_dgelsd  ( LAPACK_COL_MAJOR, N+3, Mmax, 1, cMat_cpy, 
-                              N+3, cRHS, N+3, S, -1.0, rank ) )
-        {
-          std::cerr << "ERROR: Lapack dgelsd: Pseudoinverse" << std::endl;
-        }
-        else
-        {
-          for (unsigned int i = 0; i < Mmax; ++i)
-          {
-            coeffs->SetComponent(offset2+i, 1, cRHS[i]);
-          }
-        }
+                      cimg2, 1, 0.0, &cRHS[N+3], 1 );      
+        cRHS[N + (N+3)] = sum11;
+        cRHS[N+1 + (N+3)] = sum21;
+        cRHS[N+2 + (N+3)] = sum31;
         // populate cRHS for channel 2
         cblas_dgemv ( CblasColMajor, CblasNoTrans,
                       N, Mmax, 1.0, Pm->V, N,
-                      cimg3, 1, 0.0, cRHS, 1 );      
-        cRHS[N] = sum12;
-        cRHS[N+1] = sum22;
-        cRHS[N+2] = sum32;
-        cblas_dcopy ( (N+3)*Mmax, cMat, 1, cMat_cpy, 1 );
-        if (LAPACKE_dgelsd  ( LAPACK_COL_MAJOR, N+3, Mmax, 1, cMat_cpy, 
-                              N+3, cRHS, N+3, S, -1.0, rank ) )
+                      cimg3, 1, 0.0, &cRHS[2*(N+3)], 1 );      
+        cRHS[N + 2*(N+3)] = sum12;
+        cRHS[N+1 + 2*(N+3)] = sum22;
+        cRHS[N+2 + 2*(N+3)] = sum32;
+        
+        // solve for new coeffs
+        cblas_dgemm ( CblasColMajor, CblasNoTrans, CblasNoTrans,
+                      Mmax, 3, N+3, 1, invcMat, Mmax, 
+                      cRHS, N+3, 0.0,
+                      xRHS, Mmax );
+        for (unsigned int i = 0; i < Mmax; ++i)
         {
-          std::cerr << "ERROR: Lapack *gelsd: Pseudoinverse" << std::endl;
+          coeffs->SetComponent(offset1+i, 0, xRHS[i]);
+          coeffs->SetComponent(offset2+i, 1, xRHS[i + Mmax]);
+          coeffs->SetComponent(offset3+i, 2, xRHS[i + 2*Mmax]);
         }
-        else
-        {
-          for (unsigned int i = 0; i < Mmax; ++i)
-          {
-            coeffs->SetComponent(offset3+i, 2, cRHS[i]);
-          }
+        if (!(icell % 1000)) 
+        { 
+          std::cout << "Smoothing Progress : " << std::setprecision(2) 
+                    << ((double)icell / (double) polytri->GetNumberOfCells()) * 100 
+                    << "%\n";
         }
-        std::cout << "finished smoothing cell " << icell << std::endl;  
       } 
     }
  
@@ -1125,6 +1438,12 @@ void Compressor::smoothCoeffs ( )
     free(cRHS_bnd2);
     free(cMat_cpy);
     free(S);
+    free(U);  
+    free(VT);
+    free(invcMat);
+    free(invS);
+    free(invSTUT);
+    free(xRHS);
 
     /* TODO: Outline for coefficient smoothing 
 
@@ -1210,8 +1529,8 @@ void Compressor::run  ( )
     */
     totalBytes =  polytri->GetNumberOfCells() * (M * 12 + 6) +
                   polytri->GetNumberOfPoints() * 8; 
-    std::cout << "compressed all channels into "
-              << totalBytes / 1e6 << " MB\n";
+    //std::cout << "compressed all channels into "
+    //          << totalBytes / 1e6 << " MB\n";
   }
 }
 
@@ -1316,46 +1635,6 @@ Decompressor::Decompressor  ( bool _useMultiChannel,
   this->colors->SetNumberOfComponents(3);
   this->colors->SetNumberOfTuples(imagedata->GetNumberOfPoints());
 }
-
-
-void Decompressor::smoothImage ( )
-{
-  // get edges
-  vtkSmartPointer<vtkExtractEdges> edgeFilter = 
-    vtkSmartPointer<vtkExtractEdges>::New(); 
-  edgeFilter->SetInputData(this->polytri);
-  edgeFilter->Update();
-  vtkSmartPointer<vtkPolyData> edges = edgeFilter->GetOutput();  
-  unsigned int nEdges = edges->GetNumberOfCells();  
-  unsigned int nPix = pixels->GetNumberOfPoints();
-  double pw = std::sqrt(2.0), alpha = 2;
-  double rad = pw * alpha; 
-  std::map<int, std::vector<int>> pixByEdge;
-  vtkSmartPointer<vtkLine> line;
-  double d2l, t;
-  for (int iedge = 0; iedge < nEdges; ++iedge)
-  {
-    line = vtkLine::SafeDownCast(edges->GetCell(iedge));
-    for (int iPix = 0; iPix < nPix; ++iPix)
-    {
-      d2l = vtkLine::DistanceToLine(pixels->GetPoint(iPix), 
-                                    line->GetPoints()->GetPoint(0), 
-                                    line->GetPoints()->GetPoint(1),
-                                    t, nullptr);
-      if (d2l <= rad)
-      {
-        edges->GetPoints()->InsertNextPoint(pixels->GetPoint(iPix));
-      }
-    }
-
-  }
-   
-
- 
-  std::cout << edges->GetNumberOfCells() << std::endl; 
-  writeVTP(edges, "edges.vtp");
-
-} 
 
 void Decompressor::writeImage ( const std::string& pref,
                                 const std::string& ext )
@@ -1541,7 +1820,7 @@ void Decompressor::decompressChannel_help ( unsigned int channel,
       }
     }
     
-    if (!(it->first % 200)) 
+    if (!(it->first % 1000)) 
     { 
       std::cout << "Progress : " << std::setprecision(2) 
                 << ((double)it->first / (double) pixInTri.size()) * 100 
@@ -1627,7 +1906,6 @@ void Decompressor::run()
   else
   {
     decompressChannel(0);
-    //smoothImage();
     std::cout << "decompressed all channels" << std::endl;
   }
 }
@@ -1636,11 +1914,56 @@ void Decompressor::run()
 void writeVTP(vtkSmartPointer<vtkPolyData> polytri, const char* ofname)
 {
   // write mesh
-  vtkNew<vtkXMLPolyDataWriter> writer;
+  vtkSmartPointer<vtkXMLPolyDataWriter> writer
+    = vtkSmartPointer<vtkXMLPolyDataWriter>::New();
   writer->SetFileName(ofname);
   writer->SetInputData(polytri);  
   writer->SetDataModeToBinary();
   writer->Write();
+
+}
+
+void writeSTL(vtkSmartPointer<vtkPolyData> polytri, const char* ofname)
+{
+  vtkSmartPointer<vtkSTLWriter> stlwriter
+    = vtkSmartPointer<vtkSTLWriter>::New();
+  stlwriter->SetFileName(ofname);
+  stlwriter->SetInputData(polytri);  
+  stlwriter->Write();
+}
+
+void writeCoeffs(vtkSmartPointer<vtkPolyData> polytri, const char* ofname)
+{
+  vtkSmartPointer<vtkIntArray> offsets 
+    = vtkIntArray::SafeDownCast(polytri->GetCellData()->GetAbstractArray(0));
+  vtkSmartPointer<vtkUnsignedIntArray> orders 
+    = vtkUnsignedIntArray::SafeDownCast(polytri->GetCellData()->GetAbstractArray(1));
+  vtkSmartPointer<vtkDoubleArray> coeffs 
+    = vtkDoubleArray::SafeDownCast(polytri->GetFieldData()->GetAbstractArray(0));
+ 
+  FILE* ofile = fopen(ofname,"w");
+ 
+  // write num coeffs per cell
+  unsigned int m = orders->GetTuple1(0); 
+  unsigned int M = static_cast<unsigned int>(0.5 * (m + 1) * (m + 2));
+  fprintf(ofile, "%u\n", M);
+  // write coeffs 
+  int offset1, offset2, offset3;
+  float c1, c2, c3;
+  for (int icell = 0; icell < polytri->GetNumberOfCells(); ++icell)
+  {
+    offset1 = offsets->GetComponent(icell, 0);
+    offset2 = offsets->GetComponent(icell, 1);
+    offset3 = offsets->GetComponent(icell, 2);
+    for (unsigned int i = 0; i < M; ++i)
+    {
+      c1 = coeffs->GetComponent(offset1+i, 0); 
+      c2 = coeffs->GetComponent(offset2+i, 1);
+      c3 = coeffs->GetComponent(offset3+i, 2);
+      fprintf(ofile, "%f %f %f\n", c1, c2, c3);
+    }
+  }
+  fclose(ofile);
 }
 
 vtkSmartPointer<vtkImageData> readImage ( const std::string& pref,
@@ -1680,7 +2003,6 @@ vtkSmartPointer<vtkImageData> readImage ( const std::string& pref,
 Triangulator* jcompress_triangulate ( const char* fname, 
                                       unsigned int nSamp,
                                       unsigned int nRuns,
-                                      unsigned int order,
                                       bool useMultiChannel,
                                       bool viz )
 {
@@ -1758,10 +2080,30 @@ double jcompress  ( Triangulator* T,
   else
   {
     std::string fout1 = fout + "_" + std::to_string(order) + ".vtp";
+    std::string fout2 = fout + "_" + std::to_string(order) + ".stl";
+    std::string fout3 = fout + "_" + std::to_string(order) + ".coeffs";
     writeVTP(C->polytri, fout1.c_str());
+    //writeSTL(C->polytri, fout2.c_str());
+    //writeCoeffs(C->polytri, fout3.c_str());
+    writeSTL(C->polytri, "bench.stl");
+    writeCoeffs(C->polytri, "bench.coeffs"); 
+  
   }
 
-  double totalBytes = C->totalBytes;
+  FILE* fp = popen("./lz.sh", "r");
+  if (fp == NULL)
+  {
+    printf("Failed to run script\n");
+  } 
+  char buffer[1024];
+  while (fgets(buffer, sizeof(buffer), fp) != NULL){}
+  if (buffer[strlen(buffer) - 1] == '\n')
+  {
+    buffer[strlen(buffer) - 1] == '\0';
+  } 
+  double totalBytes = atof(buffer);
+  pclose(fp);
+  // double totalBytes = C->totalBytes;
    
   // clean
   delete C;
@@ -1779,7 +2121,7 @@ double jcompress  ( const char* fname,
                     bool viz )
 {
   // triangulate
-  Triangulator* T = jcompress_triangulate ( fname, nSamp, nRuns, order,
+  Triangulator* T = jcompress_triangulate ( fname, nSamp, nRuns,
                                             useMultiChannel, viz );
 
   // compress
@@ -1803,10 +2145,27 @@ double jcompress  ( const char* fname,
   else
   {
     std::string fout1 = fout + "_" + std::to_string(order) + ".vtp";
+    std::string fout2 = fout + "_" + std::to_string(order) + ".stl";
+    std::string fout3 = fout + "_" + std::to_string(order) + ".coeffs";
     writeVTP(C->polytri, fout1.c_str());
+    writeSTL(C->polytri, fout2.c_str());
+    writeCoeffs(C->polytri, fout3.c_str()); 
   }
 
-  double totalBytes = C->totalBytes;
+  FILE* fp = popen("./lz.sh", "r");
+  if (fp == NULL)
+  {
+    printf("Failed to run script\n");
+  } 
+  char buffer[1024];
+  while (fgets(buffer, sizeof(buffer), fp) != NULL){}
+  if (buffer[strlen(buffer) - 1] == '\n')
+  {
+    buffer[strlen(buffer) - 1] == '\0';
+  }
+  double totalBytes = atof(buffer);
+  pclose(fp); 
+  //double totalBytes = C->totalBytes;
    
   // clean
   delete T;
@@ -1960,5 +2319,67 @@ double ssim ( const char* F1WithExt, const char* F2WithExt )
                            offset11, subid, wts, dist2,
                            cellPtIds, neighborCellIds,
                            neighbors, 2, true);             
+
+  
+        // populate cRHS for channel 0
+        cblas_dgemv ( CblasColMajor, CblasNoTrans,
+                      N, Mmax, 1.0, Pm->V, N,
+                      cimg1, 1, 0.0, cRHS, 1 );      
+        cRHS[N] = sum1;
+        cRHS[N+1] = sum2;
+        cRHS[N+2] = sum3;
+        cblas_dcopy ( (N+3)*Mmax, cMat, 1, cMat_cpy, 1 );
+        if (LAPACKE_dgelsd  ( LAPACK_COL_MAJOR, N+3, Mmax, 1, cMat_cpy, 
+                              N+3, cRHS, N+3, S, -1.0, rank ) )
+        {
+          std::cerr << "ERROR: Lapack dgelsd: Pseudoinverse" << std::endl;
+        }
+        else
+        {
+          for (unsigned int i = 0; i < Mmax; ++i)
+          {
+            coeffs->SetComponent(offset1+i, 0, cRHS[i]);
+          }
+        }
+        // populate cRHS for channel 1
+        cblas_dgemv ( CblasColMajor, CblasNoTrans,
+                      N, Mmax, 1.0, Pm->V, N,
+                      cimg2, 1, 0.0, cRHS, 1 );      
+        cRHS[N] = sum11;
+        cRHS[N+1] = sum21;
+        cRHS[N+2] = sum31;
+        cblas_dcopy ( (N+3)*Mmax, cMat, 1, cMat_cpy, 1 );
+        if (LAPACKE_dgelsd  ( LAPACK_COL_MAJOR, N+3, Mmax, 1, cMat_cpy, 
+                              N+3, cRHS, N+3, S, -1.0, rank ) )
+        {
+          std::cerr << "ERROR: Lapack dgelsd: Pseudoinverse" << std::endl;
+        }
+        else
+        {
+          for (unsigned int i = 0; i < Mmax; ++i)
+          {
+            coeffs->SetComponent(offset2+i, 1, cRHS[i]);
+          }
+        }
+        // populate cRHS for channel 2
+        cblas_dgemv ( CblasColMajor, CblasNoTrans,
+                      N, Mmax, 1.0, Pm->V, N,
+                      cimg3, 1, 0.0, cRHS, 1 );      
+        cRHS[N] = sum12;
+        cRHS[N+1] = sum22;
+        cRHS[N+2] = sum32;
+        cblas_dcopy ( (N+3)*Mmax, cMat, 1, cMat_cpy, 1 );
+        if (LAPACKE_dgelsd  ( LAPACK_COL_MAJOR, N+3, Mmax, 1, cMat_cpy, 
+                              N+3, cRHS, N+3, S, -1.0, rank ) )
+        {
+          std::cerr << "ERROR: Lapack *gelsd: Pseudoinverse" << std::endl;
+        }
+        else
+        {
+          for (unsigned int i = 0; i < Mmax; ++i)
+          {
+            coeffs->SetComponent(offset3+i, 2, cRHS[i]);
+          }
+        }
 
 *************************************/

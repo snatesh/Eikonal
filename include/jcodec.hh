@@ -85,10 +85,10 @@ struct Compressor
   // since integral(p21 * f) is exact for f of deg <= 21 with 
   // quad order m=42
   unsigned int Mmax, morder;
-  unsigned int N = 435;  
-  std::string trix = "xtri_N435_n28_M1275_m49.txt";
-  std::string triy = "ytri_N435_n28_M1275_m49.txt";
-  std::string triw = "wtri_N435_n28_M1275_m49.txt";
+  unsigned int N = 496;  
+  std::string trix = "xtri_N496_n30_M1378_m51.txt";
+  std::string triy = "ytri_N496_n30_M1378_m51.txt";
+  std::string triw = "wtri_N496_n30_M1378_m51.txt";
   double *R = 0, *S = 0, *W = 0, *cimg = 0;
   double *interpc = 0;
   bool useMultiChannel;
@@ -111,6 +111,7 @@ struct Compressor
                               vtkSmartPointer<vtkIntArray> offsets,
                               vtkSmartPointer<vtkUnsignedIntArray> orders );
   void smoothCoeffs ( );
+  void smoothCoeffs_alt ( );
   double smoothCoeffs_help  ( unsigned int channel,
                               unsigned int icell,
                               unsigned int nleg,
@@ -159,8 +160,6 @@ struct Decompressor
                                 vtkSmartPointer<vtkIntArray> offsets,
                                 vtkSmartPointer<vtkUnsignedIntArray> orders );
 
-  void smoothImage ( );
-
   void writeImage ( const std::string& pref,
                     const std::string& ext );
 
@@ -172,11 +171,11 @@ struct Decompressor
 
 /* wrappers for compression pipeline */
 void writeVTP(vtkSmartPointer<vtkPolyData> polytri, const char* ofname);
+void writeSTL(vtkSmartPointer<vtkPolyData> polytri, const char* ofname);
 
 Triangulator* jcompress_triangulate ( const char* fname, 
                                       unsigned int nSamp,
                                       unsigned int nRuns,
-                                      unsigned int order,
                                       bool useMultiChannel,
                                       bool viz );
 
