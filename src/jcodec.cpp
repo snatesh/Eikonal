@@ -339,7 +339,7 @@ void Triangulator::run()
       free(intgn1);
       free(intgn2);
       free(intgn3);
-      std::cout << "Refinement step: " << iRun << std::endl;
+      std::cout << "Refinement step: " << iRun + 1 << std::endl;
       std::cout << "Num cells on each grid: "
                 << polytri1->GetNumberOfCells() << ", "
                 << polytri2->GetNumberOfCells() << ", "
@@ -2137,7 +2137,7 @@ double jcompress  ( const char* fname,
   // compress
   Compressor* C = new Compressor(T, order);
   C->run();
-  
+  double totalBytes; 
   // write grids with compressed data
   std::string fWithExt(fname);
   std::filesystem::path p(fWithExt);
@@ -2157,25 +2157,31 @@ double jcompress  ( const char* fname,
     std::string fout1 = fout + "_" + std::to_string(order) + ".vtp";
     std::string fout2 = fout + "_" + std::to_string(order) + ".stl";
     std::string fout3 = fout + "_" + std::to_string(order) + ".coeffs";
+    std::string fout4 = fout + "_" + std::to_string(nSamp) + "_" 
+                                   + std::to_string(nRuns) + "_"
+                                   + std::to_string(order) + ".bench";
     writeVTP(C->polytri, fout1.c_str());
     writeSTL(C->polytri, fout2.c_str());
     writeCoeffs(C->polytri, fout3.c_str()); 
+    std::string command = "./lz.sh " + fout4 + " " + fout2 + " " + fout3;
+
+    FILE* fp = popen(command.c_str(), "r");
+    if (fp == NULL)
+    {
+      printf("Failed to run script\n");
+    } 
+    char buffer[1024];
+    while (fgets(buffer, sizeof(buffer), fp) != NULL){}
+    if (buffer[strlen(buffer) - 1] == '\n')
+    {
+      buffer[strlen(buffer) - 1] == '\0';
+    } 
+    totalBytes = atof(buffer);
+    std::cout << "Compressed all channels into " << totalBytes << " bytes\n";
+    pclose(fp);
   }
 
-  FILE* fp = popen("./lz.sh", "r");
-  if (fp == NULL)
-  {
-    printf("Failed to run script\n");
-  } 
-  char buffer[1024];
-  while (fgets(buffer, sizeof(buffer), fp) != NULL){}
-  if (buffer[strlen(buffer) - 1] == '\n')
-  {
-    buffer[strlen(buffer) - 1] == '\0';
-  }
-  double totalBytes = atof(buffer);
-  pclose(fp); 
-  //double totalBytes = C->totalBytes;
+
    
   // clean
   delete T;
