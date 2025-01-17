@@ -142,14 +142,6 @@ int main(int argc, char* argv[])
         {
           std::cerr << "Unable to open file" << std::endl;
         }
-        if (not goimg)
-        {
-          break;
-        }
-      }
-      if (not goimg)
-      {
-        break;
       }
     }
     it++;

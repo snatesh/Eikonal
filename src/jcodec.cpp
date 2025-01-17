@@ -2040,7 +2040,7 @@ Triangulator* jcompress_triangulate ( const char* fname,
    vtkSmartPointer<vtkImageInterpolator> interpolator = 
     vtkSmartPointer<vtkImageInterpolator>::New();
   interpolator->Initialize(imagedata);
-  interpolator->SetInterpolationModeToLinear();
+  interpolator->SetInterpolationModeToCubic();
   
   // triangulate
   Triangulator* T = new Triangulator  ( N, m, a, b, c, nSamp, nRuns, 
