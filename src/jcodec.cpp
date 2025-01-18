@@ -1523,7 +1523,7 @@ void Compressor::run  ( )
     compressChannel(0);
     //smoothCoeffs();
     unsigned int M = static_cast<unsigned int>(0.5 * (morder+1)*(morder+2));
-    /* (ntri*(mcoeff floats/channel)*(3 channels)*(4bytes/float) 
+    /* (ntri*(mcoeff floats/channel)*(3 channels)*(4ytes/float) 
       + ntri*(3 short indices)*(2 bytes/short) 
       + npts * (2 floats for x,y)*(4 bytes/float) 
     */
@@ -2096,7 +2096,8 @@ double jcompress  ( Triangulator* T,
     writeVTP(C->polytri, fout1.c_str());
     writeSTL(C->polytri, fout2.c_str());
     writeCoeffs(C->polytri, fout3.c_str());
-      
+
+  
     std::string command = "./lz.sh " + fout4 + " " + fout2 + " " + fout3;
 
     FILE* fp = popen(command.c_str(), "r");
@@ -2163,6 +2164,7 @@ double jcompress  ( const char* fname,
     writeVTP(C->polytri, fout1.c_str());
     writeSTL(C->polytri, fout2.c_str());
     writeCoeffs(C->polytri, fout3.c_str()); 
+
     std::string command = "./lz.sh " + fout4 + " " + fout2 + " " + fout3;
 
     FILE* fp = popen(command.c_str(), "r");
