@@ -449,7 +449,7 @@ double Triangulator::triangulateEntropy_help  ( double* intgn, unsigned int chan
   return ave;
 }
 
-vtkSmartPointer<vtkDelaunay2D> Triangulator::triangulateEntropyGreedy ( )
+vtkSmartPointer<vtkDelaunay2D> Triangulator::triangulateEntropyGreedy ( double* interr )
 {
   if (useMultiChannel)
   {
@@ -464,7 +464,7 @@ vtkSmartPointer<vtkDelaunay2D> Triangulator::triangulateEntropyGreedy ( )
   idList->SetNumberOfIds(2);
   vtkSmartPointer<vtkIdList> neighborCellIds = vtkSmartPointer<vtkIdList>::New();
 
-  double* interr = (double*) calloc(polytri->GetNumberOfCells(), sizeof(double));
+
   triangulateEntropyGreedy_help  ( interr, polytri );
 
   vtkSmartPointer<vtkPointSet> pointSet = vtkSmartPointer<vtkPointSet>::New();
@@ -629,7 +629,7 @@ vtkSmartPointer<vtkDelaunay2D> Triangulator::triangulateEntropy ( double* intgn,
   vtkIdType ptid; int subid;
   for (int icell = 0; icell < polytri->GetNumberOfCells(); ++icell)
   {
-    if (intgn[icell] > ave_gn - stdev_gn / 2.0)
+    if (intgn[icell] > ave_gn + stdev_gn )
     {
       polytri->GetCell(icell)->EvaluateLocation(subid, v1r, v1t, tmpwts);
       polytri->GetCell(icell)->EvaluateLocation(subid, v2r, v2t, tmpwts);
@@ -687,7 +687,9 @@ void Triangulator::run()
   {
     for (unsigned int iRun = 0; iRun < nRuns; ++iRun)
     {
-      vtkSmartPointer<vtkDelaunay2D> triangulator = triangulateEntropyGreedy();
+      double* interr = (double*) calloc(polytri->GetNumberOfCells(), sizeof(double));
+      vtkSmartPointer<vtkDelaunay2D> triangulator = triangulateEntropyGreedy(interr);
+      free(interr);
       polytri = triangulator->GetOutput();
       std::cout << "Unrefinement step: " << iRun + 1 << std::endl;
       std::cout << "Num cells on grid: "

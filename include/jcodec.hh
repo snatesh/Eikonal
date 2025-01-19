@@ -83,7 +83,7 @@ struct Triangulator
  
   double getBPP ( ); 
   
-  vtkSmartPointer<vtkDelaunay2D> triangulateEntropyGreedy ( );
+  vtkSmartPointer<vtkDelaunay2D> triangulateEntropyGreedy ( double* interr );
 
   vtkSmartPointer<vtkDelaunay2D> triangulateEntropy ( double* intgn, unsigned int channel  );
   double triangulateEntropy_help  ( double* intgn, unsigned int channel,
