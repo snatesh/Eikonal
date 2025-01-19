@@ -64,7 +64,7 @@ int main(int argc, char* argv[])
   }
   
   bool useMultiChannel = false;
-  unsigned int Nsamps = 31;
+  unsigned int Nsamps = 20;
   unsigned int Nruns = 5;
   unsigned int Norders = 21;
   unsigned int nSamps[Nsamps];
@@ -72,8 +72,8 @@ int main(int argc, char* argv[])
   unsigned int orders[Norders];
  
   for (unsigned int i = 0; i < Nsamps;  ++i)  { nSamps[i] = i + 10; }
-  for (unsigned int i = 0; i < Nruns;   ++i)  { nRunss[i] = i + 1;  }
-  for (unsigned int i = 0; i < Norders; ++i)  { orders[i] = 5 + i; } 
+  for (unsigned int i = 0; i < Nruns;   ++i)  { nRunss[i] = i + 3;  }
+  for (unsigned int i = 0; i < Norders; ++i)  { orders[i] = 8 + i; } 
 
 
   double totalBytes[Norders], ssimaves[Norders], psnrs[Norders];
@@ -81,6 +81,7 @@ int main(int argc, char* argv[])
   
 
   unsigned int nSamp, nRuns, order;
+
 
   auto it = images.begin();
   while (it != images.end())
@@ -90,57 +91,63 @@ int main(int argc, char* argv[])
     {
       for (unsigned int iRun = 0; iRun < Nruns; ++iRun)
       {
-        nSamp = nSamps[iSamp];
-        nRuns = nRunss[iRun];
-        std::string bfile = bpref + "_" + std::to_string(nSamp) 
-                                  + "_" + std::to_string(nRuns) + ".txt";
-        std::ofstream benchrun(bfile, std::ios::app);
-        if (benchrun.is_open())
+        if (goimg)
         {
-          std::string f1 = path + "/" + *it + "." + ext;
-          std::string f3 = path + "/" + *it + ".jpg";
-          getImgQuality(f1, f3, ssimaves_jpg, psnrs_jpg);
-          Triangulator* T = jcompress_triangulate ( f1.c_str(), nSamp, nRuns,
-                                                    useMultiChannel, false );
-          for (unsigned int iOrder = 0; iOrder < Norders; ++iOrder)
+          nSamp = nSamps[iSamp];
+          nRuns = nRunss[iRun];
+          std::string bfile = bpref + "_" + std::to_string(nSamp) 
+                                    + "_" + std::to_string(nRuns) + ".txt";
+          std::ofstream benchrun(bfile, std::ios::app);
+          if (benchrun.is_open())
           {
-            unsigned int order = orders[iOrder];
-            std::string f2 = *it + "_" + std::to_string(nSamp) + "_" 
-                                       + std::to_string(nRuns) + "_" 
-                                       + std::to_string(order) + "_deco" + "." + ext;
-            std::string vtpfile = *it + "_" + std::to_string(nSamp) + "_" 
-                                            + std::to_string(nRuns) + "_" 
-                                            + std::to_string(order) + ".vtp";
-
-            // compress with current order
-            totalBytes[iOrder] = jcompress  ( T, f1.c_str(),
-                                              nSamp, nRuns, order,
-                                              useMultiChannel, false );
-            // if we compressed to a larger size than jpg, set breakflag
-            if (totalBytes[iOrder] > sizes[*it][1]) 
+            std::string f1 = path + "/" + *it + "." + ext;
+            std::string f3 = path + "/" + *it + ".jpg";
+            getImgQuality(f1, f3, ssimaves_jpg, psnrs_jpg);
+            Triangulator* T = jcompress_triangulate ( f1.c_str(), nSamp, nRuns,
+                                                      useMultiChannel, false );
+            for (unsigned int iOrder = 0; iOrder < Norders; ++iOrder)
             {
-              goimg = false;
-              break;
+              unsigned int order = orders[iOrder];
+              std::string f2 = *it + "_" + std::to_string(nSamp) + "_" 
+                                         + std::to_string(nRuns) + "_" 
+                                         + std::to_string(order) + "_deco" + "." + ext;
+              std::string vtpfile = *it + "_" + std::to_string(nSamp) + "_" 
+                                              + std::to_string(nRuns) + "_" 
+                                              + std::to_string(order) + ".vtp";
+
+              // compress with current order
+              totalBytes[iOrder] = jcompress  ( T, f1.c_str(),
+                                                nSamp, nRuns, order,
+                                                useMultiChannel, false );
+              // if we compressed to a larger size than jpg, set breakflag
+              if (totalBytes[iOrder] > sizes[*it][1]) 
+              {
+                if (iOrder == 0)
+                {
+                  goimg = false;
+                } 
+                break;
+              }
+              std::cout << "jacobi size: " << totalBytes[iOrder] / 1.e6 << "MB" << std::endl;
+              std::cout << "jpg size: " << sizes[*it][1] / 1.e6 << " MB" << std::endl;
+              // decompress and write decofile
+              jdecompress  ( useMultiChannel, ext.c_str(), vtpfile.c_str() );
+              getImgQuality(f1, f2, ssimaves[iOrder], psnrs[iOrder]);
+              benchrun << *it << " " << order << " " 
+                       << sizes[*it][0] <<  " " << sizes[*it][1] << " "
+                       << ssimaves_jpg << " " << psnrs_jpg << " "
+                       << totalBytes[iOrder] << " " 
+                       << ssimaves[iOrder] << " " << psnrs[iOrder] << std::endl;
+              // remove deco and vtp files
+              fs::remove(f2); fs::remove(vtpfile);
             }
-            std::cout << "jacobi size: " << totalBytes[iOrder] / 1.e6 << "MB" << std::endl;
-            std::cout << "jpg size: " << sizes[*it][1] / 1.e6 << " MB" << std::endl;
-            // decompress and write decofile
-            jdecompress  ( useMultiChannel, ext.c_str(), vtpfile.c_str() );
-            getImgQuality(f1, f2, ssimaves[iOrder], psnrs[iOrder]);
-            benchrun << *it << " " << order << " " 
-                     << sizes[*it][0] <<  " " << sizes[*it][1] << " "
-                     << ssimaves_jpg << " " << psnrs_jpg << " "
-                     << totalBytes[iOrder] << " " 
-                     << ssimaves[iOrder] << " " << psnrs[iOrder] << std::endl;
-            // remove deco and vtp files
-            fs::remove(f2); fs::remove(vtpfile);
+            delete T;
+            benchrun.close();
           }
-          delete T;
-          benchrun.close();
-        }
-        else
-        {
-          std::cerr << "Unable to open file" << std::endl;
+          else
+          {
+            std::cerr << "Unable to open file" << std::endl;
+          }
         }
       }
     }

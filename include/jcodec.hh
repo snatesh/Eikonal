@@ -44,14 +44,16 @@ struct Triangulator
 {
   unsigned int N, m, M;
   unsigned int nSamp, nRuns;
+  int dims[3];
   double a, b, c;
   jPoly<double> *Pm = 0, *Pmx = 0, *Pmy = 0;
   double *Habc = 0, *Ha1bc1 = 0, *Hab1c1 = 0;
   double *Dx = 0, *Dy = 0; 
   double *X = 0, *Y = 0, *W = 0; 
   double *cimg = 0, *cdimg = 0, *dimgr = 0, *dimgt = 0;
-  double *interpc = 0;
-  bool useMultiChannel;
+  double *interpc = 0, *interpc_jacobi = 0;
+  bool useMultiChannel = false;
+  double bpp_target;
  
   vtkSmartPointer<vtkImageData> imagedata;
   vtkSmartPointer<vtkImageInterpolator> interpolator; 
@@ -67,11 +69,29 @@ struct Triangulator
                   const std::string& _triw,
                   vtkSmartPointer<vtkImageData> _imagedata,
                   vtkSmartPointer<vtkImageInterpolator> _interpolator,
-                  bool _useMultiChannel );
+                  bool useMultiChannel );
   
+  Triangulator  ( unsigned int _N, unsigned int _m,
+                  double _a, double _b, double _c,
+                  unsigned int _nSamp, double bpp_target,
+                  const std::string& _trix, 
+                  const std::string& _triy,
+                  const std::string& _triw,
+                  vtkSmartPointer<vtkImageData> _imagedata,
+                  vtkSmartPointer<vtkImageInterpolator> _interpolator );
+
+ 
+  double getBPP ( ); 
+  
+  vtkSmartPointer<vtkDelaunay2D> triangulateEntropyGreedy ( );
+
   vtkSmartPointer<vtkDelaunay2D> triangulateEntropy ( double* intgn, unsigned int channel  );
   double triangulateEntropy_help  ( double* intgn, unsigned int channel,
-                                    vtkSmartPointer<vtkPolyData> polytri );
+                                    vtkSmartPointer<vtkPolyData> polytri, double& stdev );
+  double triangulateEntropyNoGrad_help  ( double* intgn, unsigned int channel,
+                                          vtkSmartPointer<vtkPolyData> polytri,
+                                          double& stdev);
+  void triangulateEntropyGreedy_help  ( double* interr, vtkSmartPointer<vtkPolyData> polytri );
                                                 
   void run  ( );    
   
