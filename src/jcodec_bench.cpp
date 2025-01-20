@@ -103,7 +103,7 @@ int main(int argc, char* argv[])
             std::string f1 = path + "/" + *it + "." + ext;
             std::string f3 = path + "/" + *it + ".jpg";
             getImgQuality(f1, f3, ssimaves_jpg, psnrs_jpg);
-            Triangulator* T = jcompress_triangulate ( f1.c_str(), nSamp, nRuns,
+            Triangulator* T = jcompress_triangulate ( f1.c_str(), nSamp, nRuns, orders[0],
                                                       useMultiChannel, false );
             for (unsigned int iOrder = 0; iOrder < Norders; ++iOrder)
             {

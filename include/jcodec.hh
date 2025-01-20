@@ -30,7 +30,9 @@
 
 vtkSmartPointer<vtkDelaunay2D> triangulateUniform ( int* dims, 
                                                     double* origin,
-                                                    unsigned int nSamp );
+                                                    unsigned int nSamp,
+                                                    vtkIdType& ll, int& lr,
+                                                    vtkIdType& ur, int& ul );
 
 
 void readQuad ( const std::string& trix, 
@@ -43,8 +45,9 @@ void readQuad ( const std::string& trix,
 struct Triangulator
 {
   unsigned int N, m, M;
+  unsigned int Mtarget;
   unsigned int nSamp, nRuns;
-  int dims[3];
+  int dims[3], Npix;
   double a, b, c;
   jPoly<double> *Pm = 0, *Pmx = 0, *Pmy = 0;
   double *Habc = 0, *Ha1bc1 = 0, *Hab1c1 = 0;
@@ -54,10 +57,12 @@ struct Triangulator
   double *interpc = 0, *interpc_jacobi = 0;
   bool useMultiChannel = false;
   double bpp_target;
+  vtkIdType ll, lr, ur, ul;
  
   vtkSmartPointer<vtkImageData> imagedata;
   vtkSmartPointer<vtkImageInterpolator> interpolator; 
   vtkSmartPointer<vtkPolyData> polytri, polytri1, polytri2, polytri3; 
+  vtkSmartPointer<vtkPolyData> polyBbox;
   
   std::string trix, triy, triw; 
   
@@ -91,7 +96,9 @@ struct Triangulator
   double triangulateEntropyNoGrad_help  ( double* intgn, unsigned int channel,
                                           vtkSmartPointer<vtkPolyData> polytri,
                                           double& stdev);
-  void triangulateEntropyGreedy_help  ( double* interr, vtkSmartPointer<vtkPolyData> polytri );
+  void triangulateEntropyGreedyL1J_help  ( double* interr, vtkSmartPointer<vtkPolyData> polytri );
+  void triangulateEntropyGreedyL2J_help  ( double* interr, vtkSmartPointer<vtkPolyData> polytri );
+  void triangulateEntropyGreedyL1P_help  ( double* interr, vtkSmartPointer<vtkPolyData> polytri );
                                                 
   void run  ( );    
   
@@ -196,6 +203,7 @@ void writeSTL(vtkSmartPointer<vtkPolyData> polytri, const char* ofname);
 Triangulator* jcompress_triangulate ( const char* fname, 
                                       unsigned int nSamp,
                                       unsigned int nRuns,
+                                      unsigned int mtarget,
                                       bool useMultiChannel,
                                       bool viz );
 

@@ -1,6 +1,10 @@
 #include <jcodec.hh>
 #include <vtkCellData.h>
 #include <vtkFieldData.h>
+#include <vtkCellArray.h>
+#include <vtkTriangle.h>
+#include <vtkPolyLine.h>
+#include <vtkFeatureEdges.h>
 #include <vtkPolyDataEdgeConnectivityFilter.h>
 #include <vtkLine.h>
 #include <vtkExtractEdges.h>
@@ -40,7 +44,9 @@
 
 vtkSmartPointer<vtkDelaunay2D> triangulateUniform ( int* dims, 
                                                     double* origin,
-                                                    unsigned int nSamp )
+                                                    unsigned int nSamp, 
+                                                    vtkIdType& ll, vtkIdType& lr,
+                                                    vtkIdType& ur, vtkIdType& ul )
 {
   vtkSmartPointer<vtkPoints> points = vtkSmartPointer<vtkPoints>::New();
   unsigned int numPoints = dims[0]*dims[1];
@@ -57,6 +63,10 @@ vtkSmartPointer<vtkDelaunay2D> triangulateUniform ( int* dims,
     {
       pt[0] = iX * xstride; pt[1] = iY * ystride;
       points->SetPoint(ptId, pt);
+      if (iX == 0 && iY == 0) { ll = ptId; }
+      if (iX == nSamp-1 && iY == 0) { lr = ptId; }
+      if (iX == nSamp-1 && iY == nSamp-1) { ur = ptId; }
+      if (iX == 0 && iY == nSamp-1) { ul = ptId; }
       ptId += 1;  
     }
   }
@@ -138,16 +148,43 @@ Triangulator::Triangulator  ( unsigned int _N, unsigned int _m,
     // read the image
     this->imagedata = _imagedata;
     imagedata->GetDimensions(this->dims);
+    this->Npix = dims[0]*dims[1];
     double origin[3]; imagedata->GetOrigin(origin);
     // get the interpolator
     this->interpolator = _interpolator;
   
     // triangulate uniform subsampled grid on image
     vtkSmartPointer<vtkDelaunay2D> triangulator = 
-      triangulateUniform(dims, origin, nSamp);
+      triangulateUniform(dims, origin, nSamp, ll, lr, ur, ul);
     polytri = triangulator->GetOutput();
     std::cout << "Num cells on subsampled grid: " 
               << polytri->GetNumberOfCells() << std::endl;
+
+    /* create constraint polydata to ensure the image boundary is preserved
+       through each triangulation run
+    */
+    
+    // define a counter-clockwise ordering of lines for bounding box
+    vtkSmartPointer<vtkPolyLine> bboxLines = vtkSmartPointer<vtkPolyLine>::New();
+    bboxLines->GetPointIds()->SetNumberOfIds(8);
+    // line 1
+    bboxLines->GetPointIds()->SetId(0, ll);
+    bboxLines->GetPointIds()->SetId(1, lr);
+    // line 2
+    bboxLines->GetPointIds()->SetId(2, lr);
+    bboxLines->GetPointIds()->SetId(3, ur);
+    // line 3
+    bboxLines->GetPointIds()->SetId(4, ur);
+    bboxLines->GetPointIds()->SetId(5, ul);
+    // line 4
+    bboxLines->GetPointIds()->SetId(6, ul);
+    bboxLines->GetPointIds()->SetId(7, ll);
+    // load the bounding box ordered lines into a cell array
+    vtkSmartPointer<vtkCellArray> bboxCells = vtkSmartPointer<vtkCellArray>::New();
+    bboxCells->InsertNextCell(bboxLines);
+    // create a polydata instance of the bounding box
+    this->polyBbox = vtkSmartPointer<vtkPolyData>::New();
+    polyBbox->SetLines(bboxCells);
   }
 
 Triangulator::Triangulator  ( unsigned int _N, unsigned int _m,
@@ -198,16 +235,43 @@ Triangulator::Triangulator  ( unsigned int _N, unsigned int _m,
     // read the image
     this->imagedata = _imagedata;
     imagedata->GetDimensions(this->dims);
+    this->Npix = dims[0]*dims[1];
     double origin[3]; imagedata->GetOrigin(origin);
     // get the interpolator
     this->interpolator = _interpolator;
   
     // triangulate uniform subsampled grid on image
     vtkSmartPointer<vtkDelaunay2D> triangulator = 
-      triangulateUniform(dims, origin, nSamp);
+      triangulateUniform(dims, origin, nSamp, ll, lr, ur, ul);
     polytri = triangulator->GetOutput();
     std::cout << "Num cells on subsampled grid: " 
               << polytri->GetNumberOfCells() << std::endl;
+    
+    /* create constraint polydata to ensure the image boundary is preserved
+       through each triangulation run
+    */
+    
+    // define a counter-clockwise ordering of lines for bounding box
+    vtkSmartPointer<vtkPolyLine> bboxLines = vtkSmartPointer<vtkPolyLine>::New();
+    bboxLines->GetPointIds()->SetNumberOfIds(8);
+    // line 1
+    bboxLines->GetPointIds()->SetId(0, ll);
+    bboxLines->GetPointIds()->SetId(1, lr);
+    // line 2
+    bboxLines->GetPointIds()->SetId(2, lr);
+    bboxLines->GetPointIds()->SetId(3, ur);
+    // line 3
+    bboxLines->GetPointIds()->SetId(4, ur);
+    bboxLines->GetPointIds()->SetId(5, ul);
+    // line 4
+    bboxLines->GetPointIds()->SetId(6, ul);
+    bboxLines->GetPointIds()->SetId(7, ll);
+    // load the bounding box ordered lines into a cell array
+    vtkSmartPointer<vtkCellArray> bboxCells = vtkSmartPointer<vtkCellArray>::New();
+    bboxCells->InsertNextCell(bboxLines);
+    // create a polydata instance of the bounding box
+    this->polyBbox = vtkSmartPointer<vtkPolyData>::New();
+    polyBbox->SetLines(bboxCells);
     if (useMultiChannel)
     { 
       this->polytri1 = vtkSmartPointer<vtkPolyData>::New();
@@ -241,21 +305,27 @@ Triangulator::~Triangulator()
 
 double Triangulator::getBPP( )
 {
-  double totalBytes =  polytri->GetNumberOfCells() * (M * 12 + 6) +
+  double totalBytes =  polytri->GetNumberOfCells() * (Mtarget * 12 + 6) +
                        polytri->GetNumberOfPoints() * 8; 
-  return 8 * totalBytes / polytri->GetNumberOfPoints();
+  return 8 * totalBytes / this->Npix; // LZ-compressor usually deflates by 3-4x
 }
 
-void Triangulator::triangulateEntropyGreedy_help  ( double* interr, vtkSmartPointer<vtkPolyData> polytri )
+void Triangulator::triangulateEntropyGreedyL2J_help  ( double* interr, vtkSmartPointer<vtkPolyData> polytri )
 {
-  double v1t[3], v2t[3], v3t[3], tmpwts[3];
   double xqtr[3], xqt[3]; xqtr[2] = 0; xqt[2] = 0;
-  double err;
-  vtkSmartPointer<vtkIdList> ptids = vtkSmartPointer<vtkIdList>::New();
+  double v1t[3], v2t[3], v3t[3], tmpwts[3];
+  double err, areaT;
   double interpc_cpy[3];
+  vtkSmartPointer<vtkIdList> ptids = vtkSmartPointer<vtkIdList>::New();
   // loop over each triangle 
   for (int i = 0; i < polytri->GetNumberOfCells(); ++i)
   {
+    // get tri verts
+    polytri->GetCellPoints(i, ptids);
+    polytri->GetPoints()->GetPoint(ptids->GetId(0), v1t);
+    polytri->GetPoints()->GetPoint(ptids->GetId(1), v2t);
+    polytri->GetPoints()->GetPoint(ptids->GetId(2), v3t);
+    areaT = vtkTriangle::TriangleArea(v1t, v2t, v3t);
     // interpolate pixel channel vals onto quadrature points
     for (unsigned int j = 0; j < N; ++j) 
     {
@@ -268,11 +338,52 @@ void Triangulator::triangulateEntropyGreedy_help  ( double* interr, vtkSmartPoin
       interpc[j + N] = interpc_cpy[1];
       interpc[j + 2*N] = interpc_cpy[2];
     }
+    // coefficients of interpolated data in each channel
+    Pm->computeCoeffs(interpc, X, Y, W, cimg);
+    Pm->computeCoeffs(interpc+N, X, Y, W, cimg+M);
+    Pm->computeCoeffs(interpc+2*N, X, Y, W, cimg+2*M);
+    // check error in coefficient expansion
+    cblas_dgemm ( CblasColMajor, CblasNoTrans, CblasNoTrans,
+                  N, 3, M, 1.0, Pm->V, N, cimg, M, 0.0, interpc_jacobi, N ); 
+    err = 0;
+    #pragma omp simd reduction(+:err)
+    for (unsigned int j = 0; j < N; ++j)
+    {
+      err += W[j] * ( std::pow(interpc[j] - interpc_jacobi[j], 2.0)
+                      + std::pow(interpc[j+N] - interpc_jacobi[j+N], 2.0)
+                      + std::pow(interpc[j+2*N] - interpc_jacobi[j+2*N], 2.0) ) / 3.0;
+    }
+    interr[i] = areaT * err / 2.0;
+  }
+}
+void Triangulator::triangulateEntropyGreedyL1J_help  ( double* interr, vtkSmartPointer<vtkPolyData> polytri )
+{
+  double xqtr[3], xqt[3]; xqtr[2] = 0; xqt[2] = 0;
+  double v1t[3], v2t[3], v3t[3], tmpwts[3];
+  double err;
+  double interpc_cpy[3], areaT;
+  vtkSmartPointer<vtkIdList> ptids = vtkSmartPointer<vtkIdList>::New();
+  // loop over each triangle 
+  for (int i = 0; i < polytri->GetNumberOfCells(); ++i)
+  {
     // get tri verts
     polytri->GetCellPoints(i, ptids);
     polytri->GetPoints()->GetPoint(ptids->GetId(0), v1t);
     polytri->GetPoints()->GetPoint(ptids->GetId(1), v2t);
     polytri->GetPoints()->GetPoint(ptids->GetId(2), v3t);
+    areaT = vtkTriangle::TriangleArea(v1t, v2t, v3t);
+    // interpolate pixel channel vals onto quadrature points
+    for (unsigned int j = 0; j < N; ++j) 
+    {
+      // get quad point in ref
+      xqtr[0] = X[j]; xqtr[1] = Y[j];
+      // map ref pt xqtr to tri point xqt
+      polytri->GetCell(i)->EvaluateLocation(i, xqtr, xqt, tmpwts);
+      interpolator->Interpolate(xqt, interpc_cpy);
+      interpc[j] = interpc_cpy[0];
+      interpc[j + N] = interpc_cpy[1];
+      interpc[j + 2*N] = interpc_cpy[2];
+    }
     // coefficients of interpolated data in each channel
     Pm->computeCoeffs(interpc, X, Y, W, cimg);
     Pm->computeCoeffs(interpc+N, X, Y, W, cimg+M);
@@ -285,13 +396,115 @@ void Triangulator::triangulateEntropyGreedy_help  ( double* interr, vtkSmartPoin
     #pragma omp simd reduction(+:err)
     for (unsigned int j = 0; j < N; ++j)
     {
-      err += W[j] * ( std::pow(interpc[j] - interpc_jacobi[j], 2.0)
-                      + std::pow(interpc[j+N] - interpc_jacobi[j+N], 2.0)
-                      + std::pow(interpc[j+2*N] - interpc_jacobi[j+2*N], 2.0) ) / 3.0;
+      err += W[j] * ( std::abs(interpc[j] - interpc_jacobi[j]) +
+                      std::abs(interpc[j+N] - interpc_jacobi[j+N]) +
+                      std::abs(interpc[j+2*N] - interpc_jacobi[j+2*N]) ) / 3.0;
     }
-    interr[i] = err / 2.0;
-    //std::cout << "Ave L2 error in cell " << i << " " << interr[i] << std::endl; 
+    interr[i] = areaT * err / 2.0 / N;
   }
+}
+void Triangulator::triangulateEntropyGreedyL1P_help  ( double* interr, vtkSmartPointer<vtkPolyData> polytri )
+{
+  double xqtr[3], xqt[3]; xqtr[2] = 0; xqt[2] = 0;
+  double err;
+  vtkSmartPointer<vtkIdList> ptids = vtkSmartPointer<vtkIdList>::New();
+  double interpc_cpy[3], imgref[3];
+  vtkSmartPointer<vtkCellTreeLocator> triloc = vtkSmartPointer<vtkCellTreeLocator>::New();
+  // build locator on image triangulation
+  triloc->Initialize();
+  triloc->SetDataSet(polytri);
+  triloc->BuildLocator(); 
+  vtkSmartPointer<vtkPoints> pixels = imagedata->GetPoints();
+  // build pix-tri map (pixInTri[j] are the pixels indices in triangle j)
+  std::map<int, std::vector<int>> pixInTri;
+  int triInd;
+  for (int ipt = 0; ipt < pixels->GetNumberOfPoints(); ++ipt)
+  {
+    triInd = triloc->FindCell(pixels->GetPoint(ipt));
+    if (triInd == - 1) { std::cout << "not in cell " << ipt << std::endl; }
+    pixInTri[triInd].push_back(ipt);
+  } 
+
+  // get max num pix in tri
+  auto it = pixInTri.begin(); 
+  unsigned int maxpix = 0;
+  while (it != pixInTri.end())
+  {
+    if (it->second.size() > maxpix)
+    {
+      maxpix = it->second.size();
+    }
+    ++it;
+  }
+
+  // allocate buffer for pixels in tri to ref 
+  double* rspix = (double*) calloc(maxpix * 2, sizeof(double));  
+  double* img = (double*) calloc(maxpix * 3, sizeof(double));
+  double* img_ref = (double*) calloc(maxpix * 3, sizeof(double));
+  // large buffer jacobi interp op
+  jPoly<double>* Pm = new jPoly<double>(maxpix, M, a, b, c, 1); 
+  // iterate over triangles
+  double v1t[3], v2t[3], v3t[3], tmpwts[3], r[3], dist2;
+  int offset, npix, subid;
+  unsigned int m, M;
+  unsigned short color;
+  for (it = pixInTri.begin(); it != pixInTri.end(); ++it)
+  {
+    // interpolate pixel channel vals onto quadrature points
+    for (unsigned int j = 0; j < N; ++j) 
+    {
+      // get quad point in ref
+      xqtr[0] = X[j]; xqtr[1] = Y[j];
+      // map ref pt xqtr to tri point xqt
+      polytri->GetCell(it->first)->EvaluateLocation(subid, xqtr, xqt, tmpwts);
+      interpolator->Interpolate(xqt, interpc_cpy);
+      interpc[j] = interpc_cpy[0];
+      interpc[j + N] = interpc_cpy[1];
+      interpc[j + 2*N] = interpc_cpy[2];
+    }
+    // coefficients of interpolated data in each channel
+    this->Pm->computeCoeffs(interpc, X, Y, W, cimg);
+    this->Pm->computeCoeffs(interpc+N, X, Y, W, cimg+M);
+    this->Pm->computeCoeffs(interpc+2*N, X, Y, W, cimg+2*M);
+  
+    // get pixels inside current triangle,
+    // get ref img colors
+    // and get position in reference
+    npix = it->second.size();
+    for (unsigned int i = 0; i < npix; ++i)
+    { 
+      polytri->GetCell(it->first)->
+        EvaluatePosition(pixels->GetPoint(it->second[i]), 
+                                          nullptr, 
+                                          subid, r, 
+                                          dist2, tmpwts);
+      
+      interpolator->Interpolate(pixels->GetPoint(it->second[i]), imgref); 
+      img_ref[i] = imgref[0];
+      img_ref[i + npix] = imgref[1];
+      img_ref[i + 2*npix] = imgref[2];
+      rspix[i] = r[0]; rspix[i+npix] = r[1];
+    }
+
+    // compute jpoly interp matrix
+    Pm->Nx = npix;
+    Pm->computeV(rspix, rspix+npix);
+    // check error in coefficient expansion
+    cblas_dgemm ( CblasColMajor, CblasNoTrans, CblasNoTrans,
+                  npix, 3, M, 1.0, Pm->V, npix, cimg, M, 0.0, img, npix ); 
+    err = 0;
+    #pragma omp simd reduction(+:err)
+    for (unsigned int j = 0; j < npix; ++j)
+    {
+      err += (  std::abs(img[j] - img_ref[j]) +
+                std::abs(img[j+npix] - img_ref[j+npix]) +
+                std::abs(img[j+2*npix] - img_ref[j + 2*npix]) );
+    }
+    interr[it->first] = err / npix;
+  }
+  free(rspix);
+  free(img);
+  free(img_ref);
 }
 
 double Triangulator::triangulateEntropyNoGrad_help  ( double* intgn, unsigned int channel,
@@ -300,7 +513,7 @@ double Triangulator::triangulateEntropyNoGrad_help  ( double* intgn, unsigned in
 {
   double v1t[3], v2t[3], v3t[3], tmpwts[3];
   double xqtr[3], xqt[3]; xqtr[2] = 0; xqt[2] = 0;
-  double err;
+  double err, areaT;
   vtkSmartPointer<vtkIdList> ptids = vtkSmartPointer<vtkIdList>::New();
   // loop over each triangle 
   for (int i = 0; i < polytri->GetNumberOfCells(); ++i)
@@ -319,6 +532,7 @@ double Triangulator::triangulateEntropyNoGrad_help  ( double* intgn, unsigned in
     polytri->GetPoints()->GetPoint(ptids->GetId(0), v1t);
     polytri->GetPoints()->GetPoint(ptids->GetId(1), v2t);
     polytri->GetPoints()->GetPoint(ptids->GetId(2), v3t);
+    areaT = vtkTriangle::TriangleArea(v1t, v2t, v3t);
     // coefficients of interpolated data in channel
     Pm->computeCoeffs(interpc, X, Y, W, cimg);
     // check error in coefficient expansion
@@ -330,7 +544,7 @@ double Triangulator::triangulateEntropyNoGrad_help  ( double* intgn, unsigned in
     {
       err += W[j] * std::pow(interpc[j] - interpc_jacobi[j], 2.0); 
     }
-    intgn[i] = err / 2.0; 
+    intgn[i] = areaT * err / 2.0; 
   }
  
   double sum = 0;
@@ -361,7 +575,6 @@ double Triangulator::triangulateEntropyNoGrad_help  ( double* intgn, unsigned in
   }
   stdev /= polytri->GetNumberOfCells();
   stdev = std::sqrt(stdev);
-  std::cout << "Average L2 error + stdev: " << ave << " + " << stdev << std::endl; 
 
   return ave;
 }
@@ -372,7 +585,7 @@ double Triangulator::triangulateEntropy_help  ( double* intgn, unsigned int chan
 {
   double v1t[3], v2t[3], v3t[3], tmpwts[3];
   double xqtr[3], xqt[3]; xqtr[2] = 0; xqt[2] = 0;
-  double invIxe[4], gradnorm;
+  double invIxe[4], gradnorm, areaT;
   vtkSmartPointer<vtkIdList> ptids = vtkSmartPointer<vtkIdList>::New();
   // loop over each triangle 
   double ave_err = 0;
@@ -392,6 +605,7 @@ double Triangulator::triangulateEntropy_help  ( double* intgn, unsigned int chan
     polytri->GetPoints()->GetPoint(ptids->GetId(0), v1t);
     polytri->GetPoints()->GetPoint(ptids->GetId(1), v2t);
     polytri->GetPoints()->GetPoint(ptids->GetId(2), v3t);
+    areaT = vtkTriangle::TriangleArea(v1t, v2t, v3t);
     // inverse of deformation map 
     invIxe[0] = v3t[1] - v1t[1];
     invIxe[1] = -(v2t[1] - v1t[1]);
@@ -415,7 +629,7 @@ double Triangulator::triangulateEntropy_help  ( double* intgn, unsigned int chan
     {
       gradnorm += (dimgt[j] * dimgt[j] + dimgt[j+N] * dimgt[j+N]) * W[j] / 2.0;
     }
-    intgn[i] = gradnorm;
+    intgn[i] = areaT * gradnorm;
   }
  
   double sum = 0;
@@ -465,7 +679,10 @@ vtkSmartPointer<vtkDelaunay2D> Triangulator::triangulateEntropyGreedy ( double* 
   vtkSmartPointer<vtkIdList> neighborCellIds = vtkSmartPointer<vtkIdList>::New();
 
 
-  triangulateEntropyGreedy_help  ( interr, polytri );
+  //triangulateEntropyGreedy_help  ( interr, polytri );
+  //triangulateEntropyGreedyL2J_help  ( interr, polytri );
+  //triangulateEntropyGreedyL1P_help  ( interr, polytri );
+  triangulateEntropyGreedyL1J_help  ( interr, polytri );
 
   vtkSmartPointer<vtkPointSet> pointSet = vtkSmartPointer<vtkPointSet>::New();
   vtkSmartPointer<vtkPoints> points = vtkSmartPointer<vtkPoints>::New();
@@ -507,51 +724,83 @@ vtkSmartPointer<vtkDelaunay2D> Triangulator::triangulateEntropyGreedy ( double* 
   int v2 = cellPtIds->GetId(2);
   double pt[3];
   vtkIdType ptid; int subid;
+  vtkIdType ll1, lr1, ur1, ul1;
   for (unsigned int i = 0; i < polytri->GetNumberOfPoints(); ++i)
   {
-    bool bndry = false;
-    // insert any points which aren't part of min cell
+    // insert any points which aren't part of mincell
     if (i != v0 && i != v1 && i != v2)
     {
-      points->InsertNextPoint(polytri->GetPoints()->GetPoint(i));
+      if (i == ll)
+      {
+        ll1 = points->InsertNextPoint(polytri->GetPoints()->GetPoint(ll));
+      }
+      else if (i == lr)
+      {
+        lr1 = points->InsertNextPoint(polytri->GetPoints()->GetPoint(lr));
+      }
+      else if (i == ur)
+      {
+        ur1 = points->InsertNextPoint(polytri->GetPoints()->GetPoint(ur));
+      }
+      else if (i == ul)
+      {
+        ul1 = points->InsertNextPoint(polytri->GetPoints()->GetPoint(ul));
+      }
+      else
+      {
+        points->InsertNextPoint(polytri->GetPoints()->GetPoint(i));
+      }
     }
-    // insert any points belonging to min cell and lying on boundary
     else
-    { 
-      if (i == v0)
+    {
+      if (i == ll)
       {
-        polytri->GetPoints()->GetPoint(v0, pt);
-        if (pt[0] == 0 || pt[0] == dims[0]-1 || pt[1] == 0 || pt[1] == dims[1]-1)
-        {
-          points->InsertNextPoint(pt);
-          bndry = true;
-        } 
+        ll1 = points->InsertNextPoint(polytri->GetPoints()->GetPoint(ll));
       }
-      else if (i == v1)
+      else if (i == lr)
       {
-
-        polytri->GetPoints()->GetPoint(v1, pt);
-        if (pt[0] == 0 || pt[0] == dims[0]-1 || pt[1] == 0 || pt[1] == dims[1]-1)
-        {
-          points->InsertNextPoint(pt);
-          bndry = true;
-        } 
+        lr1 = points->InsertNextPoint(polytri->GetPoints()->GetPoint(lr));
       }
-      else if (i == v2)
+      else if (i == ur)
       {
-        polytri->GetPoints()->GetPoint(v2, pt);
-        if (pt[0] == 0 || pt[0] == dims[0]-1 || pt[1] == 0 || pt[1] == dims[1]-1)
-        {
-          points->InsertNextPoint(pt);
-          bndry = true;
-        }
+        ur1 = points->InsertNextPoint(polytri->GetPoints()->GetPoint(ur));
+      }
+      else if (i == ul)
+      {
+        ul1 = points->InsertNextPoint(polytri->GetPoints()->GetPoint(ul));
       }
     }
   }
 
+  // redefine topology of image bounding box w.r.t new points 
+
   pointSet->SetPoints(points);
+  ll = ll1; lr = lr1; ur = ur1; ul = ul1;
+
+  vtkSmartPointer<vtkPolyLine> bboxLines = vtkSmartPointer<vtkPolyLine>::New();
+  bboxLines->GetPointIds()->SetNumberOfIds(8);
+  // line 1
+  bboxLines->GetPointIds()->SetId(0, ll);
+  bboxLines->GetPointIds()->SetId(1, lr);
+  // line 2
+  bboxLines->GetPointIds()->SetId(2, lr);
+  bboxLines->GetPointIds()->SetId(3, ur);
+  // line 3
+  bboxLines->GetPointIds()->SetId(4, ur);
+  bboxLines->GetPointIds()->SetId(5, ul);
+  // line 4
+  bboxLines->GetPointIds()->SetId(6, ul);
+  bboxLines->GetPointIds()->SetId(7, ll);
+  // load the bounding box ordered lines into a cell array
+  vtkSmartPointer<vtkCellArray> bboxCells = vtkSmartPointer<vtkCellArray>::New();
+  bboxCells->InsertNextCell(bboxLines);
+  // create a polydata instance of the bounding box
+  polyBbox->Initialize();
+  polyBbox->SetLines(bboxCells);
+  
   vtkSmartPointer<vtkDelaunay2D> triangulator = vtkSmartPointer<vtkDelaunay2D>::New();
   triangulator->SetInputData(pointSet);
+  triangulator->SetSourceData(polyBbox);
   triangulator->Update();
   return triangulator;  
 }
@@ -604,13 +853,12 @@ vtkSmartPointer<vtkDelaunay2D> Triangulator::triangulateEntropy ( double* intgn,
     for (unsigned int i = 0; i < polytri->GetNumberOfCells(); ++i)
     {
       intgn[i] += intgn1[i] + intgn2[i];
-      interr[i] += interr1[i] + interr2[i];
+      interr[i] += interr1[i] + interr2[i]; 
       intgn[i] /= 3.0;
       interr[i] /= 3.0;
     }
     free(intgn1);
     free(intgn2);
-    free(interr);
     free(interr1);
     free(interr2);
     stdev_gn = (stdev_gn + stdev1_gn + stdev2_gn) / 3.0;
@@ -627,9 +875,11 @@ vtkSmartPointer<vtkDelaunay2D> Triangulator::triangulateEntropy ( double* intgn,
   double v3r[3] = {0, 0.5, 0};
   double v1t[3], v2t[3], v3t[3], tmpwts[3];
   vtkIdType ptid; int subid;
+  bool torefine;
   for (int icell = 0; icell < polytri->GetNumberOfCells(); ++icell)
   {
-    if (intgn[icell] > ave_gn + stdev_gn )
+    torefine = true;
+    if (interr[icell] >= ave_err + stdev_err)
     {
       polytri->GetCell(icell)->EvaluateLocation(subid, v1r, v1t, tmpwts);
       polytri->GetCell(icell)->EvaluateLocation(subid, v2r, v2t, tmpwts);
@@ -637,22 +887,60 @@ vtkSmartPointer<vtkDelaunay2D> Triangulator::triangulateEntropy ( double* intgn,
       locator->InsertUniquePoint(v1t, ptid);  
       locator->InsertUniquePoint(v2t, ptid);  
       locator->InsertUniquePoint(v3t, ptid);
+      torefine = false;
     } 
-    //if (interr[icell] > ave_err + stdev_err / 2.0)
-    //{
-    //  polytri->GetCell(icell)->EvaluateLocation(subid, v1r, v1t, tmpwts);
-    //  polytri->GetCell(icell)->EvaluateLocation(subid, v2r, v2t, tmpwts);
-    //  polytri->GetCell(icell)->EvaluateLocation(subid, v3r, v3t, tmpwts);
-    //  locator->InsertUniquePoint(v1t, ptid);  
-    //  locator->InsertUniquePoint(v2t, ptid);  
-    //  locator->InsertUniquePoint(v3t, ptid);
-    //} 
+    if (intgn[icell] >= ave_gn + stdev_gn && torefine)
+    {
+      polytri->GetCell(icell)->EvaluateLocation(subid, v1r, v1t, tmpwts);
+      polytri->GetCell(icell)->EvaluateLocation(subid, v2r, v2t, tmpwts);
+      polytri->GetCell(icell)->EvaluateLocation(subid, v3r, v3t, tmpwts);
+      locator->InsertUniquePoint(v1t, ptid);  
+      locator->InsertUniquePoint(v2t, ptid);  
+      locator->InsertUniquePoint(v3t, ptid);
+    }
   } 
-  vtkSmartPointer<vtkPolyData> polydata = vtkSmartPointer<vtkPolyData>::New(); 
-  polydata->SetPoints(locator->GetLocatorPoints());
+ 
+  vtkSmartPointer<vtkFeatureEdges> featureEdges 
+    = vtkSmartPointer<vtkFeatureEdges>::New();
+  featureEdges->SetInputData(polytri);
+  featureEdges->BoundaryEdgesOn();
+  featureEdges->FeatureEdgesOff();
+  featureEdges->ManifoldEdgesOff();
+  featureEdges->NonManifoldEdgesOff();
+  featureEdges->Update();
+  vtkSmartPointer<vtkPolyData> polybbox = featureEdges->GetOutput();
+  writeVTP(polybbox, "tmp.vtp"); 
+  vtkSmartPointer<vtkPoints> linepts;
+  vtkIdType linept0, linept1;
+  vtkSmartPointer<vtkCellArray> bboxCells = vtkSmartPointer<vtkCellArray>::New();
+  for (unsigned int iline = 0; iline < polybbox->GetNumberOfCells(); ++iline)
+  {
+    vtkSmartPointer<vtkLine> bboxLines = vtkSmartPointer<vtkLine>::New();
+    bboxLines->GetPointIds()->SetNumberOfIds(2);
+    linepts = polybbox->GetCell(iline)->GetPoints();
+    linept0 = locator->IsInsertedPoint(linepts->GetPoint(0)); 
+    linept1 = locator->IsInsertedPoint(linepts->GetPoint(1)); 
+    bboxLines->GetPointIds()->SetId(0,linept0);
+    bboxLines->GetPointIds()->SetId(1,linept1);
+    bboxCells->InsertNextCell(bboxLines);
+  }
+ 
+  std::cout << bboxCells->GetNumberOfCells() << std::endl;
+  std::cout << polybbox->GetNumberOfCells() << std::endl; 
+
+  polyBbox->Initialize();
+  polyBbox->SetLines(bboxCells);
+
+ 
+  vtkSmartPointer<vtkPointSet> pointSet = vtkSmartPointer<vtkPointSet>::New();
+  pointSet->SetPoints(locator->GetLocatorPoints());
+
+
   vtkSmartPointer<vtkDelaunay2D> triangulator = vtkSmartPointer<vtkDelaunay2D>::New();
-  triangulator->SetInputData(polydata);
+  triangulator->SetInputData(pointSet);
+  triangulator->SetSourceData(polyBbox);
   triangulator->Update();
+  free(interr);
   return triangulator;
 }
 
@@ -685,23 +973,51 @@ void Triangulator::run()
   }
   else
   {
-    for (unsigned int iRun = 0; iRun < nRuns; ++iRun)
+    double xend = dims[0]-1;
+    double yend = dims[1]-1;
+    double ptll[3] = {0.0, 0.0, 0.0};    
+    double ptlr[3] = {xend, 0.0, 0.0};
+    double ptur[3] = {xend, yend, 0.0};
+    double ptul[3] = {0.0, yend, 0.0};
+
+    unsigned int iRun = 0;
+    double bpp = getBPP();
+    bpp_target = 1.25;
+    //while (bpp > bpp_target)
+    //{
+    //  double* interr = (double*) calloc(polytri->GetNumberOfCells(), sizeof(double));
+    //  vtkSmartPointer<vtkDelaunay2D> triangulator = triangulateEntropyGreedy(interr);
+    //  free(interr);
+    //  polytri = triangulator->GetOutput();
+    //  bpp = getBPP();
+    //  std::cout << "Unrefinement step: " << iRun + 1 << std::endl;
+    //  std::cout << "Num cells and points on grid: "
+    //            << polytri->GetNumberOfCells() << " " 
+    //            << polytri->GetNumberOfPoints() << "\n";
+    //  std::cout << "BPP = " << bpp << std::endl;
+    //  iRun += 1;
+    //}
+    
+   // for (unsigned int iRun = 0; iRun < nRuns; ++iRun)
+    while (bpp < bpp_target)
     {
-      double* interr = (double*) calloc(polytri->GetNumberOfCells(), sizeof(double));
-      vtkSmartPointer<vtkDelaunay2D> triangulator = triangulateEntropyGreedy(interr);
-      free(interr);
+      double* intgn = (double*) calloc(polytri->GetNumberOfCells(), sizeof(double));
+      vtkSmartPointer<vtkDelaunay2D> triangulator = triangulateEntropy ( intgn, 0 );
+      vtkSmartPointer<vtkPolyData> polytri_old = polytri;
       polytri = triangulator->GetOutput();
-      std::cout << "Unrefinement step: " << iRun + 1 << std::endl;
+      bpp = getBPP();
+      if (bpp > bpp_target)
+      {
+        polytri = polytri_old;
+        break;
+      }
+      free(intgn);
+      std::cout << "Refinement step: " << iRun + 1 << std::endl;
       std::cout << "Num cells on grid: "
                 << polytri->GetNumberOfCells() << "\n";
+      std::cout << "BPP = " << bpp << std::endl; 
+      iRun += 1;
     }
-    double* intgn = (double*) calloc(polytri->GetNumberOfCells(), sizeof(double));
-    vtkSmartPointer<vtkDelaunay2D> triangulator = triangulateEntropy ( intgn, 0 );
-    polytri = triangulator->GetOutput();
-    free(intgn);
-    std::cout << "Refinement step: " << 1 << std::endl;
-    std::cout << "Num cells on grid: "
-              << polytri->GetNumberOfCells() << "\n";
   }
 }
 
@@ -1663,19 +1979,6 @@ Decompressor::Decompressor  ( bool _useMultiChannel,
                           (int) bounds[5] );
 
   this->pixels = imagedata->GetPoints();
-  pixels->SetNumberOfPoints(dims[0] * dims[1]);
-  int ptid = 0; double pt[3]; pt[2] = 0;
-  for (unsigned int iy = 0; iy < dims[1]; ++iy)
-  {
-    pt[1] = (double) iy;
-    for (unsigned int ix = 0; ix < dims[0]; ++ix)
-    {
-      pt[0] = (double) ix; 
-      pixels->SetPoint(ptid, pt);
-      ptid += 1;
-    }
-  }
-
   this->a = 0.5; this->b = 0.5; this->c = 0.5;
 
   this->colors = vtkSmartPointer<vtkUnsignedShortArray>::New();
@@ -2053,14 +2356,17 @@ vtkSmartPointer<vtkImageData> readImage ( const std::string& pref,
 Triangulator* jcompress_triangulate ( const char* fname, 
                                       unsigned int nSamp,
                                       unsigned int nRuns,
+                                      unsigned int mtarget,
                                       bool useMultiChannel,
                                       bool viz )
 {
   // jacobi poly
   double a = 0.5, b = 0.5, c = 0.5;
   // triangulation quad settings
-  unsigned int N = 55;
-  unsigned int m = 6;
+  //unsigned int N = 55;
+  //unsigned int m = 6;
+  unsigned int N = 496;
+  unsigned int m = mtarget;
 
   // Read the image
   std::string fWithExt(fname);
@@ -2097,12 +2403,19 @@ Triangulator* jcompress_triangulate ( const char* fname,
   //                                      "wtri_N55_n9_M91_m12.txt",
   //                                      imagedata, interpolator, 
   //                                      useMultiChannel );
-  Triangulator* T = new Triangulator  ( N, m, a, b, c, nSamp, 0.2, 
-                                        "xtri_N55_n9_M91_m12.txt",
-                                        "ytri_N55_n9_M91_m12.txt",            
-                                        "wtri_N55_n9_M91_m12.txt",
-                                        imagedata, interpolator);
-  T->nRuns = nRuns; 
+   
+  Triangulator* T = new Triangulator  ( N, m, a, b, c, nSamp, nRuns, 
+                                        "xtri_N496_n30_M1378_m51.txt",                   
+                                        "ytri_N496_n30_M1378_m51.txt",                               
+                                        "wtri_N496_n30_M1378_m51.txt",                   
+                                        imagedata, interpolator, 
+                                        useMultiChannel );
+  //Triangulator* T = new Triangulator  ( N, m, a, b, c, nSamp, 5, 
+  //                                      "xtri_N55_n9_M91_m12.txt",
+  //                                      "ytri_N55_n9_M91_m12.txt",            
+  //                                      "wtri_N55_n9_M91_m12.txt",
+  //                                      imagedata, interpolator);
+  T->Mtarget = static_cast<unsigned int>(0.5 * (mtarget + 1) * (mtarget + 2));
   T->run();
   return T;
 }
@@ -2186,8 +2499,8 @@ double jcompress  ( const char* fname,
                     bool viz )
 {
   // triangulate
-  Triangulator* T = jcompress_triangulate ( fname, nSamp, nRuns,
-                                            useMultiChannel, viz );
+  Triangulator* T = jcompress_triangulate ( fname, nSamp, nRuns, order,
+                                            useMultiChannel, false );
 
   // compress
   Compressor* C = new Compressor(T, order);
