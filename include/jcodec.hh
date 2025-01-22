@@ -198,6 +198,7 @@ struct Decompressor
 
 /* wrappers for compression pipeline */
 void writeVTP(vtkSmartPointer<vtkPolyData> polytri, const char* ofname);
+void writeVTKLegacy(vtkSmartPointer<vtkPolyData> polytri, const char* ofname);
 void writeSTL(vtkSmartPointer<vtkPolyData> polytri, const char* ofname);
 
 Triangulator* jcompress_triangulate ( const char* fname, 

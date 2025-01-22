@@ -36,11 +36,13 @@
 #include <vtkLZ4DataCompressor.h>
 #include <vtkZLibDataCompressor.h>
 #include <vtkSTLWriter.h>
+#include <vtkDataSetWriter.h>
 #include <map>
 #include <vector>
 #include <timer.hh>
 #include <filesystem>
 #include <fstream>
+#include <half.hpp>
 
 vtkSmartPointer<vtkDelaunay2D> triangulateUniform ( int* dims, 
                                                     double* origin,
@@ -1136,14 +1138,24 @@ void Compressor::compressChannel_help ( unsigned int channel,
       //    aveblk += std::abs(cimg[iblkj]);
       //  }     
       //  aveblk /= (Mend-Mstart);
+      //  double stdevblk = 0;
       //  for (int iblkj = Mstart; iblkj < Mend; ++iblkj)
       //  {
-      //    if (std::abs(cimg[iblkj]) < aveblk) { cimg[iblkj] = 0; }
+      //    stdevblk += std::pow(std::abs(cimg[iblkj]) - aveblk, 2.0);
+      //  }     
+      //  stdevblk = std::sqrt(stdevblk / (Mend-Mstart));
+      //
+      //  if (stdevblk / aveblk < 1)       
+      //  {
+      //    for (int iblkj = Mstart; iblkj < Mend; ++iblkj)
+      //    {
+      //      if (std::abs(cimg[iblkj]) < aveblk/stdevblk) { cimg[iblkj] = 0; }
+      //    }
       //  }
       //}
       for (unsigned int j = 0; j < M; ++j)
       {
-        if (std::abs(cimg[j]) < ave) { cimg[j] = 0; }
+        if (std::abs(cimg[j]) < ave / stdev) { cimg[j] = 0; }
         coeffs->InsertComponent(offset+j, channel, cimg[j]);
       }
       offsets->SetComponent(i, channel, offset);
@@ -2287,6 +2299,79 @@ void Decompressor::run()
 }
 
 
+void writeVTKLegacy(vtkSmartPointer<vtkPolyData> polytri, const char* ofname)
+{
+  // write mesh
+  vtkSmartPointer<vtkDataSetWriter> writer
+    = vtkSmartPointer<vtkDataSetWriter>::New();
+  writer->SetFileName(ofname);
+  writer->SetInputData(polytri);  
+  writer->Write();
+}
+
+void writeTri(vtkSmartPointer<vtkPolyData> polytri, const char* pref)
+{
+
+  std::string prefname = pref;
+  std::string ptsname = prefname + ".pts";
+  std::string cellname = prefname + ".cells";
+
+  vtkSmartPointer<vtkPoints> points = polytri->GetPoints();
+  int npts = points->GetNumberOfPoints();
+  int ncells = polytri->GetNumberOfCells();
+  int szpts = npts*3;
+  int szcells = ncells*3;
+  float* ptsbuffer = (float*) calloc(szpts, sizeof(float));
+  unsigned int* cellbuffer 
+    = (unsigned int*) calloc(szcells, sizeof(unsigned int)); 
+  double pt[3];
+  for (int ipt = 0; ipt < npts; ++ipt)
+  {
+    points->GetPoint(ipt, pt);
+    for (int j = 0; j < 3; ++j)
+    {
+      ptsbuffer[ipt + npts*j] = static_cast<float>(pt[j]); 
+    }
+  }
+
+  std::cout << "pts dim: " << npts << " x " << 3 << std::endl;
+
+  vtkSmartPointer<vtkIdList> cellPtIds = vtkSmartPointer<vtkIdList>::New();
+  cellPtIds->SetNumberOfIds(3);
+  for (int icell = 0; icell < ncells; ++icell)
+  {
+    polytri->GetCellPoints(icell, cellPtIds);
+    for (int j = 0; j < 3; ++j)
+    {
+      cellbuffer[icell + ncells*j] = static_cast<unsigned int>(cellPtIds->GetId(j));
+    }
+  }
+  
+  std::cout << "cell dim: " << ncells << " x " << 3 << std::endl;
+ 
+  FILE *pfile, *cfile;
+  pfile = fopen(ptsname.c_str(), "wb");
+  cfile = fopen(cellname.c_str(), "wb");
+
+  size_t nelmpts = fwrite(ptsbuffer, sizeof(float), szpts, pfile);  
+  size_t nelmcells = fwrite(cellbuffer, sizeof(unsigned int), szcells, cfile);  
+  if (nelmpts != szpts)
+  {
+    perror("Error writing to file\n");
+    fclose(pfile);
+    exit(1);
+  }
+  if (nelmcells != szcells)
+  {
+    perror("Error writing to file\n");
+    fclose(cfile);
+    exit(1);
+  }
+  fclose(pfile); fclose(cfile);
+  free(ptsbuffer);
+  free(cellbuffer);
+}
+
 void writeVTP(vtkSmartPointer<vtkPolyData> polytri, const char* ofname)
 {
   // write mesh
@@ -2310,22 +2395,24 @@ void writeSTL(vtkSmartPointer<vtkPolyData> polytri, const char* ofname)
 
 void writeCoeffs(vtkSmartPointer<vtkPolyData> polytri, const char* ofname)
 {
+
+  using half_float::half;
+  
   vtkSmartPointer<vtkIntArray> offsets 
     = vtkIntArray::SafeDownCast(polytri->GetCellData()->GetAbstractArray(0));
   vtkSmartPointer<vtkUnsignedIntArray> orders 
     = vtkUnsignedIntArray::SafeDownCast(polytri->GetCellData()->GetAbstractArray(1));
   vtkSmartPointer<vtkDoubleArray> coeffs 
     = vtkDoubleArray::SafeDownCast(polytri->GetFieldData()->GetAbstractArray(0));
- 
-  FILE* ofile = fopen(ofname,"w");
- 
-  // write num coeffs per cell
-  double ms[3];
-  orders->GetTuple(0, ms); 
-  unsigned int m = static_cast<unsigned int>(ms[0]);
-  unsigned int M = static_cast<unsigned int>(0.5 * (m + 1) * (m + 2));
-  fprintf(ofile, "%u\n", M);
-  // write coeffs 
+  
+  int ncoeffs = coeffs->GetNumberOfTuples() * 3;
+  // ncells x M x 3
+  half* coeffsbuffer = (half*) calloc(ncoeffs, sizeof(half));
+  double ms[3]; orders->GetTuple(0, ms); 
+  int M = static_cast<int>(0.5 * (ms[0] + 1) * (ms[0] + 2));
+  
+
+  // load coeffs 
   int offset1, offset2, offset3;
   float c1, c2, c3;
   for (int icell = 0; icell < polytri->GetNumberOfCells(); ++icell)
@@ -2338,16 +2425,26 @@ void writeCoeffs(vtkSmartPointer<vtkPolyData> polytri, const char* ofname)
       c1 = coeffs->GetComponent(offset1+i, 0); 
       c2 = coeffs->GetComponent(offset2+i, 1);
       c3 = coeffs->GetComponent(offset3+i, 2);
-      if (c1 == 0) { fprintf(ofile, "%d ", 0); }
-      else { fprintf(ofile, "%f ", c1); }
-      if (c2 == 0) { fprintf(ofile, "%d ", 0); }
-      else { fprintf(ofile, "%f ", c2); } 
-      if (c3 == 0) { fprintf(ofile, "%d ", 0); }
-      else { fprintf(ofile, "%f ", c3); } 
-      fprintf(ofile, "\n");
+      coeffsbuffer[3*(i + M*icell)] = half(c1);
+      coeffsbuffer[1+3*(i + M*icell)] = half(c2);
+      coeffsbuffer[2+3*(i + M*icell)] = half(c3);
     }
   }
+
+  std::cout << "coeffs dim: " << polytri->GetNumberOfCells() 
+            << " x " << M << " x " << 3 << std::endl;
+
+  // write coeffs
+  FILE* ofile = fopen(ofname,"wb");
+  size_t nelmcoeffs = fwrite(coeffsbuffer, sizeof(half), ncoeffs, ofile);  
+  if (nelmcoeffs!= ncoeffs)
+  {
+    perror("Error writing to file\n");
+    fclose(ofile);
+    exit(1);
+  }
   fclose(ofile);
+  free(coeffsbuffer);
 }
 
 vtkSmartPointer<vtkImageData> readImage ( const std::string& pref,
@@ -2554,16 +2651,19 @@ double jcompress  ( const char* fname,
   else
   {
     std::string fout1 = fout + "_" + std::to_string(order) + ".vtp";
-    std::string fout2 = fout + "_" + std::to_string(order) + ".stl";
+    std::string fout2 = fout + "_" + std::to_string(order) + ".pts";
+    std::string fout5 = fout + "_" + std::to_string(order) + ".cells";
     std::string fout3 = fout + "_" + std::to_string(order) + ".coeffs";
     std::string fout4 = fout + "_" + std::to_string(nSamp) + "_" 
                                    + std::to_string(nRuns) + "_"
                                    + std::to_string(order) + ".bench";
+
+    std::string fout00 = fout + "_" + std::to_string(order);
     writeVTP(C->polytri, fout1.c_str());
-    writeSTL(C->polytri, fout2.c_str());
+    writeTri(T->polytri, fout00.c_str());
     writeCoeffs(C->polytri, fout3.c_str()); 
 
-    std::string command = "./lz.sh " + fout4 + " " + fout2 + " " + fout3;
+    std::string command = "./lz.sh " + fout4 + " " + fout2 + " " + fout3 + " " + fout5;
 
     FILE* fp = popen(command.c_str(), "r");
     if (fp == NULL)
