@@ -57,6 +57,7 @@ struct Triangulator
   double *interpc = 0, *interpc_jacobi = 0;
   bool useMultiChannel = false;
   double bpp_target;
+  bool* torefine;
   vtkIdType ll, lr, ur, ul;
  
   vtkSmartPointer<vtkImageData> imagedata;
@@ -128,6 +129,8 @@ struct Compressor
   vtkSmartPointer<vtkIntArray> offsets, offsets1, offsets2, offsets3, celltypes;
   vtkSmartPointer<vtkUnsignedIntArray> orders, orders1, orders2, orders3;
   legQuad<double>* legq = 0; 
+  double ave0, ave1, ave2;
+  double stdev0, stdev1, stdev2;
  
   Compressor  ( Triangulator* T , unsigned int order );
 
@@ -136,8 +139,10 @@ struct Compressor
                               vtkSmartPointer<vtkPolyData> polytri,
                               vtkSmartPointer<vtkDoubleArray> coeffs,
                               vtkSmartPointer<vtkIntArray> offsets,
-                              vtkSmartPointer<vtkUnsignedIntArray> orders );
+                              vtkSmartPointer<vtkUnsignedIntArray> orders,
+                              double& ave, double& stdev);
   void smoothCoeffs ( );
+  void pruneCoeffs ( );
   void smoothCoeffs_alt ( );
   double smoothCoeffs_help  ( unsigned int channel,
                               unsigned int icell,
@@ -153,6 +158,25 @@ struct Compressor
                               vtkSmartPointer<vtkIdList> neighborCellIds, 
                               std::map<int, std::vector<int>>& neighbors, 
                               unsigned int edgenum, bool check = false);
+  void smoothCoeffs_alt_help  ( unsigned int channel,
+                                unsigned int icell,
+                                unsigned int nb,
+                                unsigned int nh,
+                                unsigned int nl,
+                                jPoly<double>* bPm,
+                                jPoly<double>* hPm,
+                                jPoly<double>* lPm,
+                                double* cimg, double* cimg1,
+                                double* imgbndb, double* imgbndb1,
+                                double* imgbndh, double* imgbndh1,
+                                double* imgbndl, double* imgbndl1,
+                                double* pcoords10, double* pcoords11,
+                                int offset1, int subid, double* wts, double dist2,
+                                vtkSmartPointer<vtkIdList> cellPtIds,
+                                vtkSmartPointer<vtkIdList> neighborCellIds,
+                                std::map<int, std::vector<int>>& neighbors,
+                                unsigned int edgenum, 
+                                double* cRHS );
   void run  ( );
 
   ~Compressor();

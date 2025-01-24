@@ -50,9 +50,9 @@ vtkSmartPointer<vtkDelaunay2D> triangulateUniform ( int* dims,
                                                     vtkIdType& ll, vtkIdType& lr,
                                                     vtkIdType& ur, vtkIdType& ul )
 {
-  if (nSamp < 3)
+  if (nSamp < 2)
   {
-    std::cerr << "Initial grid subsampling must have at least 3 points per axis\n";
+    std::cerr << "Initial grid subsampling must have at least 2 points per axis\n";
     exit(1);
   }
   vtkSmartPointer<vtkPoints> points = vtkSmartPointer<vtkPoints>::New();
@@ -292,22 +292,22 @@ Triangulator::Triangulator  ( unsigned int _N, unsigned int _m,
 
 Triangulator::~Triangulator()
 {
-  if (Pm) { delete Pm; }
-  if (Pmx) { delete Pmx; }
-  if (Pmy) { delete Pmy; }
-  if (Habc) { free(Habc); }
-  if (Ha1bc1) { free(Ha1bc1); }
-  if (Hab1c1) { free(Hab1c1); }
-  if (Dx) { free(Dx); }
-  if (Dy) { free(Dy); }
-  if (X) { free(X);  } 
-  if (Y) { free(Y);  } 
-  if (W) { free(W);  }
-  if (cdimg) { free(cdimg);  }
-  if (dimgr) { free(dimgr);  }
-  if (dimgt) { free(dimgt);  } 
-  if (interpc) { free(interpc); }
-  if (interpc_jacobi) { free(interpc_jacobi); }
+  if (Pm) { delete Pm; Pm = 0; }
+  if (Pmx) { delete Pmx; Pmx = 0; }
+  if (Pmy) { delete Pmy; Pmy = 0; }
+  if (Habc) { free(Habc); Habc = 0; }
+  if (Ha1bc1) { free(Ha1bc1); Ha1bc1 = 0; }
+  if (Hab1c1) { free(Hab1c1); Hab1c1 = 0; }
+  if (Dx) { free(Dx); Dx = 0; }
+  if (Dy) { free(Dy); Dy = 0; }
+  if (X) { free(X); X = 0; } 
+  if (Y) { free(Y); Y = 0; } 
+  if (W) { free(W); W = 0; }
+  if (cdimg) { free(cdimg); cdimg = 0; }
+  if (dimgr) { free(dimgr); dimgr = 0; }
+  if (dimgt) { free(dimgt); dimgt = 0; } 
+  if (interpc) { free(interpc); interpc = 0; }
+  if (interpc_jacobi) { free(interpc_jacobi); interpc_jacobi = 0; }
 }
 
 double Triangulator::getBPP( )
@@ -881,12 +881,11 @@ vtkSmartPointer<vtkDelaunay2D> Triangulator::triangulateEntropy ( double* intgn,
   double v2r[3] = {0.5, 0.5, 0};
   double v3r[3] = {0, 0.5, 0};
   double v1t[3], v2t[3], v3t[3], tmpwts[3];
+  double cent[3] = {1./3., 1./3., 0};
   vtkIdType ptid; int subid;
-  bool torefine;
   for (int icell = 0; icell < polytri->GetNumberOfCells(); ++icell)
   {
-    torefine = true;
-    if (interr[icell] >= ave_err + stdev_err)
+    if (interr[icell] >= ave_err)
     {
       polytri->GetCell(icell)->EvaluateLocation(subid, v1r, v1t, tmpwts);
       polytri->GetCell(icell)->EvaluateLocation(subid, v2r, v2t, tmpwts);
@@ -894,9 +893,8 @@ vtkSmartPointer<vtkDelaunay2D> Triangulator::triangulateEntropy ( double* intgn,
       locator->InsertUniquePoint(v1t, ptid);  
       locator->InsertUniquePoint(v2t, ptid);  
       locator->InsertUniquePoint(v3t, ptid);
-      torefine = false;
-    } 
-    //if (intgn[icell] >= ave_gn + stdev_gn && torefine)
+    }
+    //else if (intgn[icell] >= ave_gn + 1.5*stdev_gn)
     //{
     //  polytri->GetCell(icell)->EvaluateLocation(subid, v1r, v1t, tmpwts);
     //  polytri->GetCell(icell)->EvaluateLocation(subid, v2r, v2t, tmpwts);
@@ -906,35 +904,124 @@ vtkSmartPointer<vtkDelaunay2D> Triangulator::triangulateEntropy ( double* intgn,
     //  locator->InsertUniquePoint(v3t, ptid);
     //}
   } 
- 
+
+  vtkSmartPointer<vtkPointSet> pointSet0 = vtkSmartPointer<vtkPointSet>::New();
+  pointSet0->SetPoints(locator->GetLocatorPoints());
+
+  vtkSmartPointer<vtkDelaunay2D> triangulator0 = vtkSmartPointer<vtkDelaunay2D>::New();
+  triangulator0->SetInputData(pointSet0);
+  triangulator0->Update();
+
   vtkSmartPointer<vtkFeatureEdges> featureEdges 
     = vtkSmartPointer<vtkFeatureEdges>::New();
-  featureEdges->SetInputData(polytri);
+  featureEdges->SetInputData(triangulator0->GetOutput());
   featureEdges->BoundaryEdgesOn();
   featureEdges->FeatureEdgesOff();
   featureEdges->ManifoldEdgesOff();
   featureEdges->NonManifoldEdgesOff();
   featureEdges->Update();
+  writeVTP(featureEdges->GetOutput(), "bndry0.vtp");
   vtkSmartPointer<vtkPolyData> polybbox = featureEdges->GetOutput();
   vtkSmartPointer<vtkPoints> linepts;
   vtkIdType linept0, linept1;
+  double pt0[3], pt1[3], vpt[2];
+  double xstart, ystart, xend, yend; 
+  xstart = 0; ystart = 0;
+  xend = dims[0]-1; yend = dims[1]-1;
   vtkSmartPointer<vtkCellArray> bboxCells = vtkSmartPointer<vtkCellArray>::New();
+  std::cout << locator->GetNumberOfPoints() << std::endl;
   for (unsigned int iline = 0; iline < polybbox->GetNumberOfCells(); ++iline)
   {
     vtkSmartPointer<vtkLine> bboxLines = vtkSmartPointer<vtkLine>::New();
     bboxLines->GetPointIds()->SetNumberOfIds(2);
     linepts = polybbox->GetCell(iline)->GetPoints();
-    linept0 = locator->IsInsertedPoint(linepts->GetPoint(0)); 
-    linept1 = locator->IsInsertedPoint(linepts->GetPoint(1)); 
+    linepts->GetPoint(0, pt0);
+    linepts->GetPoint(1, pt1);
+    // constrain lines to boundary
+    vpt[0] = pt1[0] - pt0[0];
+    vpt[1] = pt1[1] - pt0[1];
+    if (vpt[0] != 0 && vpt[1] != 0) // line not parallel to boundary
+    {
+      // one point is on top/bot boundary
+      if (pt0[1] == yend)
+      {
+        pt1[1] = yend; 
+      }
+      else if (pt0[1] == ystart)
+      {
+        pt1[1] = ystart;
+      }
+      if (pt1[1] == yend)
+      {
+        pt0[1] = yend;
+      }
+      else if (pt1[1] == ystart)
+      {
+        pt0[1] = ystart;
+      }
+      // both pts off boundary (but not par to bndry)
+      else if (pt0[1] != yend && pt1[1] != yend && pt0[0] != pt1[0])
+      {
+        // closer to/on bottom
+        if (pt0[1]-ystart < yend-pt0[1]) 
+        { 
+          pt0[1] = ystart; 
+          pt1[1] = ystart;
+        }
+        // closer to/on top
+        else 
+        { 
+          pt0[1] = yend; 
+          pt1[1] = yend;
+        }
+      }
+      // one point is on left/right boundary
+      if (pt0[0] == xend)
+      {
+        pt1[0] = xend; 
+      }
+      else if (pt0[0] == xstart)
+      {
+        pt1[0] = xstart;
+      }
+      if (pt1[0] == xend)
+      {
+        pt0[0] = xend;
+      }
+      else if (pt1[0] == xstart)
+      {
+        pt0[0] = xstart;
+      }
+      // both pts off boundary (but not par to bndry)
+      else if (pt0[0] != xend && pt1[0] != xend && pt1[1] != pt0[1])
+      {
+        // closer to/on bottom
+        if (pt0[0]-xstart < xend-pt0[0]) 
+        { 
+          pt0[0] = xstart; 
+          pt1[0] = xstart;
+        }
+        // closer to/on top
+        else 
+        { 
+          pt0[0] = xend; 
+          pt1[0] = xend;
+        }
+      }
+    }
+
+ 
+    locator->InsertUniquePoint(pt0, linept0); 
+    locator->InsertUniquePoint(pt1, linept1); 
+ 
     bboxLines->GetPointIds()->SetId(0,linept0);
     bboxLines->GetPointIds()->SetId(1,linept1);
     bboxCells->InsertNextCell(bboxLines);
   }
+  std::cout << locator->GetNumberOfPoints() << std::endl;
 
   polyBbox->Initialize();
   polyBbox->SetLines(bboxCells);
-
- 
   vtkSmartPointer<vtkPointSet> pointSet = vtkSmartPointer<vtkPointSet>::New();
   pointSet->SetPoints(locator->GetLocatorPoints());
 
@@ -943,6 +1030,15 @@ vtkSmartPointer<vtkDelaunay2D> Triangulator::triangulateEntropy ( double* intgn,
   triangulator->SetInputData(pointSet);
   triangulator->SetSourceData(polyBbox);
   triangulator->Update();
+  vtkSmartPointer<vtkFeatureEdges> featureEdges1 
+    = vtkSmartPointer<vtkFeatureEdges>::New();
+  featureEdges1->SetInputData(triangulator->GetOutput());
+  featureEdges1->BoundaryEdgesOn();
+  featureEdges1->FeatureEdgesOff();
+  featureEdges1->ManifoldEdgesOff();
+  featureEdges1->NonManifoldEdgesOff();
+  featureEdges1->Update();
+  writeVTP(featureEdges->GetOutput(), "bndry.vtp");
   free(interr);
   return triangulator;
 }
@@ -1081,7 +1177,8 @@ void Compressor::compressChannel_help ( unsigned int channel,
                                         vtkSmartPointer<vtkPolyData> polytri,
                                         vtkSmartPointer<vtkDoubleArray> coeffs,
                                         vtkSmartPointer<vtkIntArray> offsets,
-                                        vtkSmartPointer<vtkUnsignedIntArray> orders )
+                                        vtkSmartPointer<vtkUnsignedIntArray> orders,
+                                        double& ave, double& stdev)
 {
   double tmpwts[3];
   double xqtr[3], xqt[3]; xqtr[2] = 0; xqt[2] = 0;
@@ -1089,7 +1186,7 @@ void Compressor::compressChannel_help ( unsigned int channel,
   
   unsigned int m = this->morder; 
   unsigned int M = static_cast<unsigned int>(0.5 * (m + 1) * (m + 2));
-  int offset = 0;
+  int offset = 0; ave = 0; stdev = 0;
   // loop over each triangle 
   for (int i = 0; i < polytri->GetNumberOfCells(); ++i)
   {
@@ -1103,18 +1200,18 @@ void Compressor::compressChannel_help ( unsigned int channel,
       interpc[j] = interpolator->Interpolate(xqt[0], xqt[1], xqt[2], channel);
     }
     Pm->computeCoeffs(interpc, R, S, W, cimg);
-    double ave = 0;
+    //double ave = 0;
     for (unsigned int j = 0; j < M; ++j)
     {
       ave += std::abs(cimg[j]);
     }
-    ave /= M;
-    double stdev = 0;
+    //ave /= M;
+    //double stdev = 0;
     for (unsigned int j = 0; j < M; ++j)
     {
       stdev += std::pow(std::abs(cimg[j])-ave,2.0);
     }
-    stdev = std::sqrt(stdev / M);
+    //stdev = std::sqrt(stdev / M);
 
     if (useMultiChannel)
     {
@@ -1155,7 +1252,7 @@ void Compressor::compressChannel_help ( unsigned int channel,
       //}
       for (unsigned int j = 0; j < M; ++j)
       {
-        if (std::abs(cimg[j]) < ave / stdev) { cimg[j] = 0; }
+        //if (std::abs(cimg[j]) < ave / stdev) { cimg[j] = 0; }
         coeffs->InsertComponent(offset+j, channel, cimg[j]);
       }
       offsets->SetComponent(i, channel, offset);
@@ -1163,8 +1260,35 @@ void Compressor::compressChannel_help ( unsigned int channel,
     }
     offset += M;
   }
+  unsigned int Mtot = M*polytri->GetNumberOfCells();
+  ave /= Mtot;
+  stdev = std::sqrt(stdev / Mtot); 
 }
 
+void Compressor::pruneCoeffs ( )
+{
+  unsigned int offset = 0;
+  double coefftup[3];
+  double aves[3] = {ave0, ave1, ave2};
+  double stdevs[3] = {stdev0, stdev1, stdev2};
+  unsigned int m = this->morder; 
+  unsigned int M = static_cast<unsigned int>(0.5 * (m + 1) * (m + 2));
+  for (int i = 0; i < polytri->GetNumberOfCells(); ++i)
+  {
+    for (unsigned int j = 0; j < M; ++j)
+    {
+      coeffs->GetTuple(offset+j, coefftup);
+      for (unsigned int k = 0; k < 3; ++k)
+      {
+        if (std::abs(coefftup[k]) < aves[k])
+        {
+          coeffs->SetComponent(offset+j, k, 0);
+        }
+      }     
+    } 
+    offset += M; 
+  }
+}
 void Compressor::compressChannel  ( unsigned int channel )
 {
   vtkSmartPointer<vtkPolyData> polytri;
@@ -1213,7 +1337,7 @@ void Compressor::compressChannel  ( unsigned int channel )
     orders->SetNumberOfTuples(polytri->GetNumberOfCells());
     coeffs->SetName("coeffs");
     coeffs->SetNumberOfComponents(1);
-    compressChannel_help ( channel, polytri, coeffs, offsets, orders );
+    compressChannel_help ( channel, polytri, coeffs, offsets, orders, ave0, stdev0 );
   }
   else
   {
@@ -1229,9 +1353,10 @@ void Compressor::compressChannel  ( unsigned int channel )
     orders->SetNumberOfTuples(polytri->GetNumberOfCells());
     coeffs->SetName("coeffs");
     coeffs->SetNumberOfComponents(3);
-    compressChannel_help ( 0, polytri, coeffs, offsets, orders );
-    compressChannel_help ( 1, polytri, coeffs, offsets, orders );
-    compressChannel_help ( 2, polytri, coeffs, offsets, orders );
+    compressChannel_help ( 0, polytri, coeffs, offsets, orders, ave0, stdev0 );
+    compressChannel_help ( 1, polytri, coeffs, offsets, orders, ave1, stdev1 );
+    compressChannel_help ( 2, polytri, coeffs, offsets, orders, ave2, stdev2 );
+    //pruneCoeffs();
   }
   
   polytri->GetFieldData()->AddArray(coeffs);
@@ -1471,6 +1596,564 @@ double Compressor::smoothCoeffs_help  ( unsigned int channel,
   return sum2;
 }
 
+void Compressor::smoothCoeffs_alt_help  ( unsigned int channel,
+                                          unsigned int icell,
+                                          unsigned int nb,
+                                          unsigned int nh,
+                                          unsigned int nl,
+                                          jPoly<double>* bPm,
+                                          jPoly<double>* hPm,
+                                          jPoly<double>* lPm,
+                                          double* cimg, double* cimg1,
+                                          double* imgbndb, double* imgbndb1,
+                                          double* imgbndh, double* imgbndh1,
+                                          double* imgbndl, double* imgbndl1,
+                                          double* pcoords10, double* pcoords11,
+                                          int offset1, int subid, double* wts, double dist2,
+                                          vtkSmartPointer<vtkIdList> cellPtIds,
+                                          vtkSmartPointer<vtkIdList> neighborCellIds,
+                                          std::map<int, std::vector<int>>& neighbors,
+                                          unsigned int edgenum, 
+                                          double* cRHS )
+{
+  /* edges are default numbered as
+      - 0 for bottom
+      - 1 for hyp
+      - 2 for left 
+     in parameteric space
+  */
+  if (neighborCellIds->GetNumberOfIds() > 0)
+  {
+    neighbors[icell].push_back(neighborCellIds->GetId(0));
+    // get coeffs from neighbor cell
+    offset1 = offsets->GetComponent(neighborCellIds->GetId(0), channel);
+    for (unsigned int i = 0; i < Mmax; ++i)
+    {
+      cimg1[i] = coeffs->GetComponent(offset1+i, channel);
+    }         
+    if (edgenum == 0)
+    {
+      // eval pcoord of endpts of edge in neighbor cell
+      polytri->GetCell(neighborCellIds->GetId(0))->
+        EvaluatePosition( polytri->GetPoints()->GetPoint(cellPtIds->GetId(0)),
+                          nullptr, subid, pcoords10, dist2, wts );
+      polytri->GetCell(neighborCellIds->GetId(0))->
+        EvaluatePosition( polytri->GetPoints()->GetPoint(cellPtIds->GetId(1)),
+                          nullptr, subid, pcoords11, dist2, wts );
+      // evaluate channel color over bottom edge in icell
+      cblas_dgemv ( CblasColMajor, CblasNoTrans, 
+                    nb, Mmax, 1.0, bPm->V, nb, 
+                    cimg, 1, 0.0, imgbndb, 1 );
+      // if on bottom edge of neighbor cell
+      if ((pcoords10[0] == 0 && pcoords10[1] == 0 &&
+           pcoords11[0] == 1 && pcoords11[1] == 0) ||
+          (pcoords10[0] == 1 && pcoords10[1] == 0 &&
+           pcoords11[0] == 0 && pcoords10[1] == 0))
+      {
+        // evaluate channel color over bottom edge of neighbor cell
+        cblas_dgemv ( CblasColMajor, CblasNoTrans, 
+                      nb, Mmax, 1.0, bPm->V, nb, 
+                      cimg1, 1, 0.0, imgbndb1, 1 );
+
+        for (unsigned int k = 0; k < nb; ++k)
+        {
+          cRHS[1+k + channel*Mmax] = imgbndb1[k];
+        }                 
+      }
+      // if on left edge of neighbor cell
+      else if ((pcoords10[0] == 0 && pcoords10[1] == 1 && 
+                pcoords11[0] == 0 && pcoords11[1] == 0) ||
+               (pcoords10[0] == 0 && pcoords10[1] == 0 &&
+                pcoords11[0] == 0 && pcoords11[1] == 1))
+      {
+        // evaluate channel color over left edge of neighbor cell
+        cblas_dgemv ( CblasColMajor, CblasNoTrans, 
+                      nl, Mmax, 1.0, lPm->V, nl, 
+                      cimg1, 1, 0.0, imgbndl1, 1 );
+        for (unsigned int k = 0; k < nl; ++k)
+        {
+          cRHS[1+nb+nh+k + channel*Mmax] = imgbndl1[k];
+        }
+      }
+      // if on hyp edge of neighbor cell
+      else if ((pcoords10[0] == 1 && pcoords10[1] == 0 &&
+                pcoords11[0] == 0 && pcoords11[1] == 1) ||
+               (pcoords10[0] == 0 && pcoords10[1] == 1 &&
+                pcoords11[0] == 1 && pcoords11[1] == 0))
+      {
+        // evaluate channel color over hyp edge of neighbor cell
+        cblas_dgemv ( CblasColMajor, CblasNoTrans, 
+                      nh, Mmax, 1.0, hPm->V, nh, 
+                      cimg1, 1, 0.0, imgbndh1, 1 );
+        for (unsigned int k = 0; k < nh; ++k)
+        {
+          cRHS[1+nb+k + channel*Mmax] = imgbndh1[k];
+        }
+      }
+    }
+    else if (edgenum == 1)
+    {
+      // eval pcoord of endpts of edge in neighbor cell
+      polytri->GetCell(neighborCellIds->GetId(0))->
+        EvaluatePosition( polytri->GetPoints()->GetPoint(cellPtIds->GetId(1)),
+                          nullptr, subid, pcoords10, dist2, wts );
+      polytri->GetCell(neighborCellIds->GetId(0))->
+        EvaluatePosition( polytri->GetPoints()->GetPoint(cellPtIds->GetId(2)),
+                          nullptr, subid, pcoords11, dist2, wts );
+      // evaluate channel color over hyp edge in icell
+      cblas_dgemv ( CblasColMajor, CblasNoTrans, 
+                    nh, Mmax, 1.0, hPm->V, nh, 
+                    cimg, 1, 0.0, imgbndh, 1 );
+      // if on bottom edge of neighbor cell
+      if ((pcoords10[0] == 0 && pcoords10[1] == 0 &&
+           pcoords11[0] == 1 && pcoords11[1] == 0) ||
+          (pcoords10[0] == 1 && pcoords10[1] == 0 &&
+           pcoords11[0] == 0 && pcoords10[1] == 0))
+      {
+        // evaluate channel color over bottom edge of neighbor cell
+        cblas_dgemv ( CblasColMajor, CblasNoTrans, 
+                      nb, Mmax, 1.0, bPm->V, nb, 
+                      cimg1, 1, 0.0, imgbndb1, 1 );
+        for (unsigned int k = 0; k < nb; ++k)
+        {
+          cRHS[1+k + channel*Mmax] = imgbndb1[k];
+        }                 
+      }
+      // if on left edge of neighbor cell
+      else if ((pcoords10[0] == 0 && pcoords10[1] == 1 && 
+                pcoords11[0] == 0 && pcoords11[1] == 0) ||
+               (pcoords10[0] == 0 && pcoords10[1] == 0 &&
+                pcoords11[0] == 0 && pcoords11[1] == 1))
+      {
+        // evaluate channel color over left edge of neighbor cell
+        cblas_dgemv ( CblasColMajor, CblasNoTrans, 
+                      nl, Mmax, 1.0, lPm->V, nl, 
+                      cimg1, 1, 0.0, imgbndl1, 1 );
+        for (unsigned int k = 0; k < nl; ++k)
+        {
+          cRHS[1+nb+nh+k + channel*Mmax] = imgbndl1[k];
+        }
+      }
+      // if on hyp edge of neighbor cell
+      else if ((pcoords10[0] == 1 && pcoords10[1] == 0 &&
+                pcoords11[0] == 0 && pcoords11[1] == 1) ||
+               (pcoords10[0] == 0 && pcoords10[1] == 1 &&
+                pcoords11[0] == 1 && pcoords11[1] == 0))
+      {
+        // evaluate channel color over hyp edge of neighbor cell
+        cblas_dgemv ( CblasColMajor, CblasNoTrans, 
+                      nh, Mmax, 1.0, hPm->V, nh, 
+                      cimg1, 1, 0.0, imgbndh1, 1 );
+        for (unsigned int k = 0; k < nh; ++k)
+        {
+          cRHS[1+nb+k + channel*Mmax] = imgbndh1[k];
+        }
+      }
+    }
+    else if (edgenum == 2)
+    {
+      // eval pcoord of endpts of edge in neighbor cell
+      polytri->GetCell(neighborCellIds->GetId(0))->
+        EvaluatePosition( polytri->GetPoints()->GetPoint(cellPtIds->GetId(2)),
+                          nullptr, subid, pcoords10, dist2, wts );
+      polytri->GetCell(neighborCellIds->GetId(0))->
+        EvaluatePosition( polytri->GetPoints()->GetPoint(cellPtIds->GetId(0)),
+                          nullptr, subid, pcoords11, dist2, wts );
+      // evaluate channel color over left edge in icell
+      cblas_dgemv ( CblasColMajor, CblasNoTrans, 
+                    nl, Mmax, 1.0, lPm->V, nl, 
+                    cimg, 1, 0.0, imgbndl, 1 );
+      // if on bottom edge of neighbor cell
+      if ((pcoords10[0] == 0 && pcoords10[1] == 0 &&
+           pcoords11[0] == 1 && pcoords11[1] == 0) ||
+          (pcoords10[0] == 1 && pcoords10[1] == 0 &&
+           pcoords11[0] == 0 && pcoords10[1] == 0))
+      {
+        // evaluate channel color over bottom edge of neighbor cell
+        cblas_dgemv ( CblasColMajor, CblasNoTrans, 
+                      nb, Mmax, 1.0, bPm->V, nb, 
+                      cimg1, 1, 0.0, imgbndb1, 1 );
+        for (unsigned int k = 0; k < nb; ++k)
+        {
+          cRHS[1+k + channel*Mmax] = imgbndb1[k];
+        }                 
+      }
+      // if on left edge of neighbor cell
+      else if ((pcoords10[0] == 0 && pcoords10[1] == 1 && 
+                pcoords11[0] == 0 && pcoords11[1] == 0) ||
+               (pcoords10[0] == 0 && pcoords10[1] == 0 &&
+                pcoords11[0] == 0 && pcoords11[1] == 1))
+      {
+        // evaluate channel color over left edge of neighbor cell
+        cblas_dgemv ( CblasColMajor, CblasNoTrans, 
+                      nl, Mmax, 1.0, lPm->V, nl, 
+                      cimg1, 1, 0.0, imgbndl1, 1 );
+        for (unsigned int k = 0; k < nl; ++k)
+        {
+          cRHS[1+nb+nh+k + channel*Mmax] = imgbndl1[k];
+        }
+
+      }
+      // if on hyp edge of neighbor cell
+      else if ((pcoords10[0] == 1 && pcoords10[1] == 0 &&
+                pcoords11[0] == 0 && pcoords11[1] == 1) ||
+               (pcoords10[0] == 0 && pcoords10[1] == 1 &&
+                pcoords11[0] == 1 && pcoords11[1] == 0))
+      {
+        // evaluate channel color over hyp edge of neighbor cell
+        cblas_dgemv ( CblasColMajor, CblasNoTrans, 
+                      nh, Mmax, 1.0, hPm->V, nh, 
+                      cimg1, 1, 0.0, imgbndh1, 1 );
+        for (unsigned int k = 0; k < nh; ++k)
+        {
+          cRHS[1+nb+k + channel*Mmax] = imgbndh1[k];
+        }
+      }
+    }
+  }
+}
+
+void Compressor::smoothCoeffs_alt ( )
+{
+  if (not useMultiChannel)
+  {
+    vtkSmartPointer<vtkIdList> cellPtIds = vtkSmartPointer<vtkIdList>::New();
+    cellPtIds->SetNumberOfIds(3);
+    vtkSmartPointer<vtkIdList> idList = vtkSmartPointer<vtkIdList>::New();
+    idList->SetNumberOfIds(2);
+    vtkSmartPointer<vtkIdList> neighborCellIds = vtkSmartPointer<vtkIdList>::New();
+
+    std::map<int, std::vector<int>> neighbors;
+    // create edge sampling
+    unsigned int n = static_cast<unsigned int>(std::floor( (Mmax - 1.0) / 3.0 ));
+    unsigned int nl = n;
+    unsigned int nb = n;
+    unsigned int nh = (Mmax - 1) - nl - nb;
+    std::cout << nl << " " << nb << " " << nh << " " << nh+nl+nb << " " << Mmax << std::endl;
+    // construct cart-prod for bottom, left and hyp edges of tref
+    double* lX = (double*) calloc(nl, sizeof(double));
+    double* lY = (double*) calloc(nl, sizeof(double));
+    double* bX = (double*) calloc(nb, sizeof(double));
+    double* bY = (double*) calloc(nb, sizeof(double));
+    double* hX = (double*) calloc(nh, sizeof(double));
+    double* hY = (double*) calloc(nh, sizeof(double));
+
+    double lstride = static_cast<double>(1.0 / (nl - 1));
+    double bstride = static_cast<double>(1.0 / (nb - 1));
+    double hstride = static_cast<double>(1.0 / (nh - 1));
+
+    for (unsigned int il = 0; il < nl; ++il) { lY[il] = il * lstride; }
+    for (unsigned int ib = 0; ib < nb; ++ib) { bX[ib] = ib * bstride; }
+    for (unsigned int ih = 0; ih < nh; ++ih)
+    {
+      hX[ih] = ih * hstride;
+      hY[ih] = 1.0 - hX[ih];
+    }
+
+    // create polynomial evaluators for the boundary
+    jPoly<double>* lPm = new jPoly<double>(lX, lY, nl, Mmax, a, b, c, 1);
+    jPoly<double>* bPm = new jPoly<double>(bX, bY, nb, Mmax, a, b, c, 1);
+    jPoly<double>* hPm = new jPoly<double>(hX, hY, nh, Mmax, a, b, c, 1);
+    
+
+    // storage for channel coeffs on tri
+    double* cimg1 = (double*) calloc(Mmax, sizeof(double));
+    double* cimg2 = (double*) calloc(Mmax, sizeof(double));
+    double* cimg3 = (double*) calloc(Mmax, sizeof(double));
+    double* cimg11 = (double*) calloc(Mmax, sizeof(double));
+
+    // storage for color on bndry
+    double* imgbndl = (double*) calloc(nl, sizeof(double));
+    double* imgbndl1 = (double*) calloc(nl, sizeof(double));
+    double* imgbndb = (double*) calloc(nb, sizeof(double));
+    double* imgbndb1 = (double*) calloc(nb, sizeof(double));
+    double* imgbndh = (double*) calloc(nh, sizeof(double));
+    double* imgbndh1 = (double*) calloc(nh, sizeof(double));
+  
+    // continuity matrices
+
+    // fully interior
+    double* cMat = (double*) calloc(Mmax*Mmax, sizeof(double));
+    double* cMat_introw = (double*) calloc(Mmax, sizeof(double));
+    double* invcMat = (double*) calloc(Mmax*Mmax, sizeof(double));
+    // singular value storage for gesdd
+    double* S = (double*) calloc(Mmax, sizeof(double));
+    double* invS = (double*) calloc(Mmax*Mmax, sizeof(double));
+    double* U = (double*) calloc(Mmax*Mmax, sizeof(double));
+    double* VT = (double*) calloc(Mmax*Mmax, sizeof(double));
+    double* invSTUT = (double*) calloc(Mmax*Mmax, sizeof(double));
+
+    // continuity right-hand-sides
+
+    // fully interior
+    double* cRHS = (double*) calloc(Mmax*3, sizeof(double));
+    double* xRHS = (double*) calloc(Mmax*3, sizeof(double));
+
+    /* populate cMat as
+      | w^T P(int)  |
+      |  P(e01)     | 
+      |  P(e02)     | 
+      |  P(e03)     | 
+    */
+   
+    // compute and fill row 0 of cMat with \int_T P(x) dx
+    cblas_dgemv ( CblasColMajor, CblasTrans,
+                  N, Mmax, 1.0, Pm->V, N,
+                  W, 1, 0.0, cMat_introw, Mmax ); 
+    for (unsigned int i = 0; i < Mmax; ++i)
+    {
+      cMat[i*Mmax] = cMat_introw[i];
+    }    
+    // fill rows 1 to nb with P(eb)
+    for (unsigned int i = 0; i < nb; ++i)
+    {
+      for (unsigned int j = 0; j < Mmax; ++j)
+      {
+        cMat[i+1 + Mmax*j] = bPm->V[i + nb*j];
+      }
+    }
+    // fill rows nb+1 to nb+nh with P(eh)
+    for (unsigned int i = 0; i < nh; ++i)
+    {
+      for (unsigned int j = 0; j < Mmax; ++j)
+      {
+        cMat[i+nb+1 + Mmax*j] = hPm->V[i + nh*j];
+      }
+    } 
+    // fill rows nb+nh+1 to nb+nh+nl with P(el)
+    for (unsigned int i = 0; i < nl; ++i)
+    {
+      for (unsigned int j = 0; j < Mmax; ++j)
+      {
+        cMat[i+nb+nh+1 + Mmax*j] = lPm->V[i + nl*j];
+      }
+    }
+
+    // compute SVD of cMat
+    if (  LAPACKE_dgesdd  ( LAPACK_COL_MAJOR, 'A',
+                            Mmax, Mmax, cMat, Mmax,
+                            S, U, Mmax, VT, Mmax ) )
+    {
+      std::cerr << "ERROR: Lapack dgesdd - Could not compute SVD of cMat\n";
+    }
+    else
+    {
+      // compute S^{-1}
+      for (unsigned int i = 0; i < Mmax; ++i)
+      {
+        invS[i + Mmax*i] = 1.0 / S[i];
+      } 
+      // compute S^{-T}UT
+      cblas_dgemm ( CblasColMajor, CblasTrans, CblasTrans,
+                    Mmax, Mmax, Mmax, 
+                    1, invS, Mmax, U, Mmax, 
+                    0, invSTUT, Mmax  );
+      // compute cMat^{-1} = VS^{-1}UT
+      cblas_dgemm ( CblasColMajor, CblasTrans, CblasNoTrans,
+                    Mmax, Mmax, Mmax,
+                    1, VT, Mmax, invSTUT, Mmax,
+                    0, invcMat, Mmax );      
+ 
+    }
+
+    int subid, offset1, offset2, offset3, offset11;
+    double pcoords10[3], pcoords11[3];
+    double wts[3], dist2;
+    lapack_int rank[1]; 
+    // loop over triangles to classify cells
+    for (int icell = 0; icell < polytri->GetNumberOfCells(); ++icell)
+    {
+      // first copy channel coeffs into stor
+      offset1 = offsets->GetComponent(icell, 0);
+      offset2 = offsets->GetComponent(icell, 1);
+      offset3 = offsets->GetComponent(icell, 2);
+      // copy  channel coeffs
+      for (unsigned int i = 0; i < Mmax; ++i)
+      {
+        cimg1[i] = coeffs->GetComponent(offset1+i, 0);
+        cimg2[i] = coeffs->GetComponent(offset2+i, 1);
+        cimg3[i] = coeffs->GetComponent(offset3+i, 2);
+      }
+
+      // compute first row of RHS
+      cRHS[0]       = cblas_ddot(Mmax, cMat_introw, 1, cimg1, 1);
+      cRHS[Mmax]    = cblas_ddot(Mmax, cMat_introw, 1, cimg2, 1);
+      cRHS[2*Mmax]  = cblas_ddot(Mmax, cMat_introw, 1, cimg3, 1); 
+
+      // get ptids defining cell
+      polytri->GetCellPoints(icell, cellPtIds);
+
+      /* edges are default numbered as
+          - 0 for bottom
+          - 1 for hyp
+          - 2 for left 
+         in parameteric space
+      */
+      
+      // find neighbors of first edge
+      idList->SetId(0, cellPtIds->GetId(0));
+      idList->SetId(1, cellPtIds->GetId(1));
+      polytri->GetCellNeighbors(icell, idList, neighborCellIds);
+
+      smoothCoeffs_alt_help ( 0, icell, nb, nh, nl, bPm, hPm, lPm, cimg1, cimg11, 
+                              imgbndb, imgbndb1,
+                              imgbndh, imgbndh1,
+                              imgbndl, imgbndl1,
+                              pcoords10, pcoords11,
+                              offset11, subid, wts, dist2,
+                              cellPtIds, neighborCellIds,
+                              neighbors, 0, cRHS  );             
+      
+      smoothCoeffs_alt_help ( 1, icell, nb, nh, nl, bPm, hPm, lPm,
+                              cimg2, cimg11, 
+                              imgbndb, imgbndb1,
+                              imgbndh, imgbndh1,
+                              imgbndl, imgbndl1,
+                              pcoords10, pcoords11,
+                              offset11, subid, wts, dist2,
+                              cellPtIds, neighborCellIds,
+                              neighbors, 0, cRHS  );             
+      
+      smoothCoeffs_alt_help ( 2, icell, nb, nh, nl, bPm, hPm, lPm,
+                              cimg3, cimg11, 
+                              imgbndb, imgbndb1,
+                              imgbndh, imgbndh1,
+                              imgbndl, imgbndl1,
+                              pcoords10, pcoords11,
+                              offset11, subid, wts, dist2,
+                              cellPtIds, neighborCellIds,
+                              neighbors, 0, cRHS  );             
+
+      // find neighbors of second edge
+      idList->SetId(0, cellPtIds->GetId(1));
+      idList->SetId(1, cellPtIds->GetId(2));
+      polytri->GetCellNeighbors(icell, idList, neighborCellIds);
+      
+      smoothCoeffs_alt_help ( 0, icell, nb, nh, nl, bPm, hPm, lPm,
+                              cimg1, cimg11, 
+                              imgbndb, imgbndb1,
+                              imgbndh, imgbndh1,
+                              imgbndl, imgbndl1,
+                              pcoords10, pcoords11,
+                              offset11, subid, wts, dist2,
+                              cellPtIds, neighborCellIds,
+                              neighbors, 1, cRHS  );             
+      
+      smoothCoeffs_alt_help ( 1, icell, nb, nh, nl, bPm, hPm, lPm,
+                              cimg2, cimg11, 
+                              imgbndb, imgbndb1,
+                              imgbndh, imgbndh1,
+                              imgbndl, imgbndl1,
+                              pcoords10, pcoords11,
+                              offset11, subid, wts, dist2,
+                              cellPtIds, neighborCellIds,
+                              neighbors, 1, cRHS  );             
+      
+      smoothCoeffs_alt_help ( 2, icell, nb, nh, nl, bPm, hPm, lPm,
+                              cimg3, cimg11, 
+                              imgbndb, imgbndb1,
+                              imgbndh, imgbndh1,
+                              imgbndl, imgbndl1,
+                              pcoords10, pcoords11,
+                              offset11, subid, wts, dist2,
+                              cellPtIds, neighborCellIds,
+                              neighbors, 1, cRHS  );             
+     
+      // find neighbors of third edge
+      idList->SetId(0, cellPtIds->GetId(2));
+      idList->SetId(1, cellPtIds->GetId(0));
+      polytri->GetCellNeighbors(icell, idList, neighborCellIds);
+      
+      smoothCoeffs_alt_help ( 0, icell, nb, nh, nl, bPm, hPm, lPm,
+                              cimg1, cimg11, 
+                              imgbndb, imgbndb1,
+                              imgbndh, imgbndh1,
+                              imgbndl, imgbndl1,
+                              pcoords10, pcoords11,
+                              offset11, subid, wts, dist2,
+                              cellPtIds, neighborCellIds,
+                              neighbors, 2, cRHS  );             
+      
+      smoothCoeffs_alt_help ( 1, icell, nb, nh, nl, bPm, hPm, lPm,
+                              cimg2, cimg11, 
+                              imgbndb, imgbndb1,
+                              imgbndh, imgbndh1,
+                              imgbndl, imgbndl1,
+                              pcoords10, pcoords11,
+                              offset11, subid, wts, dist2,
+                              cellPtIds, neighborCellIds,
+                              neighbors, 2, cRHS  );             
+      
+      smoothCoeffs_alt_help ( 2, icell, nb, nh, nl, bPm, hPm, lPm,
+                              cimg3, cimg11, 
+                              imgbndb, imgbndb1,
+                              imgbndh, imgbndh1,
+                              imgbndl, imgbndl1,
+                              pcoords10, pcoords11,
+                              offset11, subid, wts, dist2,
+                              cellPtIds, neighborCellIds,
+                              neighbors, 2, cRHS  );             
+
+      if (neighbors[icell].size() == 9)
+      {
+        
+        // solve for new coeffs
+        cblas_dgemm ( CblasColMajor, CblasNoTrans, CblasNoTrans,
+                      Mmax, 3, Mmax, 1, invcMat, Mmax, 
+                      cRHS, Mmax, 0.0,
+                      xRHS, Mmax );
+        for (unsigned int i = 0; i < Mmax; ++i)
+        {
+          coeffs->SetComponent(offset1+i, 0, xRHS[i]);
+          coeffs->SetComponent(offset2+i, 1, xRHS[i + Mmax]);
+          coeffs->SetComponent(offset3+i, 2, xRHS[i + 2*Mmax]);
+        }
+        if (!(icell % 1000)) 
+        { 
+          std::cout << "Smoothing Progress : " << std::setprecision(2) 
+                    << ((double)icell / (double) polytri->GetNumberOfCells()) * 100 
+                    << "%\n";
+        }
+      } 
+    }
+
+    free(lX); free(lY);
+    free(bX); free(bY);
+    free(hX); free(hY);
+    delete lPm;
+    delete bPm;
+    delete hPm;
+    free(cimg1);
+    free(cimg2);
+    free(cimg3);
+    free(cimg11);
+    free(imgbndl);
+    free(imgbndl1);
+    free(imgbndb);
+    free(imgbndb1);
+    free(imgbndh);
+    free(imgbndh1);
+    free(cMat);
+    free(cMat_introw);
+    free(cRHS);
+    free(S);
+    free(U);  
+    free(VT);
+    free(invcMat);
+    free(invS);
+    free(invSTUT);
+    free(xRHS);
+  
+  }
+  else
+  {
+    std::cerr << "not supported for separate triangulations per channel\n";
+    exit(1);
+  }
+  
+
+}
+
 void Compressor::smoothCoeffs ( )
 {
   if (not useMultiChannel)
@@ -1527,7 +2210,6 @@ void Compressor::smoothCoeffs ( )
     // fully interior
     double* cMat = (double*) calloc((N+3)*Mmax, sizeof(double));
     double* invcMat = (double*) calloc(Mmax*(N+3), sizeof(double));
-    double* cMat_cpy = (double*) calloc((N+3)*Mmax, sizeof(double)); 
     // on boundary with 2 neighbors
     double* cMat_bnd12 = (double*) calloc((N+2)*Mmax, sizeof(double));
     double* cMat_bnd13 = (double*) calloc((N+2)*Mmax, sizeof(double));
@@ -1838,7 +2520,6 @@ void Compressor::smoothCoeffs ( )
     free(cRHS);
     free(cRHS_bnd1);
     free(cRHS_bnd2);
-    free(cMat_cpy);
     free(S);
     free(U);  
     free(VT);
@@ -1923,7 +2604,7 @@ void Compressor::run  ( )
               << polytri->GetNumberOfCells() << std::endl;
     std::cout << "Order per triangle: " << morder << std::endl; 
     compressChannel(0);
-    //smoothCoeffs();
+    smoothCoeffs_alt();
     unsigned int M = static_cast<unsigned int>(0.5 * (morder+1)*(morder+2));
     /* (ntri*(mcoeff floats/channel)*(3 channels)*(4ytes/float) 
       + ntri*(3 short indices)*(2 bytes/short) 
