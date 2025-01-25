@@ -6,6 +6,7 @@
 #include<omp.h>
 #include<sFactors.hh>
 #include<cblas.h>
+#include<lapacke.h>
 #include<type_traits>
 #include<vector>
 
@@ -263,7 +264,7 @@ class jPoly
         std::vector<int> x1inds, x0inds, y0inds, y1mxinds;
         for (unsigned int i = 0; i < Nx; ++i)
         {
-          if (std::abs(X[i]-1) < 1e-15) {x1inds.push_back(i);}
+          if (std::abs(X[i]-1) < 1e-10) {x1inds.push_back(i);}
           if (std::abs(X[i]) < 1e-15) {x0inds.push_back(i);}
           if (std::abs(Y[i]) < 1e-15) {y0inds.push_back(i);}
           if (std::abs(Y[i]-(1-X[i])) < 1e-15) {y1mxinds.push_back(i);}
@@ -306,7 +307,10 @@ class jPoly
                   }
                   else
                   {
-                    v[x1inds[i]] = 1;
+                    v[x1inds[i]] = 
+                      ( 1.0 / H[kk + (n+1)*nn] * tgamma(nn+kk+b+c+1) / 
+                      ( tgamma(nn-kk+1) * tgamma(nn+kk+b+c-(nn-kk)+1) ) ) *
+                      ( pochhammer<T>(kk+c+b, kk) / (pow(2.0,kk) * tgamma(kk+1)) );
                   }
                 }
               }
@@ -379,6 +383,46 @@ class jPoly
       {
         this->X = _X;
         jpoly<T>(X, Nx, Np, a, b, V);
+      }
+    }
+
+
+    void computeInterpCoeffs(T* F, T* X, T* Y, T* cF, unsigned int ncols, T* _V = nullptr)
+    {
+      if (this->dim == 2)
+      {
+        this->computeV(X,Y);
+        lapack_int rank[1];
+        if (std::is_same_v<T, double>)
+        {
+          double* S = (double*) calloc(Nx > Np ? Np : Nx, sizeof(double));
+          LAPACKE_dgelsd  ( LAPACK_COL_MAJOR, Nx, Np, ncols, 
+                            (double*) this->V, Nx,
+                            (double*) F, Nx, S, -1, rank );
+          if (_V) { cblas_dcopy(Nx*Np, (double*) this->V, 1, (double*) _V, 1); }
+          free(S);
+        }
+        else if (std::is_same_v<T, float>)
+        {
+          float* S = (float*) calloc(Nx > Np ? Np : Nx, sizeof(float));
+          LAPACKE_sgelsd  ( LAPACK_COL_MAJOR, Nx, Np, ncols, 
+                            (float*) this->V, Nx,
+                            (float*) F, Nx, S, -1, rank );
+          free(S);
+          if (_V) { cblas_scopy(Nx*Np, (float*) this->V, 1, (float*) _V, 1); }
+        }
+        for (unsigned int j = 0; j < ncols; ++j)
+        {
+          for (unsigned int i = 0; i < Np; ++i)
+          {
+            cF[i + Np*j] = F[i + Np*j];
+          }
+        }
+      }
+      else
+      {
+        std::cerr << "ERROR: Coefficient expansion is supported only for dim=2\n"; 
+        exit(1);
       }
     }
 

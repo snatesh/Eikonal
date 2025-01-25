@@ -64,6 +64,7 @@ struct Triangulator
   vtkSmartPointer<vtkImageInterpolator> interpolator; 
   vtkSmartPointer<vtkPolyData> polytri, polytri1, polytri2, polytri3; 
   vtkSmartPointer<vtkPolyData> polyBbox;
+  vtkSmartPointer<vtkPoints> pixels;
   
   std::string trix, triy, triw; 
   
@@ -123,11 +124,14 @@ struct Compressor
   jPoly<double>* Pm;
   double a, b, c;
   double totalBytes;
+  vtkSmartPointer<vtkImageData> imagedata;
+  vtkSmartPointer<vtkPoints> pixels;
   vtkSmartPointer<vtkImageInterpolator> interpolator; 
   vtkSmartPointer<vtkPolyData> polytri, polytri1, polytri2, polytri3; 
   vtkSmartPointer<vtkDoubleArray> coeffs, coeffs1, coeffs2, coeffs3;
   vtkSmartPointer<vtkIntArray> offsets, offsets1, offsets2, offsets3, celltypes;
   vtkSmartPointer<vtkUnsignedIntArray> orders, orders1, orders2, orders3;
+  vtkSmartPointer<vtkCellTreeLocator> triloc;
   legQuad<double>* legq = 0; 
   double ave0, ave1, ave2;
   double stdev0, stdev1, stdev2;
@@ -141,6 +145,11 @@ struct Compressor
                               vtkSmartPointer<vtkIntArray> offsets,
                               vtkSmartPointer<vtkUnsignedIntArray> orders,
                               double& ave, double& stdev);
+  void compressChannel_alt_help ( vtkSmartPointer<vtkPolyData> polytri,
+                                  vtkSmartPointer<vtkDoubleArray> coeffs,
+                                  vtkSmartPointer<vtkIntArray> offsets,
+                                  vtkSmartPointer<vtkUnsignedIntArray> orders,
+                                  double& ave, double& stdev  );
   void smoothCoeffs ( );
   void pruneCoeffs ( );
   void smoothCoeffs_alt ( );
