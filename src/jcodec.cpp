@@ -1367,8 +1367,25 @@ void Compressor::compressChannel_alt1_help  ( vtkSmartPointer<vtkPolyData> polyt
   ave[0] /= Mtot;
   ave[1] /= Mtot;
   ave[2] /= Mtot;
+  offset = 0;
+  for (int i = 0; i < polytri->GetNumberOfCells(); ++i)
+  {
+    for (unsigned int j = 0; j < Mmax; ++j)
+    {
+      coeffs->GetTuple(offset+j, coeff);
+      stdev[0] += std::pow(std::abs(coeff[0])-ave[0], 2.0);
+      stdev[1] += std::pow(std::abs(coeff[1])-ave[1], 2.0);
+      stdev[2] += std::pow(std::abs(coeff[2])-ave[2], 2.0);
+    }
+    offset += Mmax;
+  }
+
+  stdev[0] = std::sqrt(stdev[0] / Mtot); 
+  stdev[1] = std::sqrt(stdev[1] / Mtot); 
+  stdev[2] = std::sqrt(stdev[2] / Mtot); 
 
   std::cout << ave[0] << " " << ave[1] << " " << ave[2] << std::endl; 
+  std::cout << stdev[0] << " " << stdev[1] << " " << stdev[2] << std::endl;
  
   free(cimg);
   free(interpall);
@@ -1773,8 +1790,8 @@ void Compressor::compressChannel  ( unsigned int channel )
     orders->SetNumberOfTuples(polytri->GetNumberOfCells());
     coeffs->SetName("coeffs");
     coeffs->SetNumberOfComponents(3);
-    compressChannel_help ( polytri, coeffs, offsets, orders, aves, stdevs );
-    //compressChannel_alt1_help ( polytri, coeffs, offsets, orders, aves, stdevs );
+    //compressChannel_help ( polytri, coeffs, offsets, orders, aves, stdevs );
+    compressChannel_alt1_help ( polytri, coeffs, offsets, orders, aves, stdevs );
     //compressChannel_alt_help ( polytri, coeffs, offsets, orders, aves, stdevs );
     pruneCoeffs();
   }
@@ -3231,6 +3248,8 @@ void Decompressor::decompressChannel_help ( unsigned int channel,
   int offset, npix, subid;
   unsigned int m, M;
   unsigned short color;
+  double cimg_dub;
+  using half_float::half;
   for (it = pixInTri.begin(); it != pixInTri.end(); ++it)
   {
     // get tri verts
@@ -3292,7 +3311,8 @@ void Decompressor::decompressChannel_help ( unsigned int channel,
         // copy correct channel coeffs
         for (unsigned int i = 0; i < M; ++i)
         {
-          cimg[i] = coeffs->GetComponent(offset+i, ichannel);
+          cimg_dub = coeffs->GetComponent(offset+i, ichannel);
+          cimg[i] = static_cast<double>(half(cimg_dub));
         }
         // evaluate image over ref tri;
         cblas_dgemv ( CblasColMajor, CblasNoTrans, 
