@@ -156,7 +156,7 @@ struct eikonal
       this->Ly          = (double*) calloc(Np*Np, sizeof(double));
       this->Wx          = (double*) calloc(Np*Np, sizeof(double));
       this->Wy          = (double*) calloc(Np*Np, sizeof(double));
-      this->polya1b1c1->computeCoeffs(fu, X, Y, W, cu);
+      this->polya1b1c1->computeCoeffs(fu, X, Y, W, cu, 1);
 
     }
     if (not this->weighted)
@@ -191,12 +191,12 @@ struct eikonal
       this->Dy0           = (double*) calloc(Np*Np, sizeof(double));
     }
     unsigned int dimS = Ne;
-    this->polyabc->computeCoeffs(frhs, X, Y, W, crhs0);
+    this->polyabc->computeCoeffs(frhs, X, Y, W, crhs0, 1);
     this->Dx            = (double*) calloc(Np*Np, sizeof(double));
     this->Dy            = (double*) calloc(Np*Np, sizeof(double));
     if (not this->unconstrained)
     {
-      this->polyabc->computeCoeffs(fu, X, Y, W, cu);
+      this->polyabc->computeCoeffs(fu, X, Y, W, cu, 1);
     }
 
     sFactors(n+2, a, b, c, Habc);  

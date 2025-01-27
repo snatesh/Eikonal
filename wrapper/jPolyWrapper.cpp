@@ -36,7 +36,7 @@ extern "C"
                         double* cF, 
                         double* V )
   {
-    poly->computeCoeffs(F, X, Y, W, cF, V);
+    poly->computeCoeffs(F, X, Y, W, cF, 1, V);
   }
 
   unsigned int getNp(jPoly<double>* poly)

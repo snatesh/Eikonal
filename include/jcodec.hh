@@ -133,8 +133,8 @@ struct Compressor
   vtkSmartPointer<vtkUnsignedIntArray> orders, orders1, orders2, orders3;
   vtkSmartPointer<vtkCellTreeLocator> triloc;
   legQuad<double>* legq = 0; 
-  double ave0, ave1, ave2;
-  double stdev0, stdev1, stdev2;
+  double aves[3], ave0, ave1, ave2;
+  double stdevs[3], stdev0, stdev1, stdev2;
  
   Compressor  ( Triangulator* T , unsigned int order );
 
@@ -145,11 +145,21 @@ struct Compressor
                               vtkSmartPointer<vtkIntArray> offsets,
                               vtkSmartPointer<vtkUnsignedIntArray> orders,
                               double& ave, double& stdev);
+  void compressChannel_help ( vtkSmartPointer<vtkPolyData> polytri,
+                              vtkSmartPointer<vtkDoubleArray> coeffs,
+                              vtkSmartPointer<vtkIntArray> offsets,
+                              vtkSmartPointer<vtkUnsignedIntArray> orders,
+                              double* ave, double* stdev);
   void compressChannel_alt_help ( vtkSmartPointer<vtkPolyData> polytri,
                                   vtkSmartPointer<vtkDoubleArray> coeffs,
                                   vtkSmartPointer<vtkIntArray> offsets,
                                   vtkSmartPointer<vtkUnsignedIntArray> orders,
-                                  double& ave, double& stdev  );
+                                  double* ave, double* stdev  );
+  void compressChannel_alt1_help  ( vtkSmartPointer<vtkPolyData> polytri,
+                                    vtkSmartPointer<vtkDoubleArray> coeffs,
+                                    vtkSmartPointer<vtkIntArray> offsets,
+                                    vtkSmartPointer<vtkUnsignedIntArray> orders,
+                                    double* ave, double* stdev  );
   void smoothCoeffs ( );
   void pruneCoeffs ( );
   void smoothCoeffs_alt ( );

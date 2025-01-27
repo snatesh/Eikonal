@@ -43,7 +43,26 @@
 #include <filesystem>
 #include <fstream>
 #include <half.hpp>
+#include <array>
+#include <unordered_set>
 #include <algorithm>
+struct ArrayHash {
+    std::size_t operator()(const std::array<double, 2>& arr) const {
+        std::size_t h1 = std::hash<double>{}(arr[0]);
+        std::size_t h2 = std::hash<double>{}(arr[1]);
+        return h1 ^ (h2 << 1); // Simple way to combine hashes
+    }
+};
+
+// Define a custom equality operator for std::array<double, 2>
+struct ArrayEqual {
+    bool operator()(const std::array<double, 2>& lhs, const std::array<double, 2>& rhs) const {
+        return lhs[0] == rhs[0] && lhs[1] == rhs[1];
+    }
+};
+
+
+
 vtkSmartPointer<vtkDelaunay2D> triangulateUniform ( int* dims, 
                                                     double* origin,
                                                     unsigned int nSamp, 
@@ -350,9 +369,9 @@ void Triangulator::triangulateEntropyGreedyL2J_help  ( double* interr, vtkSmartP
       interpc[j + 2*N] = interpc_cpy[2];
     }
     // coefficients of interpolated data in each channel
-    Pm->computeCoeffs(interpc, X, Y, W, cimg);
-    Pm->computeCoeffs(interpc+N, X, Y, W, cimg+M);
-    Pm->computeCoeffs(interpc+2*N, X, Y, W, cimg+2*M);
+    Pm->computeCoeffs(interpc, X, Y, W, cimg, 1);
+    Pm->computeCoeffs(interpc+N, X, Y, W, cimg+M, 1);
+    Pm->computeCoeffs(interpc+2*N, X, Y, W, cimg+2*M, 1);
     // check error in coefficient expansion
     cblas_dgemm ( CblasColMajor, CblasNoTrans, CblasNoTrans,
                   N, 3, M, 1.0, Pm->V, N, cimg, M, 0.0, interpc_jacobi, N ); 
@@ -396,9 +415,9 @@ void Triangulator::triangulateEntropyGreedyL1J_help  ( double* interr, vtkSmartP
       interpc[j + 2*N] = interpc_cpy[2];
     }
     // coefficients of interpolated data in each channel
-    Pm->computeCoeffs(interpc, X, Y, W, cimg);
-    Pm->computeCoeffs(interpc+N, X, Y, W, cimg+M);
-    Pm->computeCoeffs(interpc+2*N, X, Y, W, cimg+2*M);
+    Pm->computeCoeffs(interpc, X, Y, W, cimg, 1);
+    Pm->computeCoeffs(interpc+N, X, Y, W, cimg+M, 1);
+    Pm->computeCoeffs(interpc+2*N, X, Y, W, cimg+2*M, 1);
     // check error in coefficient expansion
     cblas_dgemm ( CblasColMajor, CblasNoTrans, CblasNoTrans,
                   N, 3, M, 1.0, Pm->V, N, cimg, M, 0.0, interpc_jacobi, N ); 
@@ -474,9 +493,9 @@ void Triangulator::triangulateEntropyGreedyL1P_help  ( double* interr, vtkSmartP
       interpc[j + 2*N] = interpc_cpy[2];
     }
     // coefficients of interpolated data in each channel
-    this->Pm->computeCoeffs(interpc, X, Y, W, cimg);
-    this->Pm->computeCoeffs(interpc+N, X, Y, W, cimg+M);
-    this->Pm->computeCoeffs(interpc+2*N, X, Y, W, cimg+2*M);
+    this->Pm->computeCoeffs(interpc, X, Y, W, cimg, 1);
+    this->Pm->computeCoeffs(interpc+N, X, Y, W, cimg+M, 1);
+    this->Pm->computeCoeffs(interpc+2*N, X, Y, W, cimg+2*M, 1);
   
     // get pixels inside current triangle,
     // get ref img colors
@@ -545,7 +564,7 @@ double Triangulator::triangulateEntropyNoGrad_help  ( double* intgn, unsigned in
     polytri->GetPoints()->GetPoint(ptids->GetId(2), v3t);
     areaT = vtkTriangle::TriangleArea(v1t, v2t, v3t);
     // coefficients of interpolated data in channel
-    Pm->computeCoeffs(interpc, X, Y, W, cimg);
+    Pm->computeCoeffs(interpc, X, Y, W, cimg, 1);
     // check error in coefficient expansion
     cblas_dgemv(CblasColMajor, CblasNoTrans, N, M, 1.0, Pm->V, N, cimg, 1, 0.0, interpc_jacobi, 1);
 
@@ -623,7 +642,7 @@ double Triangulator::triangulateEntropy_help  ( double* intgn, unsigned int chan
     invIxe[2] = -(v3t[0] - v1t[0]); 
     invIxe[3] = v2t[0] - v1t[0];
     // coefficients of interpolated data in channel
-    Pm->computeCoeffs(interpc, X, Y, W, cimg);
+    Pm->computeCoeffs(interpc, X, Y, W, cimg, 1);
     // coefficients of xy derivatives of interpolated data in channel
     cblas_dgemv(CblasColMajor, CblasNoTrans, M, M, 1.0, Dx, M, cimg, 1, 0.0, cdimg, 1);
     cblas_dgemv(CblasColMajor, CblasNoTrans, M, M, 1.0, Dy, M, cimg, 1, 0.0, cdimg+M, 1);
@@ -898,15 +917,15 @@ vtkSmartPointer<vtkDelaunay2D> Triangulator::triangulateEntropy ( double* intgn,
       locator->InsertUniquePoint(v2t, ptid);  
       locator->InsertUniquePoint(v3t, ptid);
     }
-    //else if (intgn[icell] >= ave_gn + 1.5*stdev_gn)
-    //{
-    //  polytri->GetCell(icell)->EvaluateLocation(subid, v1r, v1t, tmpwts);
-    //  polytri->GetCell(icell)->EvaluateLocation(subid, v2r, v2t, tmpwts);
-    //  polytri->GetCell(icell)->EvaluateLocation(subid, v3r, v3t, tmpwts);
-    //  locator->InsertUniquePoint(v1t, ptid);  
-    //  locator->InsertUniquePoint(v2t, ptid);  
-    //  locator->InsertUniquePoint(v3t, ptid);
-    //}
+    else if (intgn[icell] >= ave_gn)
+    {
+      polytri->GetCell(icell)->EvaluateLocation(subid, v1r, v1t, tmpwts);
+      polytri->GetCell(icell)->EvaluateLocation(subid, v2r, v2t, tmpwts);
+      polytri->GetCell(icell)->EvaluateLocation(subid, v3r, v3t, tmpwts);
+      locator->InsertUniquePoint(v1t, ptid);  
+      locator->InsertUniquePoint(v2t, ptid);  
+      locator->InsertUniquePoint(v3t, ptid);
+    }
   } 
 
   vtkSmartPointer<vtkPointSet> pointSet0 = vtkSmartPointer<vtkPointSet>::New();
@@ -933,7 +952,7 @@ vtkSmartPointer<vtkDelaunay2D> Triangulator::triangulateEntropy ( double* intgn,
   xstart = 0; ystart = 0;
   xend = dims[0]-1; yend = dims[1]-1;
   vtkSmartPointer<vtkCellArray> bboxCells = vtkSmartPointer<vtkCellArray>::New();
-  std::cout << locator->GetNumberOfPoints() << std::endl;
+
   for (unsigned int iline = 0; iline < polybbox->GetNumberOfCells(); ++iline)
   {
     vtkSmartPointer<vtkLine> bboxLines = vtkSmartPointer<vtkLine>::New();
@@ -1022,7 +1041,7 @@ vtkSmartPointer<vtkDelaunay2D> Triangulator::triangulateEntropy ( double* intgn,
     bboxLines->GetPointIds()->SetId(1,linept1);
     bboxCells->InsertNextCell(bboxLines);
   }
-  std::cout << locator->GetNumberOfPoints() << std::endl;
+
 
   polyBbox->Initialize();
   polyBbox->SetLines(bboxCells);
@@ -1162,12 +1181,12 @@ Compressor::Compressor  ( Triangulator* T, unsigned int order)
   this->R = (double*) calloc(this->N, sizeof(double));
   this->S = (double*) calloc(this->N, sizeof(double));
   this->W = (double*) calloc(this->N, sizeof(double));
-  this->interpc = (double*) calloc(this->N, sizeof(double));
+  this->interpc = (double*) calloc(this->N*3, sizeof(double));
   this->a = T->a; this->b = T->b; this->c = T->c;
   this->Pm = new jPoly<double>(N, morder, a, b, c, nthreads); 
   this->Mmax = Pm->Np;
   // storage buffer for img coefs
-  this->cimg = (double*) calloc(Mmax, sizeof(double)); 
+  this->cimg = (double*) calloc(3 * Mmax, sizeof(double)); 
   readQuad(trix, triy, triw, N, R, S, W);
 }
 
@@ -1182,22 +1201,195 @@ Compressor::~Compressor()
   if (cimg) { free(cimg); cimg = 0; }
 }
 
-
-void Compressor::compressChannel_alt_help ( vtkSmartPointer<vtkPolyData> polytri,
-                                            vtkSmartPointer<vtkDoubleArray> coeffs,
-                                            vtkSmartPointer<vtkIntArray> offsets,
-                                            vtkSmartPointer<vtkUnsignedIntArray> orders,
-                                            double& ave, double& stdev  )
+void Compressor::compressChannel_alt1_help  ( vtkSmartPointer<vtkPolyData> polytri,
+                                              vtkSmartPointer<vtkDoubleArray> coeffs,
+                                              vtkSmartPointer<vtkIntArray> offsets,
+                                              vtkSmartPointer<vtkUnsignedIntArray> orders,
+                                              double* ave, double* stdev  )
 {
   if (useMultiChannel)
   {
     std::cerr << "Not supported for separate triangulations per channel\n";
     exit(1);
   }
-  
-  int offset = 0; ave = 0; stdev = 0;
 
+  unsigned int N = this->N, buff = 50;
+  double* X = (double*) calloc(N+buff, sizeof(double)); 
+  double* Y = (double*) calloc(N+buff, sizeof(double)); 
+  unsigned int nx = static_cast<unsigned int>(std::floor(std::sqrt(2*N)));
+  double* x = (double*) calloc(nx, sizeof(double));
+  double xstride = 1.0 / (nx - 1);
+  for (unsigned int j = 0; j < nx; ++j) { x[j] = j * xstride; }
+  // bottom
+  for (unsigned int j = 0; j < nx; ++j) { X[j] = x[j]; }
+  // left
+  for (unsigned int j = nx+1; j < 2*nx; ++j) { Y[j-1] = x[j-nx]; }
+  // hyp
+  for (unsigned int j = 2*nx; j < (3*nx-2); ++j)
+  {
+    X[j-1] = x[j-2*nx+1];
+    Y[j-1] = 1 - X[j-1];
+  }
+  unsigned int Nbndry = nx + (nx-1) + (nx-2);
+  unsigned int Nremain = N-Nbndry;
+  unsigned int ipt = 1;
+  double xx, yy;
+  while (ipt < Nremain)
+  {
+    for (unsigned int ii = 1; ii < nx-1; ++ii)
+    {
+      for (unsigned int jj = 1; jj < nx-1; ++jj)
+      {
+        xx = x[ii]; yy = x[jj];
+        if (yy < 1-xx)
+        {
+          X[ipt+Nbndry-1] = xx;
+          Y[ipt+Nbndry-1] = yy;
+          ipt += 1;
+        }
+      }
+    }
+  }
+ 
+ 
+  unsigned int Ntot = Nbndry + ipt - 1;
+
+  std::cout << Ntot << std::endl;
+  //FILE* file = fopen("test.txt", "w");
+  //for (unsigned int i = 0; i < Ntot; ++i)
+  //{
+  //  fprintf(file, "%.17g %17g\n", X[i], Y[i]);
+  //  std::cout << X[i] << " " << Y[i] << std::endl;
+  //}
+  //fclose(file);
+  
+  // allocate buffer for pixels in tri to ref 
+  double* interpall = (double*) calloc(3*Ntot, sizeof(double));
+  // large buffer jacobi interp op
+  jPoly<double>* Pm_buf = new jPoly<double>(Ntot, morder, a, b, c, 1); 
+  // storage for coeffs
+  unsigned int Mtot = polytri->GetNumberOfCells() * Mmax;
+  coeffs->SetNumberOfTuples(Mtot); 
   double* cimg = (double*) calloc(3*Mmax, sizeof(double)); 
+ 
+  // iterate over triangles
+  double tmpwts[3], dist2;
+  double color[3], coeff[3], offtup[3];
+  double mdub = static_cast<double>(morder);
+  double ordtup[3] = {mdub, mdub, mdub};
+  int npix, subid;
+  unsigned int m, M;
+  ave[0] = ave[1] = ave[2] = 0; 
+  stdev[0] = stdev[1] = stdev[2] = 0;
+  int offset = 0;
+  bool goodSol;
+  double xqtr[3], xqt[3]; xqtr[2] = 0; xqt[2] = 0;
+  double res[3] = {-1, -1, -1};
+  for (unsigned int i = 0; i < polytri->GetNumberOfCells(); ++i)
+  {
+    // interpolate pixel channel vals onto uniform sample points
+    for (unsigned int j = 0; j < Ntot; ++j) 
+    {
+      // get quad point in ref
+      xqtr[0] = X[j]; xqtr[1] = Y[j];
+      // map ref pt xqtr to tri point xqt
+      polytri->GetCell(i)->EvaluateLocation(subid, xqtr, xqt, tmpwts);
+      interpolator->Interpolate(xqt, color);
+      interpall[j] = color[0];
+      interpall[j + Ntot] = color[1];
+      interpall[j + 2*Ntot] = color[2]; 
+    }
+
+    goodSol = Pm_buf->computeInterpCoeffs(interpall, X, Y, cimg, 3, res);
+    if (not goodSol)
+    {
+      // interpolate pixel channel vals onto quadrature points
+      for (unsigned int j = 0; j < N; ++j) 
+      {
+        // get quad point in ref
+        xqtr[0] = R[j]; xqtr[1] = S[j];
+        // map ref pt xqtr to tri point xqt
+        polytri->GetCell(i)->EvaluateLocation(subid, xqtr, xqt, tmpwts);
+        interpolator->Interpolate(xqt, color);
+        interpall[j] = color[0];
+        interpall[j + N] = color[1];
+        interpall[j + 2*N] = color[2]; 
+      }
+      // if res = -1 (rank deficient), or all res for OD prob are too large
+      if (res[0] > 1e-7 && res[1] > 1e-7 && res[2] > 1e-7)
+      {
+        this->Pm->computeCoeffs(interpall, R, S, W, cimg, 3);
+      }
+      // last channel sol was fine
+      else if (res[0] > 1e-7 && res[1] > 1e-7)
+      {
+        this->Pm->computeCoeffs(interpall, R, S, W, cimg, 2);
+      }
+      // if middle channel sol was fine
+      else if (res[0] > 1e-7 && res[2] > 1e-7)
+      {
+        this->Pm->computeCoeffs(interpall, R, S, W, cimg, 1);
+        this->Pm->computeCoeffs(interpall+2*N, R, S, W, cimg+2*Mmax, 1);
+      }
+      // if last two channel sols are fine
+      else if (res[0] > 1e-7)
+      {
+        this->Pm->computeCoeffs(interpall, R, S, W, cimg, 1);
+      }
+      // if first and last channel sols are fine
+      else if (res[1] > 1e-7)
+      {
+        this->Pm->computeCoeffs(interpall+N, R, S, W, cimg+Mmax, 1);
+      }
+      // if first and second channel sols are fine
+      else if (res[2] > 1e-7)
+      {
+        this->Pm->computeCoeffs(interpall+2*N, R, S, W, cimg+2*Mmax, 1); 
+      }
+    }
+
+  
+    for (unsigned int j = 0; j < Mmax; ++j)
+    {
+      coeff[0] = cimg[j]; 
+      coeff[1] = cimg[j+Mmax]; 
+      coeff[2] = cimg[j+2*Mmax];
+      coeffs->SetTuple(offset+j, coeff);
+      ave[0] += std::abs(coeff[0]);
+      ave[1] += std::abs(coeff[1]);
+      ave[2] += std::abs(coeff[2]);
+    }   
+    offtup[0] = offtup[1] = offtup[2] = offset; 
+    offsets->SetTuple(i, offtup);
+    orders->SetTuple(i, ordtup);
+    offset += Mmax;
+  }
+  ave[0] /= Mtot;
+  ave[1] /= Mtot;
+  ave[2] /= Mtot;
+
+  std::cout << ave[0] << " " << ave[1] << " " << ave[2] << std::endl; 
+ 
+  free(cimg);
+  free(interpall);
+  free(X);
+  free(Y);
+  free(x);
+  delete Pm_buf;
+}
+
+void Compressor::compressChannel_alt_help ( vtkSmartPointer<vtkPolyData> polytri,
+                                            vtkSmartPointer<vtkDoubleArray> coeffs,
+                                            vtkSmartPointer<vtkIntArray> offsets,
+                                            vtkSmartPointer<vtkUnsignedIntArray> orders,
+                                            double* ave, double* stdev  )
+{
+  if (useMultiChannel)
+  {
+    std::cerr << "Not supported for separate triangulations per channel\n";
+    exit(1);
+  }
+
 
   
   // build pix-tri map (pixInTri[j] are the pixels indices in triangle j)
@@ -1224,12 +1416,14 @@ void Compressor::compressChannel_alt_help ( vtkSmartPointer<vtkPolyData> polytri
 
   // allocate buffer for pixels in tri to ref 
   double* rspix = (double*) calloc(maxpix * 2, sizeof(double));  
-  double* img = (double*) calloc(maxpix, sizeof(double));
-  double* colors = (double*) calloc(3*maxpix, sizeof(double));
+  double* img = (double*) calloc(3*(maxpix > Mmax ? maxpix : Mmax), sizeof(double));
+  double* interpall = (double*) calloc(3*this->N, sizeof(double));
   // large buffer jacobi interp op
-  jPoly<double>* Pm = new jPoly<double>(maxpix, morder, a, b, c, 1); 
+  jPoly<double>* Pm_buf = new jPoly<double>(maxpix, morder, a, b, c, 1); 
   // storage for coeffs
-  coeffs->SetNumberOfTuples(polytri->GetNumberOfCells() * Mmax); 
+  unsigned int Mtot = polytri->GetNumberOfCells() * Mmax;
+  coeffs->SetNumberOfTuples(Mtot); 
+  double* cimg = (double*) calloc(3*Mmax, sizeof(double)); 
  
   // iterate over triangles
   double v1t[3], v2t[3], v3t[3], tmpwts[3], r[3], dist2;
@@ -1238,6 +1432,11 @@ void Compressor::compressChannel_alt_help ( vtkSmartPointer<vtkPolyData> polytri
   double ordtup[3] = {mdub, mdub, mdub};
   int npix, subid;
   unsigned int m, M;
+  ave[0] = ave[1] = ave[2] = 0; 
+  stdev[0] = stdev[1] = stdev[2] = 0;
+  int offset = 0;
+  bool goodSol;
+  double xqtr[3], xqt[3]; xqtr[2] = 0; xqt[2] = 0;
   for (it = pixInTri.begin(); it != pixInTri.end(); ++it)
   {
     // get tri verts
@@ -1250,41 +1449,158 @@ void Compressor::compressChannel_alt_help ( vtkSmartPointer<vtkPolyData> polytri
     // get pixels inside current triangle,
     // get colors at the pixel,
     // and get position in reference
-    npix = it->second.size(); 
+    npix = it->second.size();
     for (unsigned int i = 0; i < npix; ++i)
-    { 
+    {
       polytri->GetCell(it->first)->
         EvaluatePosition(pixels->GetPoint(it->second[i]), 
-                                          nullptr, 
-                                          subid, r, 
-                                          dist2, tmpwts);
+                         nullptr, subid, r, 
+                         dist2, tmpwts);
       rspix[i] = r[0]; rspix[i+npix] = r[1];
-      imagedata->GetPointData()->GetArray(0)->GetTuple(i, color);
-      colors[i] = color[0];
-      colors[i + npix] = color[1];
-      colors[i + 2*npix] = color[2];
+      imagedata->GetPointData()->GetArray(0)->GetTuple(it->second[i], color);
+      img[i] = color[0];
+      img[i + npix] = color[1];
+      img[i + 2*npix] = color[2];
     }
-    Pm->Nx = npix;
-    Pm->computeInterpCoeffs(colors, rspix, rspix+npix, cimg, 3); 
+    Pm_buf->Nx = npix;
+    goodSol = Pm_buf->computeInterpCoeffs(img, rspix, rspix+npix, cimg, 3);
+    /*  if we solved an underdetermined problem, a rank-deficient problem,
+        or if the residual norm of the overdetermined full-rank problem is too large, 
+           use quadrature to evaluate coeffs instead of lsq sol */
+    if (not goodSol)
+    {
+      // interpolate pixel channel vals onto quadrature points
+      for (unsigned int j = 0; j < N; ++j) 
+      {
+        // get quad point in ref
+        xqtr[0] = R[j]; xqtr[1] = S[j];
+        // map ref pt xqtr to tri point xqt
+        polytri->GetCell(it->first)->EvaluateLocation(subid, xqtr, xqt, tmpwts);
+        interpolator->Interpolate(xqt, color);
+        interpall[j] = color[0];
+        interpall[j + N] = color[1];
+        interpall[j + 2*N] = color[2]; 
+      }
+      this->Pm->computeCoeffs(interpall, R, S, W, cimg, 3);
+    }
     for (unsigned int j = 0; j < Mmax; ++j)
     {
-      coeff[0] = cimg[j];
-      coeff[1] = cimg[j+Mmax];
+      coeff[0] = cimg[j]; 
+      coeff[1] = cimg[j+Mmax]; 
       coeff[2] = cimg[j+2*Mmax];
       coeffs->SetTuple(offset+j, coeff);
+      ave[0] += std::abs(coeff[0]);
+      ave[1] += std::abs(coeff[1]);
+      ave[2] += std::abs(coeff[2]);
     }   
     offtup[0] = offtup[1] = offtup[2] = offset; 
     offsets->SetTuple(it->first, offtup);
     orders->SetTuple(it->first, ordtup);
     offset += Mmax;
   }
+  ave[0] /= Mtot;
+  ave[1] /= Mtot;
+  ave[2] /= Mtot;
+  //offset = 0;
+  //for (it = pixInTri.begin(); it != pixInTri.end(); ++it)
+  //{
+  //  for (unsigned int i = 0; i < Mmax; ++i)
+  //  {
+  //    coeffs->GetTuple(offset+i, coeff);
+  //    stdev[0] += std::pow(std::abs(coeff[0])-ave[0], 2.0);
+  //    stdev[1] += std::pow(std::abs(coeff[1])-ave[1], 2.0);
+  //    stdev[2] += std::pow(std::abs(coeff[2])-ave[2], 2.0);
+  //  }
+  //  offset += Mmax;
+  //}
+
+  //stdev[0] = std::sqrt(stdev[0] / Mtot); 
+  //stdev[1] = std::sqrt(stdev[1] / Mtot); 
+  //stdev[2] = std::sqrt(stdev[2] / Mtot); 
+
+  std::cout << ave[0] << " " << ave[1] << " " << ave[2] << std::endl; 
+ 
   free(rspix);
   free(img);
-  free(colors);
   free(cimg);
+  free(interpall);
+  delete Pm_buf;
 }
 
 
+void Compressor::compressChannel_help ( vtkSmartPointer<vtkPolyData> polytri,
+                                        vtkSmartPointer<vtkDoubleArray> coeffs,
+                                        vtkSmartPointer<vtkIntArray> offsets,
+                                        vtkSmartPointer<vtkUnsignedIntArray> orders,
+                                        double* ave, double* stdev)
+{
+  double tmpwts[3];
+  double color[3], coeff[3], offtup[3];
+  double xqtr[3], xqt[3]; xqtr[2] = 0; xqt[2] = 0;
+   
+  unsigned int Mtot = polytri->GetNumberOfCells() * Mmax;
+  coeffs->SetNumberOfTuples(Mtot); 
+  int offset = 0;
+  ave[0] = ave[1] = ave[2] = 0; 
+  stdev[0] = stdev[1] = stdev[2] = 0;
+  double mdub = static_cast<double>(morder);
+  double ordtup[3] = {mdub, mdub, mdub};
+  // loop over each triangle 
+  for (int i = 0; i < polytri->GetNumberOfCells(); ++i)
+  {
+    // interpolate pixel channel vals onto quadrature points
+    for (unsigned int j = 0; j < N; ++j) 
+    {
+      // get quad point in ref
+      xqtr[0] = R[j]; xqtr[1] = S[j];
+      // map ref pt xqtr to tri point xqt
+      polytri->GetCell(i)->EvaluateLocation(i, xqtr, xqt, tmpwts);
+      interpolator->Interpolate(xqt, color);
+      interpc[j] = color[0];
+      interpc[j + N] = color[1];
+      interpc[j + 2*N] = color[2]; 
+    }
+    Pm->computeCoeffs(interpc, R, S, W, cimg, 3);
+  
+    for (unsigned int j = 0; j < Mmax; ++j)
+    {
+      coeff[0] = cimg[j]; 
+      coeff[1] = cimg[j+Mmax]; 
+      coeff[2] = cimg[j+2*Mmax];
+      coeffs->SetTuple(offset+j, coeff);
+      ave[0] += std::abs(coeff[0]);
+      ave[1] += std::abs(coeff[1]);
+      ave[2] += std::abs(coeff[2]);
+    }   
+    offtup[0] = offtup[1] = offtup[2] = offset; 
+    offsets->SetTuple(i, offtup);
+    orders->SetTuple(i, ordtup);
+    offset += Mmax;
+  }
+  ave[0] /= Mtot;
+  ave[1] /= Mtot;
+  ave[2] /= Mtot;
+  offset = 0;
+  for (int i = 0; i < polytri->GetNumberOfCells(); ++i)
+  {
+    for (unsigned int j = 0; j < Mmax; ++j)
+    {
+      coeffs->GetTuple(offset+j, coeff);
+      stdev[0] += std::pow(std::abs(coeff[0])-ave[0], 2.0);
+      stdev[1] += std::pow(std::abs(coeff[1])-ave[1], 2.0);
+      stdev[2] += std::pow(std::abs(coeff[2])-ave[2], 2.0);
+    }
+    offset += Mmax;
+  }
+
+  stdev[0] = std::sqrt(stdev[0] / Mtot); 
+  stdev[1] = std::sqrt(stdev[1] / Mtot); 
+  stdev[2] = std::sqrt(stdev[2] / Mtot); 
+
+  std::cout << ave[0] << " " << ave[1] << " " << ave[2] << std::endl; 
+  std::cout << stdev[0] << " " << stdev[1] << " " << stdev[2] << std::endl;
+  
+}
 
 
 void Compressor::compressChannel_help ( unsigned int channel,
@@ -1313,19 +1629,12 @@ void Compressor::compressChannel_help ( unsigned int channel,
       polytri->GetCell(i)->EvaluateLocation(i, xqtr, xqt, tmpwts);
       interpc[j] = interpolator->Interpolate(xqt[0], xqt[1], xqt[2], channel);
     }
-    Pm->computeCoeffs(interpc, R, S, W, cimg);
-    //double ave = 0;
+    Pm->computeCoeffs(interpc, R, S, W, cimg, 1);
+    //Pm->computeInterpCoeffs(interpc, R, S, cimg, 1);
     for (unsigned int j = 0; j < M; ++j)
     {
       ave += std::abs(cimg[j]);
     }
-    //ave /= M;
-    //double stdev = 0;
-    for (unsigned int j = 0; j < M; ++j)
-    {
-      stdev += std::pow(std::abs(cimg[j])-ave,2.0);
-    }
-    //stdev = std::sqrt(stdev / M);
 
     if (useMultiChannel)
     {
@@ -1376,15 +1685,12 @@ void Compressor::compressChannel_help ( unsigned int channel,
   }
   unsigned int Mtot = M*polytri->GetNumberOfCells();
   ave /= Mtot;
-  stdev = std::sqrt(stdev / Mtot); 
 }
 
 void Compressor::pruneCoeffs ( )
 {
   unsigned int offset = 0;
   double coefftup[3];
-  double aves[3] = {ave0, ave1, ave2};
-  double stdevs[3] = {stdev0, stdev1, stdev2};
   unsigned int m = this->morder; 
   unsigned int M = static_cast<unsigned int>(0.5 * (m + 1) * (m + 2));
   for (int i = 0; i < polytri->GetNumberOfCells(); ++i)
@@ -1467,11 +1773,10 @@ void Compressor::compressChannel  ( unsigned int channel )
     orders->SetNumberOfTuples(polytri->GetNumberOfCells());
     coeffs->SetName("coeffs");
     coeffs->SetNumberOfComponents(3);
-    //compressChannel_help ( 0, polytri, coeffs, offsets, orders, ave0, stdev0 );
-    //compressChannel_help ( 1, polytri, coeffs, offsets, orders, ave1, stdev1 );
-    //compressChannel_help ( 2, polytri, coeffs, offsets, orders, ave2, stdev2 );
-    compressChannel_alt_help ( polytri, coeffs, offsets, orders, ave2, stdev2 );
-    //pruneCoeffs();
+    compressChannel_help ( polytri, coeffs, offsets, orders, aves, stdevs );
+    //compressChannel_alt1_help ( polytri, coeffs, offsets, orders, aves, stdevs );
+    //compressChannel_alt_help ( polytri, coeffs, offsets, orders, aves, stdevs );
+    pruneCoeffs();
   }
   
   polytri->GetFieldData()->AddArray(coeffs);
@@ -3317,7 +3622,7 @@ Triangulator* jcompress_triangulate ( const char* fname,
    vtkSmartPointer<vtkImageInterpolator> interpolator = 
     vtkSmartPointer<vtkImageInterpolator>::New();
   interpolator->Initialize(imagedata);
-  interpolator->SetInterpolationModeToNearest();
+  interpolator->SetInterpolationModeToCubic();
   
   // triangulate
   Triangulator* T = new Triangulator  ( N, m, a, b, c, nSamp, nRuns, 

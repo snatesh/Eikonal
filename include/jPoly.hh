@@ -387,35 +387,72 @@ class jPoly
     }
 
 
-    void computeInterpCoeffs(T* F, T* X, T* Y, T* cF, unsigned int ncols, T* _V = nullptr)
+    bool computeInterpCoeffs(T* F, T* X, T* Y, T* cF, unsigned int nrhs, T* res = nullptr, T* _V = nullptr)
     {
+      bool fullRankOrOD = true;
       if (this->dim == 2)
       {
         this->computeV(X,Y);
         lapack_int rank[1];
+        unsigned int ldb = Nx > Np ? Nx : Np;
         if (std::is_same_v<T, double>)
         {
           double* S = (double*) calloc(Nx > Np ? Np : Nx, sizeof(double));
-          LAPACKE_dgelsd  ( LAPACK_COL_MAJOR, Nx, Np, ncols, 
-                            (double*) this->V, Nx,
-                            (double*) F, Nx, S, -1, rank );
+          if (LAPACKE_dgelsd  ( LAPACK_COL_MAJOR, Nx, Np, nrhs, 
+                              (double*) this->V, Nx,
+                              (double*) F, ldb, S, -1, rank ))
+          {
+            std::cerr << "Error: LAPACK dGELSD\n";
+            fullRankOrOD = false;
+            return fullRankOrOD;
+          }
+
+          if (rank[0] < (Nx > Np ? Np : Nx) || Nx < Np)
+          {
+            fullRankOrOD = false;
+            return fullRankOrOD;
+            //std::cout << "GELSD: " << rank[0] << " " << (Nx > Np ? Np : Nx) << std::endl;
+          }
+          else
+          {
+            double res1, res2, res3;
+            res1 = cblas_dnrm2(Nx-Np, (double*) &F[Np], 1);
+            res2 = cblas_dnrm2(Nx-Np, (double*) &F[Np+Nx], 1);
+            res3 = cblas_dnrm2(Nx-Np, (double*) &F[Np+2*Nx], 1);
+            if (res1 > 1e-7 || res2 > 1e-7 || res3 > 1e-7)
+            {
+              fullRankOrOD = false;
+            }
+            if (res)
+            {
+              res[0] = res1; res[1] = res2; res[2] = res3;
+            }
+          }
           if (_V) { cblas_dcopy(Nx*Np, (double*) this->V, 1, (double*) _V, 1); }
           free(S);
         }
         else if (std::is_same_v<T, float>)
         {
           float* S = (float*) calloc(Nx > Np ? Np : Nx, sizeof(float));
-          LAPACKE_sgelsd  ( LAPACK_COL_MAJOR, Nx, Np, ncols, 
-                            (float*) this->V, Nx,
-                            (float*) F, Nx, S, -1, rank );
-          free(S);
+          if( LAPACKE_sgelsd  ( LAPACK_COL_MAJOR, Nx, Np, nrhs, 
+                              (float*) this->V, Nx,
+                              (float*) F, ldb, S, -1, rank ))
+          {
+            std::cerr << "Error: LAPACK sGELSD\n";
+          }
+          if (rank[0] <= (Nx > Np ? Np : Nx))
+          {
+            fullRankOrOD = false;
+            return fullRankOrOD;
+          }
           if (_V) { cblas_scopy(Nx*Np, (float*) this->V, 1, (float*) _V, 1); }
+          free(S);
         }
-        for (unsigned int j = 0; j < ncols; ++j)
+        for (unsigned int j = 0; j < nrhs; ++j)
         {
           for (unsigned int i = 0; i < Np; ++i)
           {
-            cF[i + Np*j] = F[i + Np*j];
+            cF[i + Np*j] = F[i + ldb*j];
           }
         }
       }
@@ -424,31 +461,40 @@ class jPoly
         std::cerr << "ERROR: Coefficient expansion is supported only for dim=2\n"; 
         exit(1);
       }
+      return fullRankOrOD;
     }
 
-    void computeCoeffs(T* F, T* X, T* Y, T* W, T* cF, T* _V = nullptr)
+    void computeCoeffs(T* F, T* X, T* Y, T* W, T* cF, unsigned int nrhs, T* _V = nullptr)
     {
       if (this->dim == 2)
       {
         this->computeV(X,Y);
-        #pragma omp simd
-        for (unsigned int i = 0; i < Nx; ++i)
+        for (unsigned int j = 0; j < nrhs; ++j)
         {
-          F[i] *= W[i];
+          for (unsigned int i = 0; i < Nx; ++i)
+          {
+            F[i + Nx*j] *= W[i];
+          }
         }
         if (std::is_same_v<T, double>)
         {
-          cblas_dgemv ( CblasColMajor, CblasTrans,
-                        Nx, Np, 1.0, (double*) this->V, Nx, (double*) F, 1, 0.0, (double*) cF, 1);
+          cblas_dgemm ( CblasColMajor, CblasTrans, CblasNoTrans,
+                        Np, nrhs, Nx, 1.0, (double*) this->V, Nx,
+                        (double*) F, Nx, 0.0, (double*) cF, Np );
+
+          //cblas_dgemv ( CblasColMajor, CblasTrans,
+          //              Nx, Np, 1.0, (double*) this->V, Nx, (double*) F, 1, 0.0, (double*) cF, 1);
           if (_V) { cblas_dcopy(Nx*Np, (double*) this->V, 1, (double*) _V, 1); }
         }
         else if (std::is_same_v<T, float>)
         {
-          cblas_sgemv ( CblasColMajor, CblasTrans,
-                        Nx, Np, 1.0, (float*) this->V, Nx, (float*) F, 1, 0.0, (float*) cF, 1);
+          cblas_sgemm ( CblasColMajor, CblasTrans, CblasNoTrans,
+                        Np, nrhs, Nx, 1.0, (float*) this->V, Nx,
+                        (float*) F, Nx, 0.0, (float*) cF, Np );
+          //cblas_sgemv ( CblasColMajor, CblasTrans,
+          //              Nx, Np, 1.0, (float*) this->V, Nx, (float*) F, 1, 0.0, (float*) cF, 1);
           if (_V) { cblas_scopy(Nx*Np, (float*) this->V, 1, (float*) _V, 1); }
         }
-
       }
       else
       {
