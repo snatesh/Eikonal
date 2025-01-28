@@ -37,6 +37,13 @@
 #include <vtkZLibDataCompressor.h>
 #include <vtkSTLWriter.h>
 #include <vtkDataSetWriter.h>
+#include <vtkImageGaussianSmooth.h>
+#include <vtkImageFFT.h>
+#include <vtkImageMagnitude.h>
+#include <vtkImageToStructuredGrid.h>
+#include <vtkImageFourierCenter.h>
+#include <vtkImageLogarithmicScale.h>
+#include <vtkStructuredGridWriter.h>
 #include <map>
 #include <vector>
 #include <timer.hh>
@@ -46,22 +53,8 @@
 #include <array>
 #include <unordered_set>
 #include <algorithm>
-struct ArrayHash {
-    std::size_t operator()(const std::array<double, 2>& arr) const {
-        std::size_t h1 = std::hash<double>{}(arr[0]);
-        std::size_t h2 = std::hash<double>{}(arr[1]);
-        return h1 ^ (h2 << 1); // Simple way to combine hashes
-    }
-};
 
-// Define a custom equality operator for std::array<double, 2>
-struct ArrayEqual {
-    bool operator()(const std::array<double, 2>& lhs, const std::array<double, 2>& rhs) const {
-        return lhs[0] == rhs[0] && lhs[1] == rhs[1];
-    }
-};
-
-
+using half_float::half;
 
 vtkSmartPointer<vtkDelaunay2D> triangulateUniform ( int* dims, 
                                                     double* origin,
@@ -212,6 +205,7 @@ Triangulator::Triangulator  ( unsigned int _N, unsigned int _m,
     // create a polydata instance of the bounding box
     this->polyBbox = vtkSmartPointer<vtkPolyData>::New();
     polyBbox->SetLines(bboxCells);
+
   }
 
 Triangulator::Triangulator  ( unsigned int _N, unsigned int _m,
@@ -260,7 +254,7 @@ Triangulator::Triangulator  ( unsigned int _N, unsigned int _m,
     this->interpc_jacobi = (double*) calloc(N, sizeof(double));
     
     // read the image
-    this->imagedata = _imagedata;
+    this->imagedata = smoothImage(_imagedata);
     this->pixels = imagedata->GetPoints();
     imagedata->GetDimensions(this->dims);
     this->Npix = dims[0]*dims[1];
@@ -311,6 +305,18 @@ Triangulator::Triangulator  ( unsigned int _N, unsigned int _m,
       this->polytri2->DeepCopy(polytri);
       this->polytri3->DeepCopy(polytri);
     }
+    vtkSmartPointer<vtkImageData> fftimg = imageFFT(_imagedata);
+    vtkSmartPointer<vtkImageToStructuredGrid> sgrid 
+      = vtkSmartPointer<vtkImageToStructuredGrid>::New();
+    sgrid->SetInputData(fftimg);
+    sgrid->Update();
+    vtkSmartPointer<vtkStructuredGridWriter> gridwriter
+      = vtkSmartPointer<vtkStructuredGridWriter>::New();
+    gridwriter->SetInputData(sgrid->GetOutput());
+    gridwriter->SetFileName("FFT.vtk");
+    gridwriter->SetFileTypeToBinary();
+    gridwriter->Write();
+    
   }
 
 Triangulator::~Triangulator()
@@ -1247,7 +1253,9 @@ void Compressor::compressChannel_alt1_help  ( vtkSmartPointer<vtkPolyData> polyt
           Y[ipt+Nbndry-1] = yy;
           ipt += 1;
         }
+        if (ipt > Nremain) { break; }
       }
+      if (ipt > Nremain) { break; }
     }
   }
  
@@ -1255,13 +1263,12 @@ void Compressor::compressChannel_alt1_help  ( vtkSmartPointer<vtkPolyData> polyt
   unsigned int Ntot = Nbndry + ipt - 1;
 
   std::cout << Ntot << std::endl;
-  //FILE* file = fopen("test.txt", "w");
-  //for (unsigned int i = 0; i < Ntot; ++i)
-  //{
-  //  fprintf(file, "%.17g %17g\n", X[i], Y[i]);
-  //  std::cout << X[i] << " " << Y[i] << std::endl;
-  //}
-  //fclose(file);
+  FILE* file = fopen("test.txt", "w");
+  for (unsigned int i = 0; i < Ntot; ++i)
+  {
+    fprintf(file, "%.17g %17g\n", X[i], Y[i]);
+  }
+  fclose(file);
   
   // allocate buffer for pixels in tri to ref 
   double* interpall = (double*) calloc(3*Ntot, sizeof(double));
@@ -1303,6 +1310,7 @@ void Compressor::compressChannel_alt1_help  ( vtkSmartPointer<vtkPolyData> polyt
     goodSol = Pm_buf->computeInterpCoeffs(interpall, X, Y, cimg, 3, res);
     if (not goodSol)
     {
+      std::cout << "bad sol" << std::endl;
       // interpolate pixel channel vals onto quadrature points
       for (unsigned int j = 0; j < N; ++j) 
       {
@@ -1790,8 +1798,8 @@ void Compressor::compressChannel  ( unsigned int channel )
     orders->SetNumberOfTuples(polytri->GetNumberOfCells());
     coeffs->SetName("coeffs");
     coeffs->SetNumberOfComponents(3);
-    //compressChannel_help ( polytri, coeffs, offsets, orders, aves, stdevs );
-    compressChannel_alt1_help ( polytri, coeffs, offsets, orders, aves, stdevs );
+    compressChannel_help ( polytri, coeffs, offsets, orders, aves, stdevs );
+    //compressChannel_alt1_help ( polytri, coeffs, offsets, orders, aves, stdevs );
     //compressChannel_alt_help ( polytri, coeffs, offsets, orders, aves, stdevs );
     pruneCoeffs();
   }
@@ -3249,7 +3257,6 @@ void Decompressor::decompressChannel_help ( unsigned int channel,
   unsigned int m, M;
   unsigned short color;
   double cimg_dub;
-  using half_float::half;
   for (it = pixInTri.begin(); it != pixInTri.end(); ++it)
   {
     // get tri verts
@@ -3440,20 +3447,30 @@ void writeTri(vtkSmartPointer<vtkPolyData> polytri, const char* pref)
   vtkSmartPointer<vtkPoints> points = polytri->GetPoints();
   int npts = points->GetNumberOfPoints();
   int ncells = polytri->GetNumberOfCells();
-  int szpts = npts*3;
+  int szpts = npts*2;
   int szcells = ncells*3;
   float* ptsbuffer = (float*) calloc(szpts, sizeof(float));
+  half* ptsbuffer_half = (half*) calloc(szpts, sizeof(half));
   unsigned int* cellbuffer 
     = (unsigned int*) calloc(szcells, sizeof(unsigned int)); 
   double pt[3];
   for (int ipt = 0; ipt < npts; ++ipt)
   {
     points->GetPoint(ipt, pt);
-    for (int j = 0; j < 3; ++j)
+    for (int j = 0; j < 2; ++j)
     {
       ptsbuffer[ipt + npts*j] = static_cast<float>(pt[j]); 
+      ptsbuffer_half[ipt + npts*j] = half(pt[j]); 
     }
   }
+
+  float diff = 0, fltptsnrm = 0;
+  for (unsigned int ipt = 0; ipt < npts*2; ++ipt)
+  {
+    diff += std::pow(ptsbuffer[ipt] - static_cast<float>(ptsbuffer_half[ipt]), 2.0);
+    fltptsnrm += std::pow(ptsbuffer[ipt], 2.0);
+  }
+  std::cout << "Absolute error: pts float vs half " << std::sqrt(diff/fltptsnrm) << std::endl;  
 
   std::cout << "pts dim: " << npts << " x " << 3 << std::endl;
 
@@ -3474,7 +3491,7 @@ void writeTri(vtkSmartPointer<vtkPolyData> polytri, const char* pref)
   pfile = fopen(ptsname.c_str(), "wb");
   cfile = fopen(cellname.c_str(), "wb");
 
-  size_t nelmpts = fwrite(ptsbuffer, sizeof(float), szpts, pfile);  
+  size_t nelmpts = fwrite(ptsbuffer_half, sizeof(half), szpts, pfile);  
   size_t nelmcells = fwrite(cellbuffer, sizeof(unsigned int), szcells, cfile);  
   if (nelmpts != szpts)
   {
@@ -3490,6 +3507,7 @@ void writeTri(vtkSmartPointer<vtkPolyData> polytri, const char* pref)
   }
   fclose(pfile); fclose(cfile);
   free(ptsbuffer);
+  free(ptsbuffer_half);
   free(cellbuffer);
 }
 
@@ -3516,9 +3534,6 @@ void writeSTL(vtkSmartPointer<vtkPolyData> polytri, const char* ofname)
 
 void writeCoeffs(vtkSmartPointer<vtkPolyData> polytri, const char* ofname)
 {
-
-  using half_float::half;
-  
   vtkSmartPointer<vtkIntArray> offsets 
     = vtkIntArray::SafeDownCast(polytri->GetCellData()->GetAbstractArray(0));
   vtkSmartPointer<vtkUnsignedIntArray> orders 
@@ -3565,6 +3580,61 @@ void writeCoeffs(vtkSmartPointer<vtkPolyData> polytri, const char* ofname)
   }
   fclose(ofile);
   free(coeffsbuffer);
+}
+
+vtkSmartPointer<vtkImageData> imageFFT  ( vtkSmartPointer<vtkImageData> imagedata)
+{
+  vtkSmartPointer<vtkImageFFT> fft = vtkSmartPointer<vtkImageFFT>::New();
+  fft->SetInputData(imagedata);
+  fft->Update();
+  
+  //vtkSmartPointer<vtkImageMagnitude> magnitude
+  //  = vtkSmartPointer<vtkImageMagnitude>::New();
+  //magnitude->SetInputData(fft->GetOutput());
+  //magnitude->Update();
+  
+  //vtkSmartPointer<vtkImageFourierCenter> center 
+  //  = vtkSmartPointer<vtkImageFourierCenter>::New();
+  //center->SetInputData(magnitude->GetOutput());
+  //center->Update();
+
+  //vtkSmartPointer<vtkImageLogarithmicScale> lgsc
+  //  = vtkSmartPointer<vtkImageLogarithmicScale>::New();
+  ////lgsc->SetInputData(center->GetOutput());
+  ////lgsc->SetInputData(magnitude->GetOutput());
+  //lgsc->SetInputData(fft->GetOutput());
+  //lgsc->SetConstant(15);
+  //lgsc->Update();
+
+  return fft->GetOutput(); 
+}
+
+vtkSmartPointer<vtkImageData> smoothImage ( vtkSmartPointer<vtkImageData> imagedata)
+{
+  vtkSmartPointer<vtkImageGaussianSmooth> smoother
+    = vtkSmartPointer<vtkImageGaussianSmooth>::New();
+  smoother->SetDimensionality(2);
+  smoother->SetInputData(imagedata);
+  smoother->SetStandardDeviations(1.0, 1.0);
+  smoother->SetRadiusFactors(1.0, 1.0);
+  smoother->Update();
+  return smoother->GetOutput();
+}
+
+void writeSmoothImage ( vtkSmartPointer<vtkImageData> imagedata, const std::string& fname )
+{
+  vtkSmartPointer<vtkImageGaussianSmooth> smoother
+    = vtkSmartPointer<vtkImageGaussianSmooth>::New();
+  smoother->SetInputData(imagedata);
+  smoother->Update();
+
+  
+  vtkSmartPointer<vtkPNMWriter> ppmwriter = 
+    vtkSmartPointer<vtkPNMWriter>::New();
+  ppmwriter->SetFileName(fname.c_str());
+  ppmwriter->SetInputData(smoother->GetOutput());
+  ppmwriter->Write(); 
+  
 }
 
 vtkSmartPointer<vtkImageData> readImage ( const std::string& pref,
@@ -4017,5 +4087,21 @@ double ssim ( const char* F1WithExt, const char* F2WithExt )
             coeffs->SetComponent(offset3+i, 2, cRHS[i]);
           }
         }
+
+struct ArrayHash {
+    std::size_t operator()(const std::array<double, 2>& arr) const {
+        std::size_t h1 = std::hash<double>{}(arr[0]);
+        std::size_t h2 = std::hash<double>{}(arr[1]);
+        return h1 ^ (h2 << 1); // Simple way to combine hashes
+    }
+};
+
+// Define a custom equality operator for std::array<double, 2>
+struct ArrayEqual {
+    bool operator()(const std::array<double, 2>& lhs, const std::array<double, 2>& rhs) const {
+        return lhs[0] == rhs[0] && lhs[1] == rhs[1];
+    }
+};
+
 
 *************************************/

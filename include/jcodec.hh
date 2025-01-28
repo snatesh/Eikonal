@@ -114,10 +114,15 @@ struct Compressor
   // since integral(p21 * f) is exact for f of deg <= 21 with 
   // quad order m=42
   unsigned int Mmax, morder;
-  unsigned int N = 496;  
-  std::string trix = "xtri_N496_n30_M1378_m51.txt";
-  std::string triy = "ytri_N496_n30_M1378_m51.txt";
-  std::string triw = "wtri_N496_n30_M1378_m51.txt";
+  //unsigned int N = 496;  
+  //std::string trix = "xtri_N496_n30_M1378_m51.txt";
+  //std::string triy = "ytri_N496_n30_M1378_m51.txt";
+  //std::string triw = "wtri_N496_n30_M1378_m51.txt";
+  unsigned int N = 325;  
+  std::string trix = "xtri_N325_n24_M946_m42.txt";
+  std::string triy = "ytri_N325_n24_M946_m42.txt";
+  std::string triw = "wtri_N325_n24_M946_m42.txt";
+
   double *R = 0, *S = 0, *W = 0, *cimg = 0;
   double *interpc = 0;
   bool useMultiChannel;
@@ -271,6 +276,10 @@ void jdecompress  ( bool useMultiChannel,
                     const char* channel1,
                     const char* channel2 = 0,
                     const char* channel3 = 0 );
+
+vtkSmartPointer<vtkImageData> smoothImage ( vtkSmartPointer<vtkImageData> imagedata);
+vtkSmartPointer<vtkImageData> imageFFT  ( vtkSmartPointer<vtkImageData> imagedata);
+void writeSmoothImage ( vtkSmartPointer<vtkImageData> imagedata, const std::string& fname);
 
 
 /* benchmarking utilities (reading, computing SSIM) */

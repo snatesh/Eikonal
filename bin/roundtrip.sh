@@ -7,3 +7,4 @@ ppmname=${oname}_$4_deco.ppm
 oname=${oname}_$4.vtp
 ./jcodec_main 1 0 $oname ppm
 ./ssim.py ${ppmname} $1
+open ${ppmname}
