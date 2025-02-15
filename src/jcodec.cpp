@@ -254,8 +254,12 @@ Triangulator::Triangulator  ( unsigned int _N, unsigned int _m,
     this->interpc_jacobi = (double*) calloc(N, sizeof(double));
     
     // read the image
+<<<<<<< HEAD
     //this->imagedata = _imagedata; //smoothImage(_imagedata);
     this->imagedata = smoothImage(_imagedata);
+=======
+    this->imagedata = _imagedata; //smoothImage(_imagedata);
+>>>>>>> 05fff5254ac708caf2841444aa910e881c53b95f
     this->pixels = imagedata->GetPoints();
     imagedata->GetDimensions(this->dims);
     this->Npix = dims[0]*dims[1];
@@ -935,31 +939,20 @@ vtkSmartPointer<vtkDelaunay2D> Triangulator::triangulateEntropy ( double* intgn,
     //}
   } 
 
-  vtkSmartPointer<vtkPointSet> pointSet0 = vtkSmartPointer<vtkPointSet>::New();
-  pointSet0->SetPoints(locator->GetLocatorPoints());
-
-  vtkSmartPointer<vtkDelaunay2D> triangulator0 = vtkSmartPointer<vtkDelaunay2D>::New();
-  triangulator0->SetInputData(pointSet0);
-  triangulator0->Update();
-
   vtkSmartPointer<vtkFeatureEdges> featureEdges 
     = vtkSmartPointer<vtkFeatureEdges>::New();
-  featureEdges->SetInputData(triangulator0->GetOutput());
+  featureEdges->SetInputData(polytri);
   featureEdges->BoundaryEdgesOn();
   featureEdges->FeatureEdgesOff();
   featureEdges->ManifoldEdgesOff();
   featureEdges->NonManifoldEdgesOff();
   featureEdges->Update();
-  writeVTP(featureEdges->GetOutput(), "bndry0.vtp");
   vtkSmartPointer<vtkPolyData> polybbox = featureEdges->GetOutput();
   vtkSmartPointer<vtkPoints> linepts;
   vtkIdType linept0, linept1;
-  double pt0[3], pt1[3], vpt[2];
-  double xstart, ystart, xend, yend; 
-  xstart = 0; ystart = 0;
-  xend = dims[0]-1; yend = dims[1]-1;
-  vtkSmartPointer<vtkCellArray> bboxCells = vtkSmartPointer<vtkCellArray>::New();
+  double pt0[3], pt1[3]; 
 
+  vtkSmartPointer<vtkCellArray> bboxCells = vtkSmartPointer<vtkCellArray>::New();
   for (unsigned int iline = 0; iline < polybbox->GetNumberOfCells(); ++iline)
   {
     vtkSmartPointer<vtkLine> bboxLines = vtkSmartPointer<vtkLine>::New();
@@ -967,83 +960,8 @@ vtkSmartPointer<vtkDelaunay2D> Triangulator::triangulateEntropy ( double* intgn,
     linepts = polybbox->GetCell(iline)->GetPoints();
     linepts->GetPoint(0, pt0);
     linepts->GetPoint(1, pt1);
-    // constrain lines to boundary
-    vpt[0] = pt1[0] - pt0[0];
-    vpt[1] = pt1[1] - pt0[1];
-    if (vpt[0] != 0 && vpt[1] != 0) // line not parallel to boundary
-    {
-      // one point is on top/bot boundary
-      if (pt0[1] == yend)
-      {
-        pt1[1] = yend; 
-      }
-      else if (pt0[1] == ystart)
-      {
-        pt1[1] = ystart;
-      }
-      if (pt1[1] == yend)
-      {
-        pt0[1] = yend;
-      }
-      else if (pt1[1] == ystart)
-      {
-        pt0[1] = ystart;
-      }
-      // both pts off boundary (but not par to bndry)
-      else if (pt0[1] != yend && pt1[1] != yend && pt0[0] != pt1[0])
-      {
-        // closer to/on bottom
-        if (pt0[1]-ystart < yend-pt0[1]) 
-        { 
-          pt0[1] = ystart; 
-          pt1[1] = ystart;
-        }
-        // closer to/on top
-        else 
-        { 
-          pt0[1] = yend; 
-          pt1[1] = yend;
-        }
-      }
-      // one point is on left/right boundary
-      if (pt0[0] == xend)
-      {
-        pt1[0] = xend; 
-      }
-      else if (pt0[0] == xstart)
-      {
-        pt1[0] = xstart;
-      }
-      if (pt1[0] == xend)
-      {
-        pt0[0] = xend;
-      }
-      else if (pt1[0] == xstart)
-      {
-        pt0[0] = xstart;
-      }
-      // both pts off boundary (but not par to bndry)
-      else if (pt0[0] != xend && pt1[0] != xend && pt1[1] != pt0[1])
-      {
-        // closer to/on bottom
-        if (pt0[0]-xstart < xend-pt0[0]) 
-        { 
-          pt0[0] = xstart; 
-          pt1[0] = xstart;
-        }
-        // closer to/on top
-        else 
-        { 
-          pt0[0] = xend; 
-          pt1[0] = xend;
-        }
-      }
-    }
-
- 
     locator->InsertUniquePoint(pt0, linept0); 
     locator->InsertUniquePoint(pt1, linept1); 
- 
     bboxLines->GetPointIds()->SetId(0,linept0);
     bboxLines->GetPointIds()->SetId(1,linept1);
     bboxCells->InsertNextCell(bboxLines);
@@ -1054,12 +972,11 @@ vtkSmartPointer<vtkDelaunay2D> Triangulator::triangulateEntropy ( double* intgn,
   polyBbox->SetLines(bboxCells);
   vtkSmartPointer<vtkPointSet> pointSet = vtkSmartPointer<vtkPointSet>::New();
   pointSet->SetPoints(locator->GetLocatorPoints());
-
-
   vtkSmartPointer<vtkDelaunay2D> triangulator = vtkSmartPointer<vtkDelaunay2D>::New();
   triangulator->SetInputData(pointSet);
   triangulator->SetSourceData(polyBbox);
   triangulator->Update();
+<<<<<<< HEAD
   vtkSmartPointer<vtkFeatureEdges> featureEdges1 
     = vtkSmartPointer<vtkFeatureEdges>::New();
   featureEdges1->SetInputData(triangulator->GetOutput());
@@ -1069,6 +986,16 @@ vtkSmartPointer<vtkDelaunay2D> Triangulator::triangulateEntropy ( double* intgn,
   featureEdges1->NonManifoldEdgesOff();
   featureEdges1->Update();
   writeVTP(featureEdges1->GetOutput(), "bndry.vtp");
+=======
+  //vtkSmartPointer<vtkFeatureEdges> featureEdges1 
+  //  = vtkSmartPointer<vtkFeatureEdges>::New();
+  //featureEdges1->SetInputData(triangulator->GetOutput());
+  //featureEdges1->BoundaryEdgesOn();
+  //featureEdges1->FeatureEdgesOff();
+  //featureEdges1->ManifoldEdgesOff();
+  //featureEdges1->NonManifoldEdgesOff();
+  //featureEdges1->Update();
+>>>>>>> 05fff5254ac708caf2841444aa910e881c53b95f
   free(interr);
   return triangulator;
 }
@@ -1563,11 +1490,18 @@ void Compressor::compressChannel_help ( vtkSmartPointer<vtkPolyData> polytri,
   double tmpwts[3];
   double color[3], coeff[3], offtup[3];
   double xqtr[3], xqt[3]; xqtr[2] = 0; xqt[2] = 0;
+<<<<<<< HEAD
   
   unsigned int Mstart = 7; 
   unsigned int Mtot = polytri->GetNumberOfCells() * (Mmax-Mstart);
   unsigned int MMtot = polytri->GetNumberOfCells() * Mmax;
   coeffs->SetNumberOfTuples(MMtot); 
+=======
+   
+  unsigned int Mtot = polytri->GetNumberOfCells() * Mmax;
+  unsigned int MMtot = polytri->GetNumberOfCells() * (Mmax - Mstart);
+  coeffs->SetNumberOfTuples(Mtot); 
+>>>>>>> 05fff5254ac708caf2841444aa910e881c53b95f
   int offset = 0;
   ave[0] = ave[1] = ave[2] = 0; 
   stdev[0] = stdev[1] = stdev[2] = 0;
@@ -1602,15 +1536,19 @@ void Compressor::compressChannel_help ( vtkSmartPointer<vtkPolyData> polytri,
         ave[1] += std::abs(coeff[1]);
         ave[2] += std::abs(coeff[2]);
       }
+<<<<<<< HEAD
     }   
+=======
+    }
+>>>>>>> 05fff5254ac708caf2841444aa910e881c53b95f
     offtup[0] = offtup[1] = offtup[2] = offset; 
     offsets->SetTuple(i, offtup);
     orders->SetTuple(i, ordtup);
     offset += Mmax;
   }
-  ave[0] /= Mtot;
-  ave[1] /= Mtot;
-  ave[2] /= Mtot;
+  ave[0] /= MMtot;
+  ave[1] /= MMtot;
+  ave[2] /= MMtot;
   offset = 0;
   for (int i = 0; i < polytri->GetNumberOfCells(); ++i)
   {
@@ -1624,9 +1562,9 @@ void Compressor::compressChannel_help ( vtkSmartPointer<vtkPolyData> polytri,
     offset += Mmax;
   }
 
-  stdev[0] = std::sqrt(stdev[0] / Mtot); 
-  stdev[1] = std::sqrt(stdev[1] / Mtot); 
-  stdev[2] = std::sqrt(stdev[2] / Mtot); 
+  stdev[0] = std::sqrt(stdev[0] / MMtot); 
+  stdev[1] = std::sqrt(stdev[1] / MMtot); 
+  stdev[2] = std::sqrt(stdev[2] / MMtot); 
 
   std::cout << ave[0] << " " << ave[1] << " " << ave[2] << std::endl; 
   std::cout << stdev[0] << " " << stdev[1] << " " << stdev[2] << std::endl;
@@ -1645,7 +1583,8 @@ void Compressor::compressChannel_help ( unsigned int channel,
   double xqtr[3], xqt[3]; xqtr[2] = 0; xqt[2] = 0;
   double invIxe[4], gradnorm;
   
-  unsigned int m = this->morder; 
+  unsigned int m = this->morder;
+
   unsigned int M = static_cast<unsigned int>(0.5 * (m + 1) * (m + 2));
   int offset = 0; ave = 0; stdev = 0;
   // loop over each triangle 
@@ -1722,11 +1661,11 @@ void Compressor::pruneCoeffs ( )
 {
   unsigned int offset = 0;
   double coefftup[3];
-  unsigned int m = this->morder; 
+  unsigned int m = this->morder;
   unsigned int M = static_cast<unsigned int>(0.5 * (m + 1) * (m + 2));
   for (int i = 0; i < polytri->GetNumberOfCells(); ++i)
   {
-    for (unsigned int j = 0; j < M; ++j)
+    for (unsigned int j = Mstart; j < M; ++j)
     {
       coeffs->GetTuple(offset+j, coefftup);
       for (unsigned int k = 0; k < 3; ++k)
@@ -3619,10 +3558,15 @@ vtkSmartPointer<vtkImageData> smoothImage ( vtkSmartPointer<vtkImageData> imaged
 {
   vtkSmartPointer<vtkImageGaussianSmooth> smoother
     = vtkSmartPointer<vtkImageGaussianSmooth>::New();
-  smoother->SetDimensionality(2);
+  //smoother->SetDimensionality(2);
   smoother->SetInputData(imagedata);
+<<<<<<< HEAD
   smoother->SetStandardDeviations(3.0, 3.0);
   smoother->SetRadiusFactors(3, 3);
+=======
+  //smoother->SetStandardDeviations(1.0, 1.0);
+  //smoother->SetRadiusFactors(1.0, 1.0);
+>>>>>>> 05fff5254ac708caf2841444aa910e881c53b95f
   smoother->Update();
   return smoother->GetOutput();
 }
@@ -3687,10 +3631,10 @@ Triangulator* jcompress_triangulate ( const char* fname,
   // jacobi poly
   double a = 0.5, b = 0.5, c = 0.5;
   // triangulation quad settings
-  unsigned int N = 55;
-  unsigned int m = 6;
-  //unsigned int N = 496;
-  //unsigned int m = mtarget;
+  //unsigned int N = 55;
+  //unsigned int m = 6;
+  unsigned int N = 325;  
+  unsigned int m = mtarget;
 
   // Read the image
   std::string fWithExt(fname);
@@ -3721,19 +3665,23 @@ Triangulator* jcompress_triangulate ( const char* fname,
   interpolator->SetInterpolationModeToCubic();
   
   // triangulate
+//  Triangulator* T = new Triangulator  ( N, m, a, b, c, nSamp, nRuns, 
+//                                        "xtri_N55_n9_M91_m12.txt",
+//                                        "ytri_N55_n9_M91_m12.txt",            
+//                                        "wtri_N55_n9_M91_m12.txt",
+//                                        imagedata, interpolator, 
+//                                        useMultiChannel );
+  
   Triangulator* T = new Triangulator  ( N, m, a, b, c, nSamp, nRuns, 
-                                        "xtri_N55_n9_M91_m12.txt",
-                                        "ytri_N55_n9_M91_m12.txt",            
-                                        "wtri_N55_n9_M91_m12.txt",
+                                        "xtri_N325_n24_M946_m42.txt",                  
+                                        "ytri_N325_n24_M946_m42.txt",                  
+                                        "wtri_N325_n24_M946_m42.txt",                  
                                         imagedata, interpolator, 
                                         useMultiChannel );
-   
-  //Triangulator* T = new Triangulator  ( N, m, a, b, c, nSamp, nRuns, 
-  //                                      "xtri_N496_n30_M1378_m51.txt",                   
-  //                                      "ytri_N496_n30_M1378_m51.txt",                               
-  //                                      "wtri_N496_n30_M1378_m51.txt",                   
-  //                                      imagedata, interpolator, 
-  //                                      useMultiChannel );
+
+
+
+ 
   //Triangulator* T = new Triangulator  ( N, m, a, b, c, nSamp, 5, 
   //                                      "xtri_N55_n9_M91_m12.txt",
   //                                      "ytri_N55_n9_M91_m12.txt",            
@@ -4109,5 +4057,99 @@ struct ArrayEqual {
     }
 };
 
+      // one point is on top/bot boundary
+      if (pt0[1] == yend)
+      {
+        pt1[1] = yend; 
+      }
+      else if (pt0[1] == ystart)
+      {
+        pt1[1] = ystart;
+      }
+      if (pt1[1] == yend)
+      {
+        pt0[1] = yend;
+      }
+      else if (pt1[1] == ystart)
+      {
+        pt0[1] = ystart;
+      }
+      // both pts off boundary (but not par to bndry)
+      else if (pt0[1] != yend && pt1[1] != yend && pt0[0] != pt1[0])
+      {
+        // closer to/on bottom
+        if (pt0[1]-ystart < yend-pt0[1]) 
+        { 
+          pt0[1] = ystart; 
+          pt1[1] = ystart;
+        }
+        // closer to/on top
+        else 
+        { 
+          pt0[1] = yend; 
+          pt1[1] = yend;
+        }
+      }
+      // one point is on left/right boundary
+      if (pt0[0] == xend)
+      {
+        pt1[0] = xend; 
+      }
+      else if (pt0[0] == xstart)
+      {
+        pt1[0] = xstart;
+      }
+      if (pt1[0] == xend)
+      {
+        pt0[0] = xend;
+      }
+      else if (pt1[0] == xstart)
+      {
+        pt0[0] = xstart;
+      }
+      // both pts off boundary (but not par to bndry)
+      else if (pt0[0] != xend && pt1[0] != xend && pt1[1] != pt0[1])
+      {
+        // closer to/on bottom
+        if (pt0[0]-xstart < xend-pt0[0]) 
+        { 
+          pt0[0] = xstart; 
+          pt1[0] = xstart;
+        }
+        // closer to/on top
+        else 
+        { 
+          pt0[0] = xend; 
+          pt1[0] = xend;
+        }
+      }
+  double xstart, ystart, xend, yend; 
+  xstart = 0; ystart = 0;
+  xend = dims[0]-1; yend = dims[1]-1;
+    // constrain lines to boundary
+    vpt[0] = pt1[0] - pt0[0];
+    vpt[1] = pt1[1] - pt0[1];
+    if (vpt[0] != 0 && vpt[1] != 0) // line not parallel to boundary
+    {
+      std::cout << "OFF BOUNDARY\n";
+      std::cout << pt0[0] << " " << pt0[1] << std::endl;
+      std::cout << pt1[0] << " " << pt1[1] << std::endl;
+      // if second point is on boundary
+      if  ( (pt1[0] == xend || pt1[0] == xstart) &&
+            (pt1[1] == yend || pt1[1] == ystart) )
+      {
+        std::cout << "pt 2\n";
+        newpt1[0] = pt1[0]; newpt1[1] = pt1[1];
+        newpt0[0] = pt0[0]; newpt0[1] = pt1[1]; 
+        std::cout << newpt0[0] << " " << newpt0[1] << std::endl;
+        std::cout << newpt1[0] << " " << newpt1[1] << std::endl;
+      }
+      locator->InsertUniquePoint(newpt0, linept0); 
+      locator->InsertUniquePoint(newpt1, linept1); 
+    }
+    else
+    {
+
+    }
 
 *************************************/

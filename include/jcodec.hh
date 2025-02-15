@@ -140,6 +140,7 @@ struct Compressor
   legQuad<double>* legq = 0; 
   double aves[3], ave0, ave1, ave2;
   double stdevs[3], stdev0, stdev1, stdev2;
+  unsigned int Mstart = 0;
  
   Compressor  ( Triangulator* T , unsigned int order );
 
