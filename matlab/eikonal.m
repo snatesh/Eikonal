@@ -3,22 +3,26 @@ clear all; close all; clc;
 % jacobi poly params
 a = 1/2; b = 1/2; c = 1/2;
 % legendre analog quadrature rule on triangle
-load './triquadLeg_17_28.mat';
-X = Zk(1:N); Y = Zk(N+1:2*N); W = Zk(2*N+1:3*N);
-[xx,yy] = meshgrid(linspace(0,1,30)); 
-xx = xx(:); yy = yy(:);
-indtri = yy<=1-xx;
-xx = xx(indtri);
-yy = yy(indtri);
-dist = distToTri(xx,yy);
-T = delaunay(xx,yy);
-figure(1);
-trisurf(T,xx,yy,dist);
+X = importdata("../bin/xtri_N496_n30_M1378_m51.txt");
+Y = importdata("../bin/ytri_N496_n30_M1378_m51.txt");
+W = importdata("../bin/wtri_N496_n30_M1378_m51.txt");
+%X = Zk(1:N); Y = Zk(N+1:2*N); W = Zk(2*N+1:3*N);
+% [xx,yy] = meshgrid(linspace(0,1,30)); 
+% xx = xx(:); yy = yy(:);
+% indtri = yy<=1-xx;
+% xx = xx(indtri);
+% yy = yy(indtri);
+% dist = distToTri(xx,yy);
+% T = delaunay(xx,yy);
+
+
 
 
 % weight function for (a+1,b+1,c+1)
 w_a1b1c1 = gamma(a+1+b+1+c+1+3/2)/(gamma(a+1+1/2)*gamma(b+1+1/2)*gamma(c+1+1/2));
-wa1b1c1 = @(x,y) x.^(a+1-1/2).*y.^(b+1-1/2).*(1-x-y).^(c+1-1/2)*w_a1b1c1/2;
+wa1b1c1 = @(x,y) x.^(a+1-1/2).*y.^(b+1-1/2).*(1-x-y).^(c+1-1/2)*w_a1b1c1;
+Wa1b1c1 = wa1b1c1(X,Y);
+
 % rhs
 f = @(x,y) ones(size(X));
 u = @(x,y) distToTri(x,y);
@@ -29,7 +33,7 @@ F = f(X,Y); FW = F.*W;
 U = u(X,Y); UW = U.*W;
 
 % highest poly degree is m-1
-ms = 12; j = 1; iF = 1;
+ms = 34; j = 1; iF = 1;
 m = ms(j); n = m+1;
 % normalization under (a,b,c), (a+1,b,c) etc.
 H_abc = structure_factors_tri(n+1,a,b,c);
@@ -77,7 +81,92 @@ Dy_ab1c1 = D1_tri(a,b,c,H_abc,H_ab1c1,1);
 Dx = K_a1bc1_a1b1c1*Dx_a1bc1;
 Dy = K_ab1c1_a1b1c1*Dy_ab1c1;
 
+cu_abc = V_abc'*UW;
+cf_abc = V_abc'*FW;
+cf_a1b1c1 = K_a1b1c1*(K_a1b1c*(K_a1bc * cf_abc));
+cdxu_a1b1c1 = Dx*cu_abc;
+cdyu_a1b1c1 = Dy*cu_abc;
+cres_a1b1c1 = cdxu_a1b1c1'*cdxu_a1b1c1+cdyu_a1b1c1'*cdyu_a1b1c1-cf_a1b1c1'*cf_a1b1c1;
+disp(abs(cres_a1b1c1));
+dxu = V_a1b1c1*cdxu_a1b1c1;
+dyu = V_a1b1c1*cdyu_a1b1c1;
+intrhs = (W/2)'*((F.^2).*Wa1b1c1);
+intlhs = (W/2)'*((dxu.^2 + dyu.^2).*Wa1b1c1);
+Eik_abc_a1b1c1 = Dx'*Dx + Dy'*Dy;
 
+%[xleg,wleg,~] = gjQuad(50,0,0);
+[xleg,wleg] = fclencurt(100,0,1);
+%wleg = wleg/2;
+%xleg = (xleg+1)/2;
+Xl = 0*xleg;
+Yl = xleg;
+Xb = xleg;
+Yb = 0*xleg;
+Xh = xleg;
+Yh = 1-Xh;
+
+Vl = jPoly_tri(Xl,Yl,H_abc,n-1,a,b,c);
+Vb = jPoly_tri(Xb,Yb,H_abc,n-1,a,b,c);
+Vh = jPoly_tri(Xh,Yh,H_abc,n-1,a,b,c);
+
+Pbnd = [wleg'*Vl;wleg'*Vb;wleg'*Vh;Vl;Vb;Vh];
+
+fun = @(cu) abs(cu'*Eik_abc_a1b1c1*cu - cf_a1b1c1'*cf_a1b1c1);
+A = []; b = [];
+u0 = X.*Y.*(1-X-Y);
+cu0 = V_abc'*(u0.*W);
+x0 = cf_abc;
+Aeq = Pbnd; 
+beq = zeros(size(Aeq,1),1);
+
+
+options = ...
+    optimoptions('fmincon',...
+    'Display','iter',...
+    'Algorithm','sqp',...
+    'FiniteDifferenceType','central',...
+    'FiniteDifferenceStepSize',1e-8,...
+    'MaxFunctionEvaluations',1e10,...
+    'MaxIterations',1e10,...
+    'ConstraintTolerance',1e-14,...
+    'OptimalityTolerance',1e-18,...
+    'StepTolerance', 1e-19, ...
+    'UseParallel', false)
+
+
+cu_sol = fmincon(fun,x0,A,b,Aeq,beq,[],[],[],options);
+
+T = delaunay(X,Y);
+trisurf(T,X,Y,V_abc*cu_sol)
+
+%%
+disp((W/2)'*(V_abc*cu_abc - U))
+disp((W/2)'*((V_a1b1c1*cf_a1b1c1 - F).*Wa1b1c1))
+disp((W/2)'*(((V_a1b1c1*cdxu_a1b1c1).^2 + (V_a1b1c1*cdyu_a1b1c1).^2 - (V_a1b1c1*cf_a1b1c1).^2).*Wa1b1c1))
+
+%%
+
+dist = distToTri(X,Y);
+T = delaunay(X,Y);
+figure(1);
+trisurf(T,X,Y,dist); 
+figure(2);
+trisurf(T,X,Y,V_abc*cu_abc);
+
+
+
+figure(3);
+trisurf(T,X,Y,V_a1b1c1*cdxu_a1b1c1);
+figure(4);
+trisurf(T,X,Y,V_a1b1c1*cdyu_a1b1c1);
+
+
+
+
+
+
+
+%%
 % Eikonal operator
 Eik_abc_a1b1c1 = Dx'*Dx + Dy'*Dy;
 
@@ -143,3 +232,8 @@ J = J(1:nbnd_eq);
 J1 = J1(1:nbnd_eq);
 
 
+function [f,g] = optF(cu)
+
+
+
+end

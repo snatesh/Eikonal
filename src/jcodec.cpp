@@ -254,6 +254,7 @@ Triangulator::Triangulator  ( unsigned int _N, unsigned int _m,
     this->interpc_jacobi = (double*) calloc(N, sizeof(double));
     
     // read the image
+    //this->imagedata = _imagedata; //smoothImage(_imagedata);
     this->imagedata = smoothImage(_imagedata);
     this->pixels = imagedata->GetPoints();
     imagedata->GetDimensions(this->dims);
@@ -305,17 +306,17 @@ Triangulator::Triangulator  ( unsigned int _N, unsigned int _m,
       this->polytri2->DeepCopy(polytri);
       this->polytri3->DeepCopy(polytri);
     }
-    vtkSmartPointer<vtkImageData> fftimg = imageFFT(_imagedata);
-    vtkSmartPointer<vtkImageToStructuredGrid> sgrid 
-      = vtkSmartPointer<vtkImageToStructuredGrid>::New();
-    sgrid->SetInputData(fftimg);
-    sgrid->Update();
-    vtkSmartPointer<vtkStructuredGridWriter> gridwriter
-      = vtkSmartPointer<vtkStructuredGridWriter>::New();
-    gridwriter->SetInputData(sgrid->GetOutput());
-    gridwriter->SetFileName("FFT.vtk");
-    gridwriter->SetFileTypeToBinary();
-    gridwriter->Write();
+    //vtkSmartPointer<vtkImageData> fftimg = imageFFT(_imagedata);
+    //vtkSmartPointer<vtkImageToStructuredGrid> sgrid 
+    //  = vtkSmartPointer<vtkImageToStructuredGrid>::New();
+    //sgrid->SetInputData(fftimg);
+    //sgrid->Update();
+    //vtkSmartPointer<vtkStructuredGridWriter> gridwriter
+    //  = vtkSmartPointer<vtkStructuredGridWriter>::New();
+    //gridwriter->SetInputData(sgrid->GetOutput());
+    //gridwriter->SetFileName("FFT.vtk");
+    //gridwriter->SetFileTypeToBinary();
+    //gridwriter->Write();
     
   }
 
@@ -914,7 +915,7 @@ vtkSmartPointer<vtkDelaunay2D> Triangulator::triangulateEntropy ( double* intgn,
   vtkIdType ptid; int subid;
   for (int icell = 0; icell < polytri->GetNumberOfCells(); ++icell)
   {
-    if (interr[icell] >= ave_err)
+    if (interr[icell] >= ave_err - 0.5*stdev_err)
     {
       polytri->GetCell(icell)->EvaluateLocation(subid, v1r, v1t, tmpwts);
       polytri->GetCell(icell)->EvaluateLocation(subid, v2r, v2t, tmpwts);
@@ -923,15 +924,15 @@ vtkSmartPointer<vtkDelaunay2D> Triangulator::triangulateEntropy ( double* intgn,
       locator->InsertUniquePoint(v2t, ptid);  
       locator->InsertUniquePoint(v3t, ptid);
     }
-    else if (intgn[icell] >= ave_gn)
-    {
-      polytri->GetCell(icell)->EvaluateLocation(subid, v1r, v1t, tmpwts);
-      polytri->GetCell(icell)->EvaluateLocation(subid, v2r, v2t, tmpwts);
-      polytri->GetCell(icell)->EvaluateLocation(subid, v3r, v3t, tmpwts);
-      locator->InsertUniquePoint(v1t, ptid);  
-      locator->InsertUniquePoint(v2t, ptid);  
-      locator->InsertUniquePoint(v3t, ptid);
-    }
+    //else if (intgn[icell] >= ave_gn)
+    //{
+    //  polytri->GetCell(icell)->EvaluateLocation(subid, v1r, v1t, tmpwts);
+    //  polytri->GetCell(icell)->EvaluateLocation(subid, v2r, v2t, tmpwts);
+    //  polytri->GetCell(icell)->EvaluateLocation(subid, v3r, v3t, tmpwts);
+    //  locator->InsertUniquePoint(v1t, ptid);  
+    //  locator->InsertUniquePoint(v2t, ptid);  
+    //  locator->InsertUniquePoint(v3t, ptid);
+    //}
   } 
 
   vtkSmartPointer<vtkPointSet> pointSet0 = vtkSmartPointer<vtkPointSet>::New();
@@ -1067,7 +1068,7 @@ vtkSmartPointer<vtkDelaunay2D> Triangulator::triangulateEntropy ( double* intgn,
   featureEdges1->ManifoldEdgesOff();
   featureEdges1->NonManifoldEdgesOff();
   featureEdges1->Update();
-  writeVTP(featureEdges->GetOutput(), "bndry.vtp");
+  writeVTP(featureEdges1->GetOutput(), "bndry.vtp");
   free(interr);
   return triangulator;
 }
@@ -1562,9 +1563,11 @@ void Compressor::compressChannel_help ( vtkSmartPointer<vtkPolyData> polytri,
   double tmpwts[3];
   double color[3], coeff[3], offtup[3];
   double xqtr[3], xqt[3]; xqtr[2] = 0; xqt[2] = 0;
-   
-  unsigned int Mtot = polytri->GetNumberOfCells() * Mmax;
-  coeffs->SetNumberOfTuples(Mtot); 
+  
+  unsigned int Mstart = 7; 
+  unsigned int Mtot = polytri->GetNumberOfCells() * (Mmax-Mstart);
+  unsigned int MMtot = polytri->GetNumberOfCells() * Mmax;
+  coeffs->SetNumberOfTuples(MMtot); 
   int offset = 0;
   ave[0] = ave[1] = ave[2] = 0; 
   stdev[0] = stdev[1] = stdev[2] = 0;
@@ -1593,9 +1596,12 @@ void Compressor::compressChannel_help ( vtkSmartPointer<vtkPolyData> polytri,
       coeff[1] = cimg[j+Mmax]; 
       coeff[2] = cimg[j+2*Mmax];
       coeffs->SetTuple(offset+j, coeff);
-      ave[0] += std::abs(coeff[0]);
-      ave[1] += std::abs(coeff[1]);
-      ave[2] += std::abs(coeff[2]);
+      if (j >= Mstart)
+      {
+        ave[0] += std::abs(coeff[0]);
+        ave[1] += std::abs(coeff[1]);
+        ave[2] += std::abs(coeff[2]);
+      }
     }   
     offtup[0] = offtup[1] = offtup[2] = offset; 
     offsets->SetTuple(i, offtup);
@@ -1608,7 +1614,7 @@ void Compressor::compressChannel_help ( vtkSmartPointer<vtkPolyData> polytri,
   offset = 0;
   for (int i = 0; i < polytri->GetNumberOfCells(); ++i)
   {
-    for (unsigned int j = 0; j < Mmax; ++j)
+    for (unsigned int j = Mstart; j < Mmax; ++j)
     {
       coeffs->GetTuple(offset+j, coeff);
       stdev[0] += std::pow(std::abs(coeff[0])-ave[0], 2.0);
@@ -3615,8 +3621,8 @@ vtkSmartPointer<vtkImageData> smoothImage ( vtkSmartPointer<vtkImageData> imaged
     = vtkSmartPointer<vtkImageGaussianSmooth>::New();
   smoother->SetDimensionality(2);
   smoother->SetInputData(imagedata);
-  smoother->SetStandardDeviations(1.0, 1.0);
-  smoother->SetRadiusFactors(1.0, 1.0);
+  smoother->SetStandardDeviations(3.0, 3.0);
+  smoother->SetRadiusFactors(3, 3);
   smoother->Update();
   return smoother->GetOutput();
 }
