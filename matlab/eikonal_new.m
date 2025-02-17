@@ -6,17 +6,6 @@ a = 1/2; b = 1/2; c = 1/2;
 X = importdata("../bin/xtri_N496_n30_M1378_m51.txt");
 Y = importdata("../bin/ytri_N496_n30_M1378_m51.txt");
 W = importdata("../bin/wtri_N496_n30_M1378_m51.txt");
-%X = Zk(1:N); Y = Zk(N+1:2*N); W = Zk(2*N+1:3*N);
-% [xx,yy] = meshgrid(linspace(0,1,30)); 
-% xx = xx(:); yy = yy(:);
-% indtri = yy<=1-xx;
-% xx = xx(indtri);
-% yy = yy(indtri);
-% dist = distToTri(xx,yy);
-% T = delaunay(xx,yy);
-
-
-
 
 % weight function for (a+1,b+1,c+1)
 w_a1b1c1 = gamma(a+1+b+1+c+1+3/2)/(gamma(a+1+1/2)*gamma(b+1+1/2)*gamma(c+1+1/2));
@@ -104,12 +93,12 @@ cf_a2b2c2 = K_a2b2c1_a2b2c2*((K_a2b1c1_a2b2c1*(K_a1b1c1_a2b1c1*(K_a1b1c1*(K_a1b1
 %dyu = V_a1b1c1*cdyu_a2b2c2;
 %intrhs = (W/2)'*((F.^2).*Wa1b1c1);
 %intlhs = (W/2)'*((dxu.^2 + dyu.^2).*Wa1b1c1);
-Eik_abc_a1b1c1 = Dx'*Dx + Dy'*Dy;
+Eik_abc_a2b2c2 = Dx'*Dx + Dy'*Dy;
 
-[xleg,wleg,~] = gjQuad(23,0,0);
-%[xleg,wleg] = fclencurt(23,0,1);
-wleg = wleg'/2;
-xleg = (xleg+1)/2;
+%[xleg,wleg,~] = gjQuad(23,0,0);
+[xleg,wleg] = fclencurt(50,0,1);
+%wleg = wleg'/2;
+%xleg = (xleg+1)/2;
 Xl = 0*xleg;
 Yl = xleg;
 Xb = xleg;
@@ -121,17 +110,21 @@ Vl = jPoly_tri(Xl,Yl,H_abc,n-1,a,b,c);
 Vb = jPoly_tri(Xb,Yb,H_abc,n-1,a,b,c);
 Vh = jPoly_tri(Xh,Yh,H_abc,n-1,a,b,c);
 
-Pbnd = [wleg'*Vl;wleg'*Vb;wleg'*Vh;Vl;Vb;Vh];
+Pbnd = [wleg'*Vl;wleg'*Vb;wleg'*Vh]%;Vl;Vb;Vh];
 
-xi = 0.001;
-Lap_a2b2c2(end-69+1:end,:) = [Vl;Vb;Vh];
-cu0 = Lap_a2b2c2\(cf_a2b2c2);
+xi = 0.1;
+%Lap_a2b2c2(end-69+1:end,:) = [Vl;Vb;Vh];
+%cu0 = Lap_a2b2c2\(cf_a2b2c2);
 
 
-fun = @(cu) abs(cu'*Eik_abc_a1b1c1*cu - cf_a2b2c2'*cf_a2b2c2 - xi*(cu'*Lap_a2b2c2')*(Lap_a2b2c2*cu));
+%fun = @(cu) abs(cu'*Eik_abc_a2b2c2*cu - cf_a2b2c2'*cf_a2b2c2 - xi*(cu'*Lap_a2b2c2')*(Lap_a2b2c2*cu));
+fun = @(cu) sqrt((cu'*Eik_abc_a2b2c2*cu ...
+            - xi^2*norm(Lap_a2b2c2*cu)^2 ...
+            - 2*xi*(Lap_a2b2c2*cu)'*cf_a2b2c2 ...
+            - norm(cf_a2b2c2)^2)^2);
 A = []; b = [];
-%u0 = X.*Y.*(1-X-Y);
-%cu0 = V_abc'*(u0.*W);
+u0 = X.*Y.*(1-X-Y);
+cu0 = V_abc'*(u0.*W);
 x0 = cu0;%cu_abc;%cf_abc;
 Aeq = Pbnd; 
 beq = zeros(size(Aeq,1),1);
@@ -145,9 +138,9 @@ options = ...
     'FiniteDifferenceStepSize',1e-8,...
     'MaxFunctionEvaluations',1e10,...
     'MaxIterations',1e10,...
-    'ConstraintTolerance',1e-14,...
-    'OptimalityTolerance',1e-18,...
-    'StepTolerance', 1e-19, ...
+    'ConstraintTolerance',1e-6,...
+    'OptimalityTolerance',1e-6,...
+    'StepTolerance', 1e-6, ...
     'UseParallel', false)
 
 
