@@ -7,7 +7,7 @@ S = importdata("../bin/ytri_N496_n30_M1378_m51.txt");
 W = importdata("../bin/wtri_N496_n30_M1378_m51.txt");
 
 % highest poly degree is m-1, and there are M total polys
-m = 10; n = m+1; M = m*(m+1)/2;
+m = 5; n = m+1; M = m*(m+1)/2;
 % normalization under (a,b,c), (a+1,b,c) etc.
 H_abc = structure_factors_tri(n+1,a,b,c);
 H_a1bc = structure_factors_tri(n+1,a+1,b,c);
@@ -135,8 +135,10 @@ rhs = @(R,S) 1./(2*ones(size(R)));
 cu_femw = K\F;
 
 %energy = assemble_energy(n,cu_femw,M,R,S,W,xi,rhs)
-err = grad_check(n,cu_femw,M,R,S,W,xi,rhs);
-
+[err_grad, err_hess, hs] = check_variations(n,cu_femw,M,R,S,W,xi,rhs);
+loglog(hs,err_grad,'r.-');
+loglog(hs,err_hess,'b.-');
+loglog(hs,hs,'k--');
 
 [N,K,F,H] = assemble_eik_nonlin(n,cu_femw,M,R,S,W,xi,rhs);
 %%
@@ -359,47 +361,34 @@ energy = (W/2)'*((xi/2.0)*sum1 + sum2 - sum3);
 
 end
 
-function err = grad_check(n,cu,M,R,S,W,xi,rhs)
-a = 1/2; b = a; c = a;
+function [err_grad,err_hess,hs] = check_variations(n,cu,M,R,S,W,xi,rhs)
 
-
-[N,K,F,~] = assemble_eik_nonlin(n,cu,M,R,S,W,xi,rhs);
+% compute energy at cu
+pi0 = assemble_energy(n,cu,M,R,S,W,xi,rhs);
+% compute gradient at cu
+[N,K,F,H0] = assemble_eik_nonlin(n,cu,M,R,S,W,xi,rhs);
 grad0 = N + xi*K*cu - F;
-disp(assemble_energy(n,cu,M,R,S,W,xi,rhs));
-disp(norm(grad0))
-hs = [1e-1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7];
-err = zeros(length(hs),1);
-
-for i = 1:length(hs)
-    gradFD = zeros(M,1);
-    for j = 1:M
-        cuph = cu; 
-        cuph(j) = cuph(j) + hs(i);
-        cumh = cu;
-        cumh(j) = cumh(j) - hs(i);
-        piph = assemble_energy(n,cuph,M,R,S,W,xi,rhs);
-        pimh = assemble_energy(n,cumh,M,R,S,W,xi,rhs);
-        gradFD(j) = (piph - pimh)/(2*hs(i));
-    end
-    err(i) = norm(gradFD-grad0);
+% compute random direction uh within (T^2,W_a1b1c1w)
+dir = randn(M,1);
+% project gradient onto this direction
+grad0_dir = grad0'*dir;
+% project hessian onto this direction
+H0_dir = H0*dir;
+nh = 32; hs = 1e-1*2.^(-(0:nh));
+err_grad = zeros(length(hs),1);
+for i = 1:nh
+    cuph = cu+hs(i)*dir;
+    piph = assemble_energy(n,cuph,M,R,S,W,xi,rhs);
+    err_grad(i) = abs((piph-pi0)/hs(i) - grad0_dir);
 end
 
-
-end
-
-function err = hess_check(n,cu,M,R,S,W,xi,rhs)
-
-hs = [1e-1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7];
-err = zeros(length(hs),1);
-[N,K,F,H] = assemble_eik_nonlin(n,cu,M,R,S,W,xi,rhs);
-dPi_eval = N + xi*K*cu - F;
-for i = 1:length(hs)
-    cuph = cu+hs(i);
-    [Nph,Kph,Fph] = assemble_eik_nonlin(n,cuph,M,R,S,W,xi,rhs);
-    dPiph_eval = Nph + xi*Kph*cuph - Fph;
-    diff_dPi = (dPiph_eval - dPi_eval)/hs(i);
-    H_eval = H*(hs(i)*ones(length(F),1));
-    err(i) = norm(diff_dPi - H_eval);
+err_hess = zeros(length(hs),1);
+for i = 1:nh
+    cuph = cu+hs(i)*dir;
+    [N,K,F,~] = assemble_eik_nonlin(n,cuph,M,R,S,W,xi,rhs);
+    gradph = N + xi*K*cuph - F;
+    gradFD = (gradph-grad0)/hs(i);
+    err_hess(i) = norm(gradFD-H0_dir);
 end
 
 end
