@@ -6,10 +6,12 @@ import numpy as np
 
 domain = Polygon([Point(0,0), Point(1,0), Point(0,1)])
 mesh = generate_mesh(domain, 64)
+
 V = FunctionSpace(mesh,'CG',1)
 XY = V.tabulate_dof_coordinates()
 X = XY[:,0]
 Y = XY[:,1]
+print(np.shape(X))
 class DirichletBoundary(SubDomain):
   def inside(self, x, on_boundary):
     return near(x[0],0) or near(x[1],0) or \
@@ -45,21 +47,16 @@ f = Constant(2.0)
 #f = Expression('x[0]*x[1]*(1-x[0]-x[1])',degree=1)
 
 # proxy for energy
-E = ((sqrt(inner(grad(u),grad(u))) - xi*div(grad(u)) - (1./f)))*dx
+E = (sqrt(inner(grad(u),grad(u))) + (xi/2.0)*inner(grad(u),grad(u)) - (1./f)*u)*dx
 
 # Compute the first variation (Residual F = dE/du)
 F = (sqrt(inner(grad(u),grad(u)))*v - (1./f)*v + xi*inner(grad(u),grad(v)))*dx
-#F = inner(grad(u),grad(u))*v*dx - v/f**2*dx - xi**2*div(grad(u))*div(grad(v))*dx
-
-
 
 # Compute the second variation (Hessian H = d²E/du²)
 #H = derivative(F, u, w)
 H = (inner(grad(u),grad(w))*v/(sqrt(inner(grad(u),grad(u)))))*dx + xi*inner(grad(w),grad(v))*dx
 
 # Assemble the system
-#u_0 = Expression('x[0]*x[1]*(1-x[0]-x[1])',degree=1)
-#u.assign(interpolate(u_0, V))
 
 u_0 = Function(V);
 F1 = inner(grad(w), grad(v))*dx - (1./f)*v*dx
@@ -102,6 +99,7 @@ rtol = 1e-10
 max_iter = 100
 
 pi0 = assemble(E)
+print(pi0)
 g0 = assemble(F)
 print(g0.norm("l2"))
 tol = g0.norm("l2")*rtol

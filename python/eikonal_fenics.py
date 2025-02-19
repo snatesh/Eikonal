@@ -16,7 +16,7 @@ domain = Polygon([Point(0,0), Point(1,0), Point(0,1)])
 mesh = generate_mesh(domain, 32)
 
 #Defining boundary condition
-V = FunctionSpace(mesh,'CG',3)
+V = FunctionSpace(mesh,'CG',4)
 u0 = Constant(0.0)
 
 #class DirichletBoundary(SubDomain):
@@ -42,38 +42,20 @@ bc = DirichletBC(V, u0, u0_boundary, "pointwise")
 u = Function(V)
 u_hat = TestFunction(V)
 u_tilde = TrialFunction(V)
+v = TestFunction(V)
+w = TrialFunction(V)
 xi = Constant(0.01)
 
-f = Constant(1.0)
+f = Constant(2.0)
 n = FacetNormal(mesh)
 
 # Functional we seek to minimize
-#Pi = (sqrt(inner(nabla_grad(u), nabla_grad(u)) + xi**2*div(nabla_grad(u))**2) - f)*dx
-#Pi = (sqrt(inner(nabla_grad(u), nabla_grad(u))) - xi*div(nabla_grad(u)) - f)*dx
-#Pi = (sqrt(inner(nabla_grad(u),nabla_grad(u)))*u - f*u + xi*inner(nabla_grad(u),nabla_grad(u)))*dx
-#Pi = f*sqrt(inner(nabla_grad(u),nabla_grad(u)))*dx
-#Pi = (sqrt(inner(nabla_grad(u),nabla_grad(u))) + (xi/2.0)*inner(nabla_grad(u),nabla_grad(u)) - f*u)*dx
-#Pi = (Constant(1./3.)*sqrt(inner(nabla_grad(u),nabla_grad(u)))**3 - \
-#        0.5*f*u + (xi/2.0)*div(nabla_grad(u))**2)*dx
-#Pi = (Constant(0.5)*f*inner(grad(u),grad(u)) + (xi/0.5)*div(grad(u))**2 - Constant(0.5))*dx
-#Pi = np.power((inner(grad(u),grad(u)) - (1.0/f**2) + xi*div(grad(u)))**2,0.25)*dx
-#Pi = (sqrt(inner(grad(u),grad(u))) - f*u - xi*div(grad(u)))**2*dx
-Pi = (sqrt(inner(grad(u),grad(u))) + xi*inner(grad(u),grad(u)) - f*u)*dx
-# first variation of functional
-#dPi = ((inner(nabla_grad(u),nabla_grad(u_hat)) + xi**2*div(nabla_grad(u_hat))*div(nabla_grad(u))) / \
-#			 sqrt(inner(nabla_grad(u),nabla_grad(u)) + xi**2*div(nabla_grad(u))**2))*dx
-#dPi = (inner(nabla_grad(u),nabla_grad(u_hat)) / \
-#			 sqrt(inner(nabla_grad(u),nabla_grad(u))) - xi*div(nabla_grad(u_hat)) )*dx
-#dPi = u*(inner(nabla_grad(u),nabla_grad(u_hat)) / \
-#         sqrt(inner(nabla_grad(u),nabla_grad(u))))*dx + \
-#      u_hat*(sqrt(inner(nabla_grad(u),nabla_grad(u))))*dx - \
-#      f*u_hat*dx + xi*(2*inner(nabla_grad(u),nabla_grad(u_hat)))*dx
 
-#dPi = (f*inner(nabla_grad(u),nabla_grad(u_hat)) / \
-#       sqrt(inner(nabla_grad(u),nabla_grad(u))))*dx
-#dPi = (inner(nabla_grad(u),nabla_grad(u_hat))/(sqrt(inner(nabla_grad(u),nabla_grad(u)))) +\
-#      xi*inner(nabla_grad(u),nabla_grad(u_hat)) - f*u_hat)*dx
-dPi = derivative(Pi, u, u_hat)
+Pi = (sqrt(inner(grad(u),grad(u))) + (xi/2.0)*inner(grad(u),grad(u)) - (1./f)*u)*dx
+# first variation of functional
+
+#dPi = derivative(Pi, u, v)
+dPi = (sqrt(inner(grad(u),grad(u)))*v - (1./f)*v + xi*inner(grad(u),grad(v)))*dx
 # verify expression for first variation
 u0 = interpolate(Expression("x[0]*(x[0]-1)*x[1]*(x[1]-1)",degree=1), V)
 n_eps = 32
@@ -103,18 +85,9 @@ plt.ylabel("Error grad")
 plt.legend(['Error Grad', 'First Order'], loc='upper left')
 plt.show()
 # second variation of functional
-#ddPi = ((inner(nabla_grad(u_tilde),nabla_grad(u_hat))+\
-#         xi**2*div(nabla_grad(u_tilde))*div(nabla_grad(u_hat))) / \
-#        sqrt(inner(nabla_grad(u),nabla_grad(u))+xi**2*div(nabla_grad(u))**2))*dx - \
-#       ((inner(nabla_grad(u),nabla_grad(u_hat))+xi**2*div(nabla_grad(u))*div(nabla_grad(u_hat)))* \
-#        (inner(nabla_grad(u),nabla_grad(u_tilde))+xi**2*div(nabla_grad(u))*div(nabla_grad(u_tilde))) / \
-#        np.power(inner(nabla_grad(u),nabla_grad(u))+xi**2*div(nabla_grad(u))**2,1.5))*dx
-#
-#ddPi = (inner(nabla_grad(u_tilde),nabla_grad(u_hat))/sqrt(inner(nabla_grad(u),nabla_grad(u))))*dx - \
-#       (inner(nabla_grad(u),nabla_grad(u_tilde))*inner(nabla_grad(u),nabla_grad(u_hat)) / \
-#       np.power(inner(nabla_grad(u),nabla_grad(u)),1.5))*dx + \
-#       xi*inner(nabla_grad(u_tilde),nabla_grad(u_hat))*dx
-ddPi = derivative(dPi, u, u_tilde)
+
+
+ddPi = (inner(grad(u),grad(w))*v/(sqrt(inner(grad(u),grad(u)))))*dx + xi*inner(grad(w),grad(v))*dx
 # verify expression for second variation
 u.assign(u0)
 H_0 = assemble(ddPi)
@@ -141,13 +114,13 @@ plt.show()
 
 
 # compute initial guess for newton iter
-#F1 = inner(grad(u_tilde), grad(u_hat))*dx - f*u_hat*dx
-#a1, L1 = lhs(F1), rhs(F1)
-#solve(a1==L1, u, bc)
+F1 = inner(grad(u_tilde), grad(u_hat))*dx - (1./f)*u_hat*dx
+a1, L1 = lhs(F1), rhs(F1)
+solve(a1==L1, u, bc)
 # solve grad==0 given initial guess
-
-u_0 = Expression('x[0]*x[1]*(1-x[0]-x[1])',degree=1)
-u.assign(interpolate(u_0, V))
+print(assemble(Pi));
+#u_0 = Expression('x[0]*x[1]*(1-x[0]-x[1])',degree=1)
+#u.assign(interpolate(u_0, V))
 parameters={"newton_solver": {"relative_tolerance": 1e-10,\
                                "report": True, \
                                "maximum_iterations": 100}}

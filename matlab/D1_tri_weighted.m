@@ -3,8 +3,6 @@ n = size(H,1)-2;
 a = a-1/2; b = b-1/2; c = c-1/2; 
 N = (n+1)*(n+2)/2;
 D = zeros(N);
-disp(H)
-disp(H1)
 % Dx
 if mode == 0
 row = 1; col = 2;
