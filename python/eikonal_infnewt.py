@@ -47,7 +47,8 @@ f = Constant(2.0)
 #f = Expression('x[0]*x[1]*(1-x[0]-x[1])',degree=1)
 
 # proxy for energy
-E = (sqrt(inner(grad(u),grad(u))) + (xi/2.0)*inner(grad(u),grad(u)) - (1./f)*u)*dx
+#E = (sqrt(inner(grad(u),grad(u))) + (xi/2.0)*inner(grad(u),grad(u)) - (1./f)*u)*dx
+E = (0.5*inner(grad(u),grad(u)) - (1./f)*sqrt(inner(grad(u),grad(u))) + (xi/2.0)*div(grad(u))**2)*dx
 
 # Compute the first variation (Residual F = dE/du)
 F = (sqrt(inner(grad(u),grad(u)))*v - (1./f)*v + xi*inner(grad(u),grad(v)))*dx

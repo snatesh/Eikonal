@@ -13,10 +13,10 @@ from convToSurf3D import surfTo3D
 #mesh = generate_mesh(domain,64)
 
 domain = Polygon([Point(0,0), Point(1,0), Point(0,1)])
-mesh = generate_mesh(domain, 32)
+mesh = generate_mesh(domain, 64)
 
 #Defining boundary condition
-V = FunctionSpace(mesh,'CG',4)
+V = FunctionSpace(mesh,'CG',1)
 u0 = Constant(0.0)
 
 #class DirichletBoundary(SubDomain):
@@ -51,13 +51,19 @@ n = FacetNormal(mesh)
 
 # Functional we seek to minimize
 
-Pi = (sqrt(inner(grad(u),grad(u))) + (xi/2.0)*inner(grad(u),grad(u)) - (1./f)*u)*dx
+#Pi = (sqrt(inner(grad(u),grad(u))) + (xi/2.0)*inner(grad(u),grad(u)) - (1./f)*u)*dx
+Pi = (sqrt(inner(grad(u),grad(u))) - (1/f) - xi*div(grad(u)))**2 * dx
 # first variation of functional
 
-#dPi = derivative(Pi, u, v)
-dPi = (sqrt(inner(grad(u),grad(u)))*v - (1./f)*v + xi*inner(grad(u),grad(v)))*dx
+dPi = derivative(Pi, u, v)
+#dPi = (sqrt(inner(grad(u),grad(u)))*v - (1./f)*v + xi*inner(grad(u),grad(v)))*dx
+#dPi = ( inner(grad(u),grad(v))/(sqrt(inner(grad(u),grad(u)))) - (1./f)*v + xi*inner(grad(u),grad(v)))*dx 
 # verify expression for first variation
 u0 = interpolate(Expression("x[0]*(x[0]-1)*x[1]*(x[1]-1)",degree=1), V)
+#u0 = Function(V);
+#F1 = inner(grad(u_tilde), grad(u_hat))*dx - (1./f)*u_hat*dx
+#a1, L1 = lhs(F1), rhs(F1)
+#solve(a1==L1, u0, bc)
 n_eps = 32
 eps = 1e-1*np.power(2., -np.arange(n_eps))
 err_grad = np.zeros(n_eps)
@@ -87,9 +93,12 @@ plt.show()
 # second variation of functional
 
 
-ddPi = (inner(grad(u),grad(w))*v/(sqrt(inner(grad(u),grad(u)))))*dx + xi*inner(grad(w),grad(v))*dx
+#ddPi = (inner(grad(u),grad(w))*v/(sqrt(inner(grad(u),grad(u)))))*dx + xi*inner(grad(w),grad(v))*dx
+ddPi = derivative(dPi, u, w);
 # verify expression for second variation
+u0 = interpolate(Expression("x[0]*(x[0]-1)*x[1]*(x[1]-1)",degree=1), V)
 u.assign(u0)
+grad0 = assemble(dPi)
 H_0 = assemble(ddPi)
 err_H = np.zeros(n_eps)
 for i in range(n_eps):
@@ -100,7 +109,7 @@ for i in range(n_eps):
     diff_grad *= 1/eps[i]
     H_0dir = H_0 * direction.vector()
     err_H[i] = (diff_grad - H_0dir).norm("l2")
-
+print(err_H)
 plt.figure()
 plt.loglog(eps, err_H, "-ob")
 plt.loglog(eps, (.5*err_H[0]/eps[0])*eps, "-.k")
