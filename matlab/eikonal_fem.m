@@ -7,8 +7,9 @@ S = importdata("../bin/ytri_N496_n30_M1378_m51.txt");
 W = importdata("../bin/wtri_N496_n30_M1378_m51.txt");
 
 % highest poly degree is m-1, and there are M total polys
-m = 10; n = m+1; M = m*(m+1)/2;
+m = 8; n = m+1; M = m*(m+1)/2;
 speed = 1; 
+xi = 0.001;
 u = @(x,y) distToTri(x,y)/speed;
 
 %u = @(x,y) x.*y.*(1-x-y).*sin(x+y);
@@ -73,7 +74,7 @@ cF_a1b1c1 = K_a1b1c_a1b1c1(1:M,1:M)...
 cu_a1b1c1w = Lap_a1b1c1w_a1b1c1\cF_a1b1c1;
 
 T = delaunay(R,S);
-[xx,yy] = meshgrid(linspace(1e-6,1-1e-6,30)); 
+[xx,yy] = meshgrid(linspace(1e-10,1-1e-10,50)); 
 xx = xx(:); yy = yy(:);
 indtri = yy<=1-xx;
 xx = xx(indtri);
@@ -87,7 +88,6 @@ Dy_w = Ly_a1bc_abc*Wy_a1b1c1_a1bc; Dy_w_tr = Dy_w(1:M,1:M);
 
 % 1/speed = cf(1)
 rhs = @(R,S) RHS(R,S,speed);
-xi = 0.01;
 cf_abc = V_abc(:,1:M)'*(rhs(R,S).*W);
 Kap = K_a1b1c_a1b1c1(1:M,1:M) * ...
       K_a1bc_a1b1c(1:M,1:M) * ...
@@ -115,8 +115,9 @@ fun = @(cu) eik_nonlin_coeffs1(cu,cf_abc,...
                                Lap_a1b1c1w_a1b1c1,Dx_w_tr,Dy_w_tr,...
                                V_abc(:,1:M),V_a1b1c1,W,xi);
 
-A = []; bvec = [];
+%A = []; bvec = [];
 A = -V_a1b1c1w; bvec = zeros(length(R),1);
+%A = -(W/2)'*V_a1b1c1w; bvec = 0;
 %A = -Vw_grid; bvec = zeros(length(xx),1);
 x0 = cu_a1b1c1w;
 Aeq = [];
@@ -127,31 +128,116 @@ options = ...
     'Display','iter',...
     'Algorithm','sqp',...
     'FiniteDifferenceType','central',...
-    'FiniteDifferenceStepSize',1e-8,...
+    'FiniteDifferenceStepSize',1e-6,...
     'MaxFunctionEvaluations',1e10,...
     'MaxIterations',1e10,...
-    'ConstraintTolerance',1e-16,...
-    'OptimalityTolerance',1e-10,...
-    'StepTolerance', 1e-10, ...
+    'ConstraintTolerance',1e-8,...
+    'OptimalityTolerance',1e-8,...
+    'StepTolerance', 1e-8, ...
     'UseParallel', false);
 
 
 cu_sol = fmincon(fun,x0,A,bvec,Aeq,beq,[],[],[],options);
 
 figure()
-tiledlayout(1,3);
-ax1 = nexttile;
-trisurf(Tgrid,xx,yy,Vw_grid*cu_a1b1c1w);
+tiledlayout(1,2);
+%ax1 = nexttile;
+%trisurf(Tgrid,xx,yy,Vw_grid*cu_a1b1c1w);
 ax2 = nexttile;
 trisurf(Tgrid,xx,yy,u(xx,yy))
 
 ax3 = nexttile;
 trisurf(Tgrid,xx,yy,Vw_grid*cu_sol)
-linkaxes([ax1,ax2,ax3],'z')
+linkaxes([ax2,ax3],'z')
+%% now try constructing a finite element discretization for poisson
+[K,B,F,dPdP,V_abc,V_a1bc1,V_ab1c1,Dx,Dy] = assemble_poisson_unweighted(n,R,S,W,rhs);
+M = n*(n+1)/2;
+[~,~,II] = qr(B,0);
+nLambda = rank(B);
+BB = B(II(1:nLambda),:);
+Amat = zeros(M+nLambda);
+Amat(1:M,1:M) = K;
+Amat(1:M,M+1:end) = BB';
+Amat(M+1:end,1:M) = BB;
+Fvec = [F;zeros(nLambda,1)];
+cu = Amat\Fvec; cu_abc = cu(1:M);
+tiledlayout(1,1);
+nexttile;
+trisurf(T,R,S,V_abc*cu_abc);
 
 
-%%%% now try constructing a finite element discretization
+%% strong form discretization with weak bc enforcement for poisson
+M = n*(n+1)/2;
+% promotion matrices
+K_a2bc2_a2b1c2 = promotion_mat_tri(a+2,b,c+2,H_a2bc2,H_a2b1c2,1);
+K_a2b1c2_a2b2c2 = promotion_mat_tri(a+2,b+1,c+2,H_a2b1c2,H_a2b2c2,1);
+K_ab2c2_a1b2c2 = promotion_mat_tri(a,b+2,c+2,H_ab2c2,H_a1b2c2,0);
+K_a1b2c2_a2b2c2 = promotion_mat_tri(a+1,b+2,c+2,H_a1b2c2,H_a2b2c2,0);
+% unweighted derivative matrices
+Dx_abc_a1bc1 = D1_tri(a,b,c,H_abc,H_a1bc1,0);
+Dx_a1bc1_a2bc2 = D1_tri(a+1,b,c+1,H_a1bc1,H_a2bc2,0);
+Dy_abc_ab1c1 = D1_tri(a,b,c,H_abc,H_ab1c1,1);
+Dy_ab1c1_ab2c2 = D1_tri(a,b+1,c+1,H_ab1c1,H_ab2c2,1);
 
+% total number of equations
+% laplacian in unweighted basis
+Lap_abc_a2b2c2 = K_a2b1c2_a2b2c2*K_a2bc2_a2b1c2*Dx_a1bc1_a2bc2*Dx_abc_a1bc1 + ...\
+                 K_a1b2c2_a2b2c2*K_ab2c2_a1b2c2*Dy_ab1c1_ab2c2*Dy_abc_ab1c1;  
+
+% boundary stiffness
+[xleg,wleg,~] = gjQuad(100,0,0);
+wleg = wleg'/2;
+xleg = (xleg+1)/2;
+Xl = 0*xleg;
+Yl = xleg;
+Xb = xleg;
+Yb = 0*xleg;
+Xh = xleg;
+Yh = 1-Xh;
+
+Vl = jPoly_tri(Xl,Yl,H_abc,n-1,a,b,c);
+Vb = jPoly_tri(Xb,Yb,H_abc,n-1,a,b,c);
+Vh = jPoly_tri(Xh,Yh,H_abc,n-1,a,b,c);
+BCrows = zeros(M,M);
+for i = 1:M
+    for j = 1:M
+        int1 = wleg'*(Vl(:,i).*Vl(:,j));
+        int2 = wleg'*(Vb(:,i).*Vb(:,j));
+        int3 = wleg'*(Vh(:,i).*Vh(:,j));
+        BCrows(i,j) = int1+int2+int3;
+    end
+end
+
+Fbc = zeros(M,1);
+dirch = @(R,S) zeros(size(R));
+for i = 1:M
+    int1 = wleg'*(Vl(:,i).*dirch(Xl,Yl));
+    int2 = wleg'*(Vb(:,i).*dirch(Xb,Yb));
+    int3 = wleg'*(Vh(:,i).*dirch(Xh,Yh));
+    Fbc(i) = int1+int2+int3;
+end
+%rankBnd = rank(BCrows);%2*n-1;
+rankLap = M-(2*n-1);
+[~,~,II] = qr(BCrows,0);
+
+AAmat = [Lap_abc_a2b2c2 BCrows; BCrows' zeros(size(BCrows))];
+cf_a2b2c2 = zeros(M,1); cf_a2b2c2(1) = -1./speed;
+cF = [cf_a2b2c2;Fbc];
+
+
+cu_abc = AAmat \ cF;
+nexttile;
+trisurf(T,R,S,V_abc*cu_abc(1:M));
+%%
+Lap_abc_a2b2c2(rankLap+1:end,:) = BCrows(need_rows,:);
+cf_a2b2c2 = zeros(M,1); cf_a2b2c2(1) = -1./speed;
+cF = [cf_a2b2c2(1:rankLap);Fbc(need_rows)];
+cu_abc = Lap_abc_a2b2c2\cF;
+tiledlayout(1,1);
+nexttile;
+scatter3(R,S,V_abc*cu_abc)
+%trisurf(T,R,S,V_abc*cu_abc);
+%%
 % % check implementation of weak form by verifying that it 
 % % is indeed the first variation of poisson energy functional
 % % cf_abc here is actually cf_a1b1c1w.
@@ -159,9 +245,11 @@ linkaxes([ax1,ax2,ax3],'z')
 % figure()
 % loglog(err_grad,hs,'r.-'); hold on; loglog(hs,hs,'k--');
 % solve poisson problem for weighted coeffs cu_femw
+M = (n-1)*n/2;
 [K,F,V_abc,V_a1b1c1w,Dx_w,Dy_w,dPdP] = assemble_poisson(n,M,R,S,W,rhs);
 
 cu_femw = K\F;
+%%
 % %  now check weak form for nonlinear eikonal problem
 % [err_grad,err_hess,hs] = check_variations(n,cu_femw,M,R,S,W,xi,rhs);
 % figure()
@@ -170,16 +258,16 @@ cu_femw = K\F;
 % loglog(hs,hs,'k--');
 
 
-
+%%
 % now do an inf-dim newton stepper for eikonal
 [N,K,F,H] = assemble_eik_nonlin(n,cu_femw,M,R,S,W,xi,rhs,...
-                                V_abc, V_a1b1c1w,Dx_w,Dy_w,K,F,...
-                                dPdP);
+                               V_abc, V_a1b1c1w,Dx_w,Dy_w,K,F,...
+                               dPdP);
 H = H';
-
-%[N,K,F] = assemble_eik_nonlin(n,cu_femw,M,R,S,W,xi,rhs,...
-%                                V_abc, V_a1b1c1w,Dx_w,Dy_w,K,F,...
-%                                dPdP);
+% 
+% [N,K,F] = assemble_eik_nonlin(n,cu_femw,M,R,S,W,xi,rhs,...
+%                                 V_abc, V_a1b1c1w,Dx_w,Dy_w,K,F,...
+%                                 dPdP);
 
 max_iter = 100;
 cu = cu_femw;
@@ -189,23 +277,25 @@ tol = norm(N+xi*K*cu-F)*rtol;
 fprintf("It \t Energy \t (g,du) \t ||g||l2\n")
 for it = 1:max_iter
     cu_prev = cu;
-    if ~(rem(it,1))
+    %if ~(rem(it,5))
         [N,K,F,H] = assemble_eik_nonlin(n,cu,M,R,S,W,xi,rhs,...
                                         V_abc,V_a1b1c1w,Dx_w,Dy_w,K,F,dPdP);
-        H = H'; alph = 1;
-    else
-        [N,K,F] = assemble_eik_nonlin(n,cu,M,R,S,W,xi,rhs,...
-                                      V_abc,V_a1b1c1w,Dx_w,Dy_w,K,F,dPdP);
-        alph = 0.01;
-    end
+        H = H'; alph = 1/2;
+    %else
+    %    [N,K,F] = assemble_eik_nonlin(n,cu,M,R,S,W,xi,rhs,...
+    %                                  V_abc,V_a1b1c1w,Dx_w,Dy_w,K,F,dPdP);
+    %    alph = 0.001;
+    %end
     
     brhs = N+xi*K*cu-F;
     if norm(brhs) < tol
         fprintf('Converged in %d Newton iterations\n', it);
         break;
     end
+
     du = -H\brhs; 
     cu1 = cu + alph*du;
+
     % bfgs update for hessian
     % alph = 0.5; 
     % sk = alph*du;
@@ -232,26 +322,26 @@ for it = 1:max_iter
     %   pk1 = norm(brhs1); iter_ii = iter_ii+1;
     % end
 
-    % fk = assemble_energy(n,cu,M,R,S,W,xi,rhs);
+    % fk = assemble_energy(cu,M,R,S,W,xi,rhs,dPdP,V_a1b1c1w);
     % gradfk = brhs;
     % du = -pinv(gradfk)*fk; 
-    % alph = 0.1; cu1 = cu+alph*du';
-    % fk1 = assemble_energy(n,cu1,M,R,S,W,xi,rhs);
-    % pk1 = fk1; iter_ii = 0;
-    % rho = 0.9; gam = 1e-4;
-    % while pk1>norm(fk+gam*alph*gradfk'*du') && iter_ii<max_iter && alph > 1e-4
-    %   alph = rho*alph;
-    %   cu1 = cu+alph*du';
-    %   fk1 = assemble_energy(n,cu1,M,R,S,W,xi,rhs);
-    %   pk1 = fk1; iter_ii = iter_ii+1;
-    %   %fprintf("%d \t %1.10f \n", it+iter_ii, fk1)
-    % end
+    % alph = 0.005; cu1 = cu+alph*du';
+    % % fk1 = assemble_energy(cu1,M,R,S,W,xi,rhs,dPdP,V_a1b1c1w);
+    % % pk1 = fk1; iter_ii = 0;
+    % % rho = 0.9; gam = 1e-4;
+    % % while pk1>norm(fk+gam*alph*gradfk'*du') && iter_ii<max_iter && alph > 1e-3
+    % %   alph = rho*alph;
+    % %   cu1 = cu+alph*du';
+    % %   fk1 = assemble_energy(cu1,M,R,S,W,xi,rhs,dPdP,V_a1b1c1w);
+    % %   pk1 = fk1; iter_ii = iter_ii+1;
+    % %   %fprintf("%d \t %1.10f \n", it+iter_ii, fk1)
+    % % end
 
     cu = cu1;
     
     fk = assemble_energy(cu,M,R,S,W,xi,rhs,dPdP,V_a1b1c1w);
     fprintf("%d \t %1.10f \t %1.10f \t %1.10f \t %1.10f\n", it, fk, -brhs'*du, norm(brhs), norm(cu_prev-cu))
-    %fprintf("%d \t %1.10f \t %1.10f \n", it, energy, norm(brhs))
+    %fprintf("%d \t %1.10f \t %1.10f \n", it, fk, norm(brhs))
 
 end
 
@@ -266,6 +356,75 @@ linkaxes([ax2,ax3],'z')
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%% FEM assembly %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function [K,B,F,dPdP,V_abc,V_a1bc1,V_ab1c1,Dx,Dy] = assemble_poisson_unweighted(n,R,S,W,rhs)
+a = 1/2; b = a; c = a;
+M = n*(n+1)/2;
+% normalization under (a,b,c), (a+1,b,c) etc.
+H_abc = structure_factors_tri(n+1,a,b,c);
+H_a1bc1 = structure_factors_tri(n+1,a+1,b,c+1);
+H_ab1c1 = structure_factors_tri(n+1,a,b+1,c+1);
+
+% vandermonde under (a,b,c), (a+1,b,c+1), (a,b+1,c+1)
+V_abc = jPoly_tri(R,S,H_abc,n-1,a,b,c);
+V_a1bc1 = jPoly_tri(R,S,H_a1bc1,n-1,a+1,b,c+1);
+V_ab1c1 = jPoly_tri(R,S,H_ab1c1,n-1,a,b+1,c+1);
+
+% derivative amatrices
+Dx_a1bc1 = D1_tri(a,b,c,H_abc,H_a1bc1,0);
+Dy_ab1c1 = D1_tri(a,b,c,H_abc,H_ab1c1,1);
+
+% interior stiffness
+K = zeros(M,M); 
+dPdP = zeros(M,M,length(R));
+for i = 1:M
+    dxP_i = V_a1bc1 * Dx_a1bc1(:,i);
+    dyP_i = V_ab1c1 * Dy_ab1c1(:,i);
+    for j = 1:M
+        dxP_j = V_a1bc1 * Dx_a1bc1(:,j);
+        dyP_j = V_ab1c1 * Dy_ab1c1(:,j);   
+        dPidPj = dxP_i.*dxP_j + dyP_i.*dyP_j;
+        K(i,j) = (W/2)'*dPidPj;
+        dPdP(i,j,:) = dPidPj;
+    end
+end
+
+% boundary stiffness
+[xleg,wleg,~] = gjQuad(50,0,0);
+wleg = wleg'/2;
+xleg = (xleg+1)/2;
+Xl = 0*xleg;
+Yl = xleg;
+Xb = xleg;
+Yb = 0*xleg;
+Xh = xleg;
+Yh = 1-Xh;
+
+Vl = jPoly_tri(Xl,Yl,H_abc,n-1,a,b,c);
+Vb = jPoly_tri(Xb,Yb,H_abc,n-1,a,b,c);
+Vh = jPoly_tri(Xh,Yh,H_abc,n-1,a,b,c);
+B = zeros(M,M);
+for i = 1:M
+    for j = 1:M
+        int1 = wleg'*(Vl(:,i).*Vl(:,j));
+        int2 = wleg'*(Vb(:,i).*Vb(:,j));
+        int3 = wleg'*(Vh(:,i).*Vh(:,j));
+        B(i,j) = int1+int2+int3;
+    end
+end
+
+F = zeros(M,1);
+for i = 1:M
+    P_if = V_abc(:,i).*rhs(R,S);
+    F(i) = (W/2)'*P_if;
+end
+
+Dx = Dx_a1bc1;
+Dy = Dy_ab1c1;
+
+end
+
+
+
 function [K,F,varargout] = assemble_poisson(n,M,R,S,W,rhs)
 a = 1/2; b = a; c = a;
 % normalization under (a,b,c), (a+1,b,c) etc.
@@ -670,14 +829,10 @@ end
 
 
 function val = eik_nonlin_coeffs1(cu,cf,Lap,Dx_w,Dy_w,V_abc,V_a1b1c1,W,xi)
-
 dxcu = Dx_w*cu;
 dycu = Dy_w*cu;
 gradNorm_u = ((V_abc * dxcu).^2 + (V_abc * dycu).^2).^(0.5);
 Lap_u = V_a1b1c1 * (Lap * cu);
 f = V_abc * cf;
-
 val = (W/2)'*((gradNorm_u - f - xi*Lap_u).^2);
-
-
 end

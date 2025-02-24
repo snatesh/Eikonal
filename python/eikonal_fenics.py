@@ -52,10 +52,12 @@ n = FacetNormal(mesh)
 # Functional we seek to minimize
 
 #Pi = (sqrt(inner(grad(u),grad(u))) + (xi/2.0)*inner(grad(u),grad(u)) - (1./f)*u)*dx
-Pi = (sqrt(inner(grad(u),grad(u))) - (1/f) - xi*div(grad(u)))**2 * dx
+#Pi = (sqrt(inner(grad(u),grad(u))) - (1/f) - xi*div(grad(u)))**2 * dx
+Pi = (0.5*inner(grad(u),grad(u)) - (u/f) - (xi/2.0)*(div(grad(u)))**2)*dx
 # first variation of functional
 
-dPi = derivative(Pi, u, v)
+dPi = (inner(grad(sqrt(inner(grad(u),grad(u))) - (1/f) - xi*div(grad(u))),grad(v)))*dx
+#dPi = derivative(Pi, u, v)
 #dPi = (sqrt(inner(grad(u),grad(u)))*v - (1./f)*v + xi*inner(grad(u),grad(v)))*dx
 #dPi = ( inner(grad(u),grad(v))/(sqrt(inner(grad(u),grad(u)))) - (1./f)*v + xi*inner(grad(u),grad(v)))*dx 
 # verify expression for first variation
