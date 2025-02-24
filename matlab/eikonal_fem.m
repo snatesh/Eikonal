@@ -161,10 +161,11 @@ Amat(1:M,M+1:end) = BB';
 Amat(M+1:end,1:M) = BB;
 Fvec = [F;zeros(nLambda,1)];
 cu = Amat\Fvec; cu_abc = cu(1:M);
-tiledlayout(1,1);
+tiledlayout(1,2);
 nexttile;
 trisurf(T,R,S,V_abc*cu_abc);
-
+nexttile
+scatter3(R,S,V_abc*cu_abc);
 
 %% strong form discretization with weak bc enforcement for poisson
 M = n*(n+1)/2;
@@ -216,27 +217,23 @@ for i = 1:M
     int3 = wleg'*(Vh(:,i).*dirch(Xh,Yh));
     Fbc(i) = int1+int2+int3;
 end
-%rankBnd = rank(BCrows);%2*n-1;
-rankLap = M-(2*n-1);
 [~,~,II] = qr(BCrows,0);
-
-AAmat = [Lap_abc_a2b2c2 BCrows; BCrows' zeros(size(BCrows))];
+nLambda = rank(BCrows);
+BB = BCrows(II(1:nLambda),:);
+AAmat = zeros(M+nLambda);
+AAmat(1:M,1:M) = Lap_abc_a2b2c2;
+AAmat(1:M,M+1:end) = BB';
+AAmat(M+1:end,1:M) = BB;
 cf_a2b2c2 = zeros(M,1); cf_a2b2c2(1) = -1./speed;
-cF = [cf_a2b2c2;Fbc];
+cF = [cf_a2b2c2;Fbc(II(1:nLambda))];
+cu1_abc = AAmat \ cF;
+tiledlayout(1,2);
+nexttile;
+trisurf(T,R,S,V_abc*cu1_abc(1:M));
+nexttile
+scatter3(R,S,V_abc*cu1_abc(1:M));
 
 
-cu_abc = AAmat \ cF;
-nexttile;
-trisurf(T,R,S,V_abc*cu_abc(1:M));
-%%
-Lap_abc_a2b2c2(rankLap+1:end,:) = BCrows(need_rows,:);
-cf_a2b2c2 = zeros(M,1); cf_a2b2c2(1) = -1./speed;
-cF = [cf_a2b2c2(1:rankLap);Fbc(need_rows)];
-cu_abc = Lap_abc_a2b2c2\cF;
-tiledlayout(1,1);
-nexttile;
-scatter3(R,S,V_abc*cu_abc)
-%trisurf(T,R,S,V_abc*cu_abc);
 %%
 % % check implementation of weak form by verifying that it 
 % % is indeed the first variation of poisson energy functional
