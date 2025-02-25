@@ -254,12 +254,7 @@ Triangulator::Triangulator  ( unsigned int _N, unsigned int _m,
     this->interpc_jacobi = (double*) calloc(N, sizeof(double));
     
     // read the image
-<<<<<<< HEAD
-    //this->imagedata = _imagedata; //smoothImage(_imagedata);
-    this->imagedata = smoothImage(_imagedata);
-=======
     this->imagedata = _imagedata; //smoothImage(_imagedata);
->>>>>>> 05fff5254ac708caf2841444aa910e881c53b95f
     this->pixels = imagedata->GetPoints();
     imagedata->GetDimensions(this->dims);
     this->Npix = dims[0]*dims[1];
@@ -976,17 +971,6 @@ vtkSmartPointer<vtkDelaunay2D> Triangulator::triangulateEntropy ( double* intgn,
   triangulator->SetInputData(pointSet);
   triangulator->SetSourceData(polyBbox);
   triangulator->Update();
-<<<<<<< HEAD
-  vtkSmartPointer<vtkFeatureEdges> featureEdges1 
-    = vtkSmartPointer<vtkFeatureEdges>::New();
-  featureEdges1->SetInputData(triangulator->GetOutput());
-  featureEdges1->BoundaryEdgesOn();
-  featureEdges1->FeatureEdgesOff();
-  featureEdges1->ManifoldEdgesOff();
-  featureEdges1->NonManifoldEdgesOff();
-  featureEdges1->Update();
-  writeVTP(featureEdges1->GetOutput(), "bndry.vtp");
-=======
   //vtkSmartPointer<vtkFeatureEdges> featureEdges1 
   //  = vtkSmartPointer<vtkFeatureEdges>::New();
   //featureEdges1->SetInputData(triangulator->GetOutput());
@@ -995,7 +979,6 @@ vtkSmartPointer<vtkDelaunay2D> Triangulator::triangulateEntropy ( double* intgn,
   //featureEdges1->ManifoldEdgesOff();
   //featureEdges1->NonManifoldEdgesOff();
   //featureEdges1->Update();
->>>>>>> 05fff5254ac708caf2841444aa910e881c53b95f
   free(interr);
   return triangulator;
 }
@@ -1490,18 +1473,12 @@ void Compressor::compressChannel_help ( vtkSmartPointer<vtkPolyData> polytri,
   double tmpwts[3];
   double color[3], coeff[3], offtup[3];
   double xqtr[3], xqt[3]; xqtr[2] = 0; xqt[2] = 0;
-<<<<<<< HEAD
   
   unsigned int Mstart = 7; 
   unsigned int Mtot = polytri->GetNumberOfCells() * (Mmax-Mstart);
   unsigned int MMtot = polytri->GetNumberOfCells() * Mmax;
   coeffs->SetNumberOfTuples(MMtot); 
-=======
-   
-  unsigned int Mtot = polytri->GetNumberOfCells() * Mmax;
-  unsigned int MMtot = polytri->GetNumberOfCells() * (Mmax - Mstart);
-  coeffs->SetNumberOfTuples(Mtot); 
->>>>>>> 05fff5254ac708caf2841444aa910e881c53b95f
+
   int offset = 0;
   ave[0] = ave[1] = ave[2] = 0; 
   stdev[0] = stdev[1] = stdev[2] = 0;
@@ -1536,11 +1513,7 @@ void Compressor::compressChannel_help ( vtkSmartPointer<vtkPolyData> polytri,
         ave[1] += std::abs(coeff[1]);
         ave[2] += std::abs(coeff[2]);
       }
-<<<<<<< HEAD
     }   
-=======
-    }
->>>>>>> 05fff5254ac708caf2841444aa910e881c53b95f
     offtup[0] = offtup[1] = offtup[2] = offset; 
     offsets->SetTuple(i, offtup);
     orders->SetTuple(i, ordtup);
@@ -3560,13 +3533,8 @@ vtkSmartPointer<vtkImageData> smoothImage ( vtkSmartPointer<vtkImageData> imaged
     = vtkSmartPointer<vtkImageGaussianSmooth>::New();
   //smoother->SetDimensionality(2);
   smoother->SetInputData(imagedata);
-<<<<<<< HEAD
-  smoother->SetStandardDeviations(3.0, 3.0);
-  smoother->SetRadiusFactors(3, 3);
-=======
   //smoother->SetStandardDeviations(1.0, 1.0);
   //smoother->SetRadiusFactors(1.0, 1.0);
->>>>>>> 05fff5254ac708caf2841444aa910e881c53b95f
   smoother->Update();
   return smoother->GetOutput();
 }
