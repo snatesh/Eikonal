@@ -7,7 +7,7 @@ S = importdata("../bin/ytri_N496_n30_M1378_m51.txt");
 W = importdata("../bin/wtri_N496_n30_M1378_m51.txt");
 
 % highest poly degree is m-1, and there are M total polys
-m = 8; n = m+1; M = m*(m+1)/2;
+m = 6; n = m+1; M = m*(m+1)/2;
 speed = 1; 
 xi = 0.001;
 u = @(x,y) distToTri(x,y)/speed;
@@ -32,6 +32,7 @@ H_a2b2c1 = structure_factors_tri(n+1,a+2,b+2,c+1);
 
 % vandermonde under (a,b,c)
 V_abc = jPoly_tri(R,S,H_abc,n-1,a,b,c);
+V_a2b2c2 = jPoly_tri(R,S,H_a2b2c2,n-1,a+2,b+2,c+2);
 % vandermonde under(a+1,b+1,c+1)
 V_a1b1c1 = jPoly_tri(R,S,H_a1b1c1(1:n,1:n),n-2,a+1,b+1,c+1);
 % weighted vandermonde under (a+1,b+1,c+1)
@@ -150,6 +151,7 @@ ax3 = nexttile;
 trisurf(Tgrid,xx,yy,Vw_grid*cu_sol)
 linkaxes([ax2,ax3],'z')
 %% now try constructing a finite element discretization for poisson
+
 [K,B,F,dPdP,V_abc,V_a1bc1,V_ab1c1,Dx,Dy] = assemble_poisson_unweighted(n,R,S,W,rhs);
 M = n*(n+1)/2;
 [~,~,II] = qr(B,0);
@@ -162,6 +164,7 @@ Amat(M+1:end,1:M) = BB;
 Fvec = [F;zeros(nLambda,1)];
 cu = Amat\Fvec; cu_abc = cu(1:M);
 tiledlayout(1,2);
+
 nexttile;
 trisurf(T,R,S,V_abc*cu_abc);
 nexttile
@@ -227,11 +230,16 @@ AAmat(M+1:end,1:M) = BB;
 cf_a2b2c2 = zeros(M,1); cf_a2b2c2(1) = -1./speed;
 cF = [cf_a2b2c2;Fbc(II(1:nLambda))];
 cu1_abc = AAmat \ cF;
+
 tiledlayout(1,2);
 nexttile;
 trisurf(T,R,S,V_abc*cu1_abc(1:M));
 nexttile
 scatter3(R,S,V_abc*cu1_abc(1:M));
+%%
+wa2b2c2 = @(R,S) R.^(a+2-0.5).*S.^(b+2-0.5).*(1-R-S).^(c+2-0.5);
+err1 = (W/2)'*((V_a2b2c2*(Lap_abc_a2b2c2*cu_abc - cf_a2b2c2)).*wa2b2c2(R,S))
+err2 = (W/2)'*((V_a2b2c2*(Lap_abc_a2b2c2*cu1_abc(1:M)-cf_a2b2c2)).*wa2b2c2(R,S))
 
 
 %%
