@@ -12,6 +12,14 @@ m = 10; n = m+1; M = n*(n+1)/2;
 speed = 2; 
 xi = 0.01;
 u = @(x,y) distToTri(x,y)/speed;
+tripts = [2 1; 3 5; 1.5 4];
+%tripts = [0 0; 1 0; 0 1];
+DT = delaunayTriangulation(tripts);
+meshT = DT.ConnectivityList;
+meshP = DT.Points';
+Ixe = IncidenceMatrix(meshP);
+
+%%
 
 %u = @(x,y) x.*y.*(1-x-y).*sin(x+y);
 % normalization under (a,b,c), (a+1,b,c) etc.
@@ -33,7 +41,7 @@ H_a2b2c1 = structure_factors_tri(n+1,a+2,b+2,c+1);
 
 %% now try constructing a finite element discretization for poisson
 rhs = @(R,S) RHS(R,S,speed);
-[K,B,F,dPdP,V_abc,Dx,Dy] = assemble_poisson_unweighted(n,R,S,W,rhs);
+[K,B,F,dPdP,V_abc,Dx,Dy] = assemble_poisson_unweighted(n,R,S,W,rhs,meshT,meshP);
 [~,~,II] = qr(B,0);
 nLambda = rank(B);
 BB = B(II(1:nLambda),:);
@@ -46,7 +54,9 @@ cu = Amat\Fvec; cu_abc = cu(1:M);
 
 tiledlayout(1,1);
 nexttile;
-trisurf(T,R,S,V_abc*cu_abc);
+XYe = (Ixe * [R,S]' + meshP(:,1))';
+scatter3(XYe(:,1),XYe(:,2),V_abc*cu_abc);
+%trisurf(T,R,S,V_abc*cu_abc);
 %%
 %[err_hess,hs] = check_variations(n,cu_abc,M,R,S,W,xi,rhs)
 
@@ -148,9 +158,16 @@ linkaxes([ax2,ax3],'z')
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%% FEM assembly %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function [K,B,F,dPdP,V_abc,Dx,Dy] = assemble_poisson_unweighted(n,R,S,W,rhs)
+function [K,B,F,dPdP,V_abc,Dx,Dy] = assemble_poisson_unweighted(n,R,S,W,rhs,meshT,meshP)
 a = 1/2; b = a; c = a;
+Ixe = IncidenceMatrix(meshP);
+detJ = det(Ixe);
+invIxe = inv(Ixe);
+lenE1 = norm(meshP(:,2)-meshP(:,1));
+lenE2 = norm(meshP(:,3)-meshP(:,2));
+lenE3 = norm(meshP(:,1)-meshP(:,3));
 M = n*(n+1)/2;
+
 % normalization under (a,b,c), (a+1,b,c) etc.
 H_abc = structure_factors_tri(n+1,a,b,c);
 H_a1bc1 = structure_factors_tri(n+1,a+1,b,c+1);
@@ -171,11 +188,17 @@ dPdP = zeros(M,M,length(R));
 for i = 1:M
     dxP_i = V_a1bc1 * Dx_a1bc1(:,i);
     dyP_i = V_ab1c1 * Dy_ab1c1(:,i);
+    gradP_i = invIxe'*[dxP_i';dyP_i'];
+    dxP_i = gradP_i(1,:)';
+    dyP_i = gradP_i(2,:)';
     for j = 1:M
         dxP_j = V_a1bc1 * Dx_a1bc1(:,j);
         dyP_j = V_ab1c1 * Dy_ab1c1(:,j);   
+        gradP_j = invIxe'*[dxP_j';dyP_j'];
+        dxP_j = gradP_j(1,:)';
+        dyP_j = gradP_j(2,:)';
         dPidPj = dxP_i.*dxP_j + dyP_i.*dyP_j;
-        K(i,j) = (W/2)'*dPidPj;
+        K(i,j) = (W/2)'*dPidPj*detJ;
         dPdP(i,j,:) = dPidPj;
     end
 end
@@ -199,15 +222,15 @@ for i = 1:M
     for j = 1:M
         int1 = wleg'*(Vl(:,i).*Vl(:,j));
         int2 = wleg'*(Vb(:,i).*Vb(:,j));
-        int3 = wleg'*(Vh(:,i).*Vh(:,j));
-        B(i,j) = int1+int2+int3;
+        int3 = wleg'*(Vh(:,i).*Vh(:,j))*sqrt(2);
+        B(i,j) = int1*lenE1+int2*lenE2+int3*lenE3;
     end
 end
 
 F = zeros(M,1);
 for i = 1:M
     P_if = V_abc(:,i).*rhs(R,S);
-    F(i) = (W/2)'*P_if;
+    F(i) = (W/2)'*P_if*detJ;
 end
 
 Dx = Dx_a1bc1;
@@ -290,4 +313,18 @@ end
 
 function rhs = RHS(R,S,speed)
 rhs = 1./(speed*ones(size(R)));
+end
+
+function Ixe = IncidenceMatrix(Xe)
+
+Ixe = [Xe(:,2)-Xe(:,1), Xe(:,3)-Xe(:,1)];
+
+end
+
+function A = triarea(t, p)
+% A = TRIAREA(t, p) area of triangles in triangulation
+Xt = reshape(p(t, 1), size(t)); % X coordinates of vertices in triangulation
+Yt = reshape(p(t, 2), size(t)); % Y coordinates of vertices in triangulation
+A = 0.5 * abs((Xt(:, 2) - Xt(:, 1)) .* (Yt(:, 3) - Yt(:, 1)) - ...
+    (Xt(:, 3) - Xt(:, 1)) .* (Yt(:, 2) - Yt(:, 1)));
 end
