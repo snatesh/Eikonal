@@ -160,6 +160,41 @@ end
 %%%%%%%%%%%%%%%%%%%%%% FEM ASSEMBLY %%%%%%%%%%%%%%%%%%%
 
 
+% TODO: should write functions which evaluates
+%       inner products of edge restricted basis (VlVl,VbVb,VhVh)
+%       in quadrature. then, we can just use the
+%       precomputed evaluations when assembling Bint, Bdirch
+%       - this can be added to preAssemble_poisson
+%       - but, they will not include the edge Jacobian factor
+
+% TODO: we also want a function which maps each interior edge
+%       to the two triangles which share it
+
+% once we have this,
+% 1) loop over triangles
+% 2) for each triangle, assemble the stiffness matrix K
+% 3) identify if triangle has boundary edges
+% 4) assemble the boundary dirichlet matrix contribution
+%    which will be the sum of at most 2 line integrals 
+%    with edge Jacobian factor 
+
+% Then, we do another loop
+
+% 1) loop over the shared edge map
+% 2) on a given shared edge, look up the two triangles which
+%    share it
+% 3) determine which edges in the reference triangle corresponds
+%    to the edge in T1 and T2
+% 4) pick the correct boundary continuity matrix contributions
+%    from the precomputed values of int VlVl, ..
+% 5) assemble it correctly in the global matrix
+%    like [Bint_T1 0 0 Bint_T4];
+
+% this ensures that we hit all interior edges once,
+% and have correct incorporation of the continuity constraints
+% to the global inter-element continuity block of the problem matrix.
+
+
 function [K,Bint,Bdirch,F,G] = assemble_poisson(n,R,S,W,wleg, ...
                                                 V_abc,dxP,dyP,...
                                                 VlVl,VbVb,VhVh,...
