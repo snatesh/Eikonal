@@ -8,7 +8,7 @@ end
 set(groot, 'defaultLegendFontSize',30)
 set(groot, 'defaultAxesFontSize',30)
 set(groot, 'defaultLineLineWidth',1)
-%%
+
 
 
 % legendre analog quadrature rule on triangle
@@ -119,6 +119,8 @@ rve2 = J\(ve2-vT(:,1));
 rve3 = J\(ve3-vT(:,1));
 
 
+[meshP,meshT,intEdges,bndEdges,sharedEdge_tri_map] = process_mesh(DT);
+
 
 %%
 
@@ -133,8 +135,8 @@ rhs  = @(x,y) -2*exp(x+y);
 % finite element discretization for poisson
 % on triangulated domain
 [V_abc,dxP,dyP,Vl,Vb,Vh,...
- VlVl,VbVb,VhVh,...
- Rl,Sl,Rb,Sb,Rh,Sh,wleg] = preAssemble_poisson(n,R,S);
+ Rl,Sl,Rb,Sb,Rh,Sh,wleg,...
+ intVlVl,intVbVb,intVhVh] = preAssemble_poisson1(n,R,S);
 
 % assemble system by looping over triangles
 K = zeros(M*nTri,M*nTri);
@@ -166,17 +168,20 @@ end
 %       precomputed evaluations when assembling Bint, Bdirch
 %       - this can be added to preAssemble_poisson
 %       - but, they will not include the edge Jacobian factor
+% DONE
 
 % TODO: we also want a function which maps each interior edge
 %       to the two triangles which share it
+% DONE
 
-% once we have this,
+% TODO: once we have this,
 % 1) loop over triangles
 % 2) for each triangle, assemble the stiffness matrix K
 % 3) identify if triangle has boundary edges
 % 4) assemble the boundary dirichlet matrix contribution
 %    which will be the sum of at most 2 line integrals 
 %    with edge Jacobian factor 
+% DONE
 
 % Then, we do another loop
 
@@ -195,10 +200,124 @@ end
 % to the global inter-element continuity block of the problem matrix.
 
 
-function [K,Bint,Bdirch,F,G] = assemble_poisson(n,R,S,W,wleg, ...
-                                                V_abc,dxP,dyP,...
-                                                VlVl,VbVb,VhVh,...
-                                                rhs,Pts_Ti)
+function [K_glb,Bint_glb,Bdirch_glb,...
+          F_glb,G_glb] = assemble_poisson(n,R,S,W,wleg, ...
+                                          V_abc,dxP,dyP,...
+                                          intVlVl,intVbVb,intVhVh,...
+                                          rhs,udirch,DT)
+
+
+% get mesh points, connectivity list
+% as well as interior/bndry edges
+% and map taking shared edge to the two triangles which share it
+[meshP,meshT,intEdges,bndEdges,sharedEdge_tri_map] = process_mesh(DT);
+
+% number of triangles in mesh
+nTri = size(meshT,1);
+% total number of polynomials
+M = n*(n+1)/2;
+% number of boundary and interior edges
+nintEdge = size(intEdges,1);
+nbndEdge = size(bndEdges,1);
+
+% global stifness, dirichlet and inter-element continuity matrices
+K_glb = zeros(M*nTri,M*nTri);
+Bdirch_glb = zeros(M*nTri,M*nTri);
+Bint_glb = zeros(M*nTri,M*nTri);
+F_glb = zeros(M*nTri,1);
+G_glb = zeros(M*nTri,1);
+
+
+% now we loop over triangles 
+% and assemble stiffness and dirichlet matrices
+for iTri = 1:nTri
+
+    % get tri pts, incidence matrix and edge jacobians
+    Pts_Ti = meshP(:,meshT(iTri,:));
+
+    J = IncidenceMatrix(Pts_Ti);
+    detJ = det(J);
+    invJ = inv(J);
+    lenE = zeros(3,1);
+    lenE(1) = norm(Pts_Ti(:,2)-Pts_Ti(:,1));
+    lenE(2) = norm(Pts_Ti(:,3)-Pts_Ti(:,2));
+    lenE(3) = norm(Pts_Ti(:,1)-Pts_Ti(:,3));
+    % quadrature points mapped to phyiscal triangle
+    XY = (J * [R,S]' + Pts_Ti(:,1))';
+    X = XY(:,1);
+    Y = XY(:,2);
+
+    % local interior stiffness
+    K = zeros(M,M);
+    for i = 1:M
+        dxP_i = dxP(:,i);
+        dyP_i = dyP(:,i);
+        gradP_i = invJ'*[dxP_i';dyP_i'];
+        dxP_i = gradP_i(1,:)';
+        dyP_i = gradP_i(2,:)';
+        for j = 1:M
+            dxP_j = dxP(:,j);
+            dyP_j = dyP(:,j);
+            gradP_j = invJ'*[dxP_j';dyP_j'];
+            dxP_j = gradP_j(1,:)';
+            dyP_j = gradP_j(2,:)';
+            dPidPj = dxP_i.*dxP_j + dyP_i.*dyP_j;
+            K(i,j) = (W/2)'*dPidPj*detJ;
+        end
+    end
+    % save to global stiffness
+    K_glb((iTri-1)*M+1:M*iTri,(iTri-1)*M+1:M*iTri) = K;
+
+    % local boundary stiffness
+    Bdirch = zeros(M,M);
+    % get edges of triangle, sorted to match bndry/int Edge lookup
+    edgesT = sort([meshT(iTri, [1,2]);...
+                   meshT(iTri, [2,3]);...
+                   meshT(iTri, [3,1])],2);
+    % for each edge of triangle
+    for iedge = 1:3
+        % get endpts
+        ve = meshP(:,edgesT(iedge,:));
+        % get parametric coords of endpt
+        rve = J\(ve-Pts_Ti(:,1));
+        % label them as left, bottom or hypotenuse edge
+        left = false; bot = false; hyp = false;
+        if (all(rve(:,1) == [0;0]) && all(rve(:,2) == [1;0])) || ...
+           (all(rve(:,1) == [1;0]) && all(rve(:,2) == [0;0]))           
+            bot = true;
+        elseif (all(rve(:,1) == [1;0]) && all(rve(:,2) == [0;1])) || ...
+               (all(rve(:,1) == [0;1]) && all(rve(:,2) == [1;0]))
+            hyp = true;
+        else
+            left = true;
+        end
+        % test if it is a boundary edge
+        for ibnd = 1:nbndEdge
+            % if it is, compute and store
+            % local dirichlet contribution
+            if edgesT(iedge,:) == bndEdges(ibnd,:)
+                intVV = 0;
+                if bot
+                    intVV = intVbVb;
+                elseif hyp
+                    intVV = intVhVh;
+                elseif left
+                    intVV = intVlVl;
+                end
+                
+                for i = 1:M
+                    for j = 1:M     
+                        Bdirch(i,j) = Bdirch(i,j) + intVV(i,j)*lenE(iedge);
+                    end
+                end
+            end
+        end
+    end
+    % now save to global dirichlet matrix
+    Bdirch_glb((iTri-1)*M+1:M*iTri,(iTri-1)*M+1:M*iTri) = Bdirch; 
+
+
+end
 
 
 
@@ -297,7 +416,69 @@ end
 
 end
 
-function [V_abc,dxP,dyP,Vl,Vb,Vh,VlVl,VbVb,VhVh,Rl,Sl,Rb,Sb,Rh,Sh,wleg] = preAssemble_poisson(n,R,S)
+function [V_abc,dxP,dyP,Vl,Vb,Vh,...
+          Rl,Sl,Rb,Sb,Rh,Sh,wleg,...
+          intVlVl,intVbVb,intVhVh] = preAssemble_poisson1(n,R,S)
+a = 1/2; b = a; c = a;
+M = n*(n+1)/2;
+
+% normalization under (a,b,c), (a+1,b,c) etc.
+H_abc = structure_factors_tri(n+1,a,b,c);
+H_a1bc1 = structure_factors_tri(n+1,a+1,b,c+1);
+H_ab1c1 = structure_factors_tri(n+1,a,b+1,c+1);
+
+% vandermonde under (a,b,c), (a+1,b,c+1), (a,b+1,c+1)
+V_abc = jPoly_tri(R,S,H_abc,n-1,a,b,c);
+V_a1bc1 = jPoly_tri(R,S,H_a1bc1,n-1,a+1,b,c+1);
+V_ab1c1 = jPoly_tri(R,S,H_ab1c1,n-1,a,b+1,c+1);
+
+% derivative amatrices
+Dx_a1bc1 = D1_tri(a,b,c,H_abc,H_a1bc1,0);
+Dy_ab1c1 = D1_tri(a,b,c,H_abc,H_ab1c1,1);
+
+
+Nrs = length(R);
+
+% interior basis derivatives at abscissa
+dxP = zeros(Nrs,M);
+dyP = zeros(Nrs,M);
+for i = 1:M
+    dxP(:,i) = V_a1bc1 * Dx_a1bc1(:,i);
+    dyP(:,i) = V_ab1c1 * Dy_ab1c1(:,i);
+end
+
+nleg = 50;
+[xleg,wleg,~] = gjQuad(nleg,0,0);
+wleg = wleg'/2; xleg = (xleg+1)/2;
+Rl = 0*xleg; Sl = xleg;
+Rb = xleg; Sb = 0*xleg;
+Rh = xleg; Sh = 1-Rh;
+
+Vl = jPoly_tri(Rl,Sl,H_abc,n-1,a,b,c);
+Vb = jPoly_tri(Rb,Sb,H_abc,n-1,a,b,c);
+Vh = jPoly_tri(Rh,Sh,H_abc,n-1,a,b,c);
+
+
+intVlVl = zeros(M,M);
+intVbVb = zeros(M,M);
+intVhVh = zeros(M,M);
+
+for i = 1:M
+    for j = 1:M
+        VlVlij = reshape(Vl(:,i).*Vl(:,j),nleg,1);
+        VbVbij = reshape(Vb(:,i).*Vb(:,j),nleg,1);
+        VhVhij = reshape(Vh(:,i).*Vh(:,j),nleg,1);
+        intVlVl(i,j) = wleg'*VlVlij;
+        intVbVb(i,j) = wleg'*VbVbij;
+        intVhVh(i,j) = wleg'*VhVhij;
+    end
+end
+
+end
+
+
+function [V_abc,dxP,dyP,Vl,Vb,Vh,VlVl,VbVb,VhVh,...
+          Rl,Sl,Rb,Sb,Rh,Sh,wleg] = preAssemble_poisson(n,R,S)
 a = 1/2; b = a; c = a;
 M = n*(n+1)/2;
 
@@ -340,6 +521,7 @@ VlVl = zeros(nleg,M,M);
 VbVb = zeros(nleg,M,M);
 VhVh = zeros(nleg,M,M);
 
+
 for i = 1:M
     for j = 1:M
         VlVl(:,i,j) = Vl(:,i).*Vl(:,j);
@@ -357,19 +539,19 @@ Ixe = [Xe(:,2)-Xe(:,1), Xe(:,3)-Xe(:,1)];
 end
 
 
-function refedge_bnd_map = process_mesh(DT, viz)
+function [meshP,meshT,intEdges,bndEdges,sharedEdge_tri_map] = process_mesh(DT)
 
 meshT = DT.ConnectivityList;
 meshP = DT.Points';
 
 % Extract all edges from triangles
-edges = [meshT(:, [1,2]); meshT(:, [2,3]); meshT(:, [3,1])];
+Edges = [meshT(:, [1,2]); meshT(:, [2,3]); meshT(:, [3,1])];
 
 % Sort edges so that (i,j) and (j,i) are considered the same
-edges = sort(edges, 2);
+Edges = sort(Edges, 2);
 
 % Count occurrences of each edge
-[uniqueEdges, ~, ic] = unique(edges, 'rows');
+[uniqueEdges, ~, ic] = unique(Edges, 'rows');
 counts = accumarray(ic, 1);
 
 % classify edges 
@@ -377,43 +559,16 @@ counts = accumarray(ic, 1);
 % edges that appear once are on boundary
 intEdges = uniqueEdges(counts == 2, :);
 bndEdges = uniqueEdges(counts == 1,:);
-nTri = size(meshT,1);
+nintEdge = size(intEdges,1);
+
+sharedEdge_tri_map = zeros(nintEdge,2);
 
 
-refedge_bnd_map = zeros(nTri,3,1);
+for iedge = 1:nintEdge
 
-for iTri = 1:nTri
-
-    edgeT = [meshT(:, [1,2]); meshT(:, [2,3]); meshT(:, [3,1])];
-
-    verts = meshP(:,meshT(iTri,:));
-    edge_map = reference_edge_map(verts);
-
-    
-
+    sharedTris = edgeAttachments(DT,intEdges(iedge,:));
+    sharedEdge_tri_map(iedge,:) = sharedTris{1};
 
 end
-
-
-
-
-if viz
-
-    for j = 1:size(bndEdges,1)
-        p1 = meshP(:,bndEdges(j,1));
-        p2 = meshP(:,bndEdges(j,2));
-        plot([p1(1),p2(1)],[p1(2),p2(2)],'r-'); hold on;
-    end
-
-    for j = 1:size(intEdges,1)
-        p1 = meshP(:,intEdges(j,1));
-        p2 = meshP(:,intEdges(j,2));
-        plot([p1(1),p2(1)],[p1(2),p2(2)],'b-'); hold on;
-    end
-
-end
-
-
-
 
 end
