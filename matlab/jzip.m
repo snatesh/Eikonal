@@ -13,16 +13,16 @@ set(groot, 'defaultLineLineWidth',1)
 
 % jacobi poly params
 a = 1/2; b = 1/2; c = 1/2;
-R = importdata("../bin/xtri_N55_n9_M91_m12.txt");
-S = importdata("../bin/ytri_N55_n9_M91_m12.txt");
-W = importdata("../bin/wtri_N55_n9_M91_m12.txt");
+R = importdata("../bin/xtri_N496_n30_M1378_m51.txt");
+S = importdata("../bin/ytri_N496_n30_M1378_m51.txt");
+W = importdata("../bin/wtri_N496_n30_M1378_m51.txt");
 N = length(S);
 % test function
-f = @(x,y)(x+y).^6;
+f = @(x,y)(x+y).^24;
 % eval test function on quadrature nodes
 Fref = f(R,S); FrefW = Fref.*W; normFref = norm(Fref);
 %m = 21; 
-m = 6; n = m+1;
+m = 24; n = m+1;
 % normalization under (a,b,c), (a+1,b,c) etc.
 H_abc = structure_factors_tri(n+1,a,b,c);
 H_a1bc1 = structure_factors_tri(n+1,a+1,b,c+1);
@@ -39,6 +39,77 @@ cdxf_a1bc1 = Dx*cfref_abc;
 cdyf_ab1c1 = Dy*cfref_abc;
 % check representation
 disp(norm(V_abc*cfref_abc-Fref)/normFref);
+% reference tri
+Rv = [0,1,0];
+Sv = [0,0,1];
+Xe = [10, 11, 10; 
+      10, 10, 11];
+
+Ixe = IncidenceMatrix(Xe);
+XYe = (Ixe * [R,S]' + Xe(:,1))';
+
+Fxy = f(XYe(:,1),XYe(:,2));
+cfxy_abc = (V_abc'*(Fxy.*W));
+disp(norm(V_abc*cfxy_abc-Fxy)/norm(Fxy));
+
+
+plot_tri(Rv,Sv,'k-');
+%plot(R,S,'k.')
+%plot_tri(Xe(1,:),Xe(2,:),'r-');
+%plot(XYe(:,1),XYe(:,2),'r.');
+
+
+X = zeros(N,1);
+Y = zeros(N,1);
+nx = floor(sqrt(2*N));
+x = linspace(0,1,nx);
+
+% bottom
+for j = 1:nx
+    X(j) = x(j);
+    Y(j) = 0;
+end
+% left
+for j = (nx+2):(2*nx)
+    X(j-1) = 0;
+    Y(j-1) = x(j-nx);
+end
+
+% hyp
+for j = (2*nx+1):(3*nx-2)
+    X(j-1) = x(j-2*nx+1);
+    Y(j-1) = 1-X(j-1);
+end
+
+Nbndry = nx + (nx-1) + (nx-2);
+Nremain = N-Nbndry;
+ipt = 1;
+while (ipt <= Nremain)
+    for ii = 2:(nx-1)
+        for jj = 2:(nx-1)
+            xx = x(ii);
+            yy = x(jj);
+            if (yy < 1-xx)
+                X(ipt+Nbndry) = xx;
+                Y(ipt+Nbndry) = yy;
+                ipt = ipt + 1;
+            end
+        end
+    end
+end
+
+
+%%
+% Nsamp = 200;
+xx = linspace(0,1,200);
+[XX,YY] = meshgrid(xx);
+
+X  = XX(YY <= 1-XX);
+Y  = YY(YY <= 1-XX);
+
+plot(X,Y,'o');
+%Xe = [X(T(j,:))';Y(T(j,:))'];
+%Ixe = IncidenceMatrix(Xe);
 
 %%
 % legendre analog quadrature rule on triangle

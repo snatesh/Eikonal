@@ -1,4 +1,15 @@
 clear all; close all; clc;
+list_factory = fieldnames(get(groot,'factory'));
+index_interpreter = find(contains(list_factory,'Interpreter'));
+for i = 1:length(index_interpreter)
+  default_name = strrep(list_factory{index_interpreter(i)},'factory','default');
+  set(groot, default_name,'latex');
+end
+set(groot, 'defaultLegendFontSize',30)
+set(groot, 'defaultAxesFontSize',30)
+set(groot, 'defaultLineLineWidth',1)
+%%
+
 
 % legendre analog quadrature rule on triangle
 R = importdata("../bin/xtri_N496_n30_M1378_m51.txt");
@@ -56,18 +67,18 @@ R = importdata("../bin/xtri_N496_n30_M1378_m51.txt");
 S = importdata("../bin/ytri_N496_n30_M1378_m51.txt");
 W = importdata("../bin/wtri_N496_n30_M1378_m51.txt");
 
-DT = delaunayTriangulation([0 0; 1 0; 1 1; 0 1]);
+DT = delaunayTriangulation([0 0; 1 0; 1 1; 0 1; 0.5 0.25]);
 meshT = DT.ConnectivityList;
 meshP = DT.Points';
 
 % Extract all edges from triangles
-edges = [meshT(:, [1,2]); meshT(:, [2,3]); meshT(:, [3,1])];
+Edges = [meshT(:, [1,2]); meshT(:, [2,3]); meshT(:, [3,1])];
 
 % Sort edges so that (i,j) and (j,i) are considered the same
-edges = sort(edges, 2);
+Edges = sort(Edges, 2);
 
 % Count occurrences of each edge
-[uniqueEdges, ~, ic] = unique(edges, 'rows');
+[uniqueEdges, ~, ic] = unique(Edges, 'rows');
 counts = accumarray(ic, 1);
 
 % classify edges 
@@ -88,6 +99,28 @@ for j = 1:size(intEdges,1)
     plot([p1(1),p2(1)],[p1(2),p2(2)],'b-'); hold on;
 end
 
+
+Edges = [meshT(:, [1,2]), meshT(:, [2,3]), meshT(:, [3,1])];
+
+nbndEdge = size(bndEdges,1);
+nintEdge = size(intEdges,1);
+refedge_map = zeros(nTri,3);
+bnd_map = zeros(nTri,3);
+
+iTri = 4;
+vT = meshP(:,meshT(iTri,:));
+edgesT = [Edges(iTri,1:2);Edges(iTri,3:4);Edges(iTri,5:6)];
+J = IncidenceMatrix(vT);
+ve1 = meshP(:,edgesT(1,:));
+ve2 = meshP(:,edgesT(2,:));
+ve3 = meshP(:,edgesT(3,:));
+rve1 = J\(ve1-vT(:,1));
+rve2 = J\(ve2-vT(:,1));
+rve3 = J\(ve3-vT(:,1));
+
+
+
+%%
 
 % there are M total polys
 m = 10; n = m+1; M = n*(n+1)/2;
@@ -114,8 +147,13 @@ for iTri = 1:nTri
                                        VlVl,VbVb,VhVh,...
                                        rhs,Pts_Ti);
     K((iTri-1)*M+1:M*iTri,(iTri-1)*M+1:M*iTri) = Ki;
-    B((iTri-1)*M+1:M*iTri,(iTri-1)*M+1:M*iTri) = Bi;
+    Bdirch((iTri-1)*M+1:M*iTri,(iTri-1)*M+1:M*iTri) = Bi;
     F((iTri-1)*M+1:M*iTri) = Fi;
+   
+    % now we handle inter-element continuity
+
+
+
 
 end
 
@@ -168,6 +206,12 @@ for i = 1:M
 end
 
 % boundary stiffness
+% TODO: have to pass in mesh to this function
+%       so that we can evaluate the integrals
+%       for weak enforcement of dirichlet conditions
+%       on the boundary edges only - not all edges
+%       we need to know which parametric edge 
+%       corresponds to the current boundary edge as well
 B = zeros(M,M); nleg = length(wleg);
 for i = 1:M
     for j = 1:M
@@ -177,6 +221,8 @@ for i = 1:M
         int1 = wleg'*VlVlij;
         int2 = wleg'*VbVbij;
         int3 = wleg'*VhVhij;
+        % as is, this evaluates the line integral 
+        % over the whole triangle
         B(i,j) = int1*lenE1 + int2*lenE2 + int3*lenE3;
     end
 end
@@ -272,5 +318,67 @@ end
 function Ixe = IncidenceMatrix(Xe)
 
 Ixe = [Xe(:,2)-Xe(:,1), Xe(:,3)-Xe(:,1)];
+
+end
+
+
+function refedge_bnd_map = process_mesh(DT, viz)
+
+meshT = DT.ConnectivityList;
+meshP = DT.Points';
+
+% Extract all edges from triangles
+edges = [meshT(:, [1,2]); meshT(:, [2,3]); meshT(:, [3,1])];
+
+% Sort edges so that (i,j) and (j,i) are considered the same
+edges = sort(edges, 2);
+
+% Count occurrences of each edge
+[uniqueEdges, ~, ic] = unique(edges, 'rows');
+counts = accumarray(ic, 1);
+
+% classify edges 
+% edges that appear twice are interior
+% edges that appear once are on boundary
+intEdges = uniqueEdges(counts == 2, :);
+bndEdges = uniqueEdges(counts == 1,:);
+nTri = size(meshT,1);
+
+
+refedge_bnd_map = zeros(nTri,3,1);
+
+for iTri = 1:nTri
+
+    edgeT = [meshT(:, [1,2]); meshT(:, [2,3]); meshT(:, [3,1])];
+
+    verts = meshP(:,meshT(iTri,:));
+    edge_map = reference_edge_map(verts);
+
+    
+
+
+end
+
+
+
+
+if viz
+
+    for j = 1:size(bndEdges,1)
+        p1 = meshP(:,bndEdges(j,1));
+        p2 = meshP(:,bndEdges(j,2));
+        plot([p1(1),p2(1)],[p1(2),p2(2)],'r-'); hold on;
+    end
+
+    for j = 1:size(intEdges,1)
+        p1 = meshP(:,intEdges(j,1));
+        p2 = meshP(:,intEdges(j,2));
+        plot([p1(1),p2(1)],[p1(2),p2(2)],'b-'); hold on;
+    end
+
+end
+
+
+
 
 end

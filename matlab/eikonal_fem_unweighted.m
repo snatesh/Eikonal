@@ -126,7 +126,7 @@ for it = 1:max_iter
                                               V_abc, Dx, Dy,...
                                               K, F, dPdP);
 end
-
+%%
 [xx,yy] = meshgrid(linspace(1e-10,1-1e-10,50)); 
 xx = xx(:); yy = yy(:);
 indtri = yy<=1-xx;

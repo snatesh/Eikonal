@@ -914,16 +914,7 @@ vtkSmartPointer<vtkDelaunay2D> Triangulator::triangulateEntropy ( double* intgn,
   vtkIdType ptid; int subid;
   for (int icell = 0; icell < polytri->GetNumberOfCells(); ++icell)
   {
-    if (interr[icell] >= ave_err - 0.5*stdev_err)
-    {
-      polytri->GetCell(icell)->EvaluateLocation(subid, v1r, v1t, tmpwts);
-      polytri->GetCell(icell)->EvaluateLocation(subid, v2r, v2t, tmpwts);
-      polytri->GetCell(icell)->EvaluateLocation(subid, v3r, v3t, tmpwts);
-      locator->InsertUniquePoint(v1t, ptid);  
-      locator->InsertUniquePoint(v2t, ptid);  
-      locator->InsertUniquePoint(v3t, ptid);
-    }
-    //else if (intgn[icell] >= ave_gn)
+    //if (interr[icell] >= ave_err - 0.5*stdev_err)
     //{
     //  polytri->GetCell(icell)->EvaluateLocation(subid, v1r, v1t, tmpwts);
     //  polytri->GetCell(icell)->EvaluateLocation(subid, v2r, v2t, tmpwts);
@@ -932,6 +923,15 @@ vtkSmartPointer<vtkDelaunay2D> Triangulator::triangulateEntropy ( double* intgn,
     //  locator->InsertUniquePoint(v2t, ptid);  
     //  locator->InsertUniquePoint(v3t, ptid);
     //}
+    if (intgn[icell] >= ave_gn)
+    {
+      polytri->GetCell(icell)->EvaluateLocation(subid, v1r, v1t, tmpwts);
+      polytri->GetCell(icell)->EvaluateLocation(subid, v2r, v2t, tmpwts);
+      polytri->GetCell(icell)->EvaluateLocation(subid, v3r, v3t, tmpwts);
+      locator->InsertUniquePoint(v1t, ptid);  
+      locator->InsertUniquePoint(v2t, ptid);  
+      locator->InsertUniquePoint(v3t, ptid);
+    }
   } 
 
   vtkSmartPointer<vtkFeatureEdges> featureEdges 

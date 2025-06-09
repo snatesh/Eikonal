@@ -252,6 +252,76 @@ There is a ton of material in chapter 12 and 16 of the Nocedal/Wright optimizati
 \end{remark}
 
 \newpage
+\subsection{A variational approach (NEW)}
+Let's try framing the problem from the perspective of infinite dimensional optimization. Thus far, my efforts have fallen under the discretize-then-optimize approach for solving non-linear PDEs. So, let's flip that and consider the optimize-then-discretize approach. The first order conditions for optimality of the functional may serve as a way to initialize the problem for the discretized non-linear optimization call. We want to solve
+\begin{equation}
+	\begin{split}
+		\min_{u\in L_2(\Tau^2,w^{(a,b,c)})}\mathcal{L}(u),\\
+		\text{s.t. } u = q \text{ on } \partial\Tau^2
+	\end{split},
+\end{equation}
+where $\mathcal{L} : L_2(\Tau^2, w^{(a,bc)})\to \bb{R}^+$ is defined by 
+\begin{equation}\label{eq:eik_new}
+	\mathcal{L}(u) := \int_{\mathcal{T}^2}\Big( \big(\nablax u \cdot \nablax u + (\xi \nablax^2 u)^2\big)^{\frac{1}{2}} - \frac{1}{f}\Big) d\bs{x}  
+\end{equation}
+and $u,f$ are as in \eqref{eq:eikonal}, restricted to $L_2(\Tau^2, \mathcal{W}^{(a,bc)})$. Note, we have added a viscosity term $\xi \nabla_{\bs{x}}^2u$ with $\xi > 0$ to \eqref{eq:eikonal}. In the limit of $\xi\to 0$, we solve the same problem, and the addition of the term helps the optimization routines converge to a ``physically'' correct solution. The steps here are to first take the first variation of $\mathcal{L}$ as $$\delta\mathcal{L}(u,\hat{u}) = \partial_ \varepsilon\mathcal{L}(u+\varepsilon \hat{u})|_{\varepsilon=0} = 0,$$ where $\hat{u} \in \mathcal{H}_0^1(\Tau^2)$.  This gives the necessary condition a minimizer of $\mathcal{L}$ must satisfy. Before proceeding, recall Green's identity for $u,v \in H^1(\Tau^2)$, i.e. a multidimensional integration by parts formula:
+\begin{equation}\label{eq:greenident_new}
+	\int_{\Tau^2} \nabla_{\bs{x}} u \cdot v d(\bs{x}) = \int_{\partial\Tau^2} (uv) \cdot \bs{n} dS(\bs{x}) - \int_{\Tau^2} u \nabla_{\bs{x}} \cdot v d(\bs{x}).
+\end{equation}
+Accordingly, we have
+\begin{align*}
+	\partial_\varepsilon \mathcal{L}(u + \varepsilon \hat{u})|_{\varepsilon=0} 
+	&= \partial_\epsilon\big[\int_{\Tau^2} \Big((u_x^2 + u_y^2) + 2\varepsilon(\hat{u}_x u_x + \hat{u}_yu_y) + \varepsilon^2 (\hat{u}_x^2 + \hat{u}_y^2) + \xi^2 \big((\nabla_{\bs{x}}^2u)^2 + 2\varepsilon \nablax^2\hat{u}\nablax^2 u + \varepsilon^2 (\nablax^2 \hat{u})^2\big) \Big)^{\frac{1}{2}}d(\bs{x}) \big]\Big|_{\varepsilon=0}\\
+	& = \Big[\frac{1}{2}\int_{\Tau^2} \frac{\Big( 2(\hat{u}_x u_x + \hat{u}_yu_y) + 2\varepsilon (\hat{u}_x^2 + \hat{u}_y^2) + \xi^2\big(2\nablax^2\hat{u}\nablax^2 u + 2\varepsilon (\nablax^2 \hat{u})^2  \big)  \Big)}{\Big((u_x^2 + u_y^2) + 2\varepsilon(\hat{u}_x u_x + \hat{u}_yu_y) + \varepsilon^2 (\hat{u}_x^2 + \hat{u}_y^2) + \xi^2 \big((\nabla_{\bs{x}}^2u)^2 + 2\varepsilon \nablax^2\hat{u}\nablax^2 u + \varepsilon^2 (\nablax^2 \hat{u})^2\big) \Big)^{\frac{1}{2}}} d(\bs{x})\Big]\Big|_{\varepsilon=0}.
+\end{align*}
+The first variation is then given by
+\begin{equation}\label{eq:eikfirstvar_new}
+	\delta \mathcal{L}(u,\hat{u})= \int_{\mathcal{T}^2} \Big(\frac{\nabla_{\bs{x}}u \cdot \nabla_{\bs{x}}\hat{u} + \xi^2\nablax^2 \hat{u}\nablax^2 u}{\sqrt{ (\nabla_{\bs{x}}u \cdot \nabla_{\bs{x}} u) + \xi^2(\nablax^2 u})^2 } \Big)d(\bs{x}).
+\end{equation}
+Next, we compute the second variation $\delta^2 \mathcal{L}(u,\hat{u},\tilde{u})$, where $\tilde{u} \in H_0^1(\Tau^2)$. Letting $u \gets u + \varepsilon\tilde{u}$ in \eqref{eq:eikfirstvar_new}, we have
+\begin{align}
+	&\delta^2 \mathcal{L}(u,\hat{u},\tilde{u})= \partial_\varepsilon \delta \mathcal{L}(u+\varepsilon \tilde{u}, \hat{u}) \Big|_{\varepsilon=0} \nonumber \\
+	&= \partial_{\varepsilon}\int_{\mathcal{T}^2} \Bigg(\frac{\nabla_{\bs{x}}u \cdot \nabla_{\bs{x}}\hat{u} + \varepsilon \nabla_{\bs{x}} \tilde{u} \cdot \nabla_{\bs{x}} \hat{u} + \xi^2 \big(\nablax^2 \hat{u} \nablax^2 u + \varepsilon \nablax^2\hat{u}\nablax^2\tilde{u}\big)}{\sqrt{\nablax u \cdot \nablax u + 2\varepsilon \nablax u \cdot \nablax \tilde{u} + \varepsilon^2 \nablax \tilde{u}\cdot \nablax\tilde{u} + \xi^2\big(\nablax^2 u \nablax^2 u + 2\varepsilon \nablax^2 u \nablax^2 \tilde{u} + \varepsilon^2 \nablax^2 \tilde{u} \nablax^2\tilde{u}\big)}}\Bigg)d(\bs{x})\Bigg|_{\varepsilon=0} \nonumber \\
+	&= \int_{\Tau^2} \Bigg(\frac{\nablax \tilde{u} \cdot \nablax \hat{u} + \xi^2\nablax^2 \tilde{u}\nablax^2\hat{u}}{\sqrt{\nablax u\cdot \nablax u + \xi^2\nablax^2 u \nablax^2 u}} - \frac{(\nablax u \cdot \nablax \hat{u} + \xi^2 \nablax^2 u \nablax^2 \hat{u})(\nablax u \cdot \nablax \tilde{u} + \xi^2 \nablax^2 u \nablax^2 \tilde{u})}{(\nablax u \cdot \nablax u + \xi^2 \nablax^2 u \nablax^2 u)^{\frac{3}{2}}}\Bigg)d(\bs{x}) \label{eq:eikfrechet_new}
+\end{align}
+The weak form of the Newton system at a point $u^k \in H_0^1(\Tau^2)$ is then independent of $\hat{u}$, and given by
+\begin{equation} \label{eq:eiknewtonweak_new}
+	\begin{split}
+		&\text{ Find } \tilde{u} \in H_0^1(\Tau^2) \text{ s.t. } \\
+		&\delta^2 \mathcal{L}(u^k)(\hat{u}, \tilde{u}) = -\delta \mathcal{L}(u^k)(\hat{u}),\\
+		&\text{and set } u^{k+1} = u^k + \tilde{u},\\
+		&\text{with } u^0 = q \text{ on } \partial\Tau^2.
+	\end{split}
+\end{equation}
+To derive the strong form of the Newton system, we proceed as for the first variation using integration by parts formula. Let $u \gets \hat{u}$ and $v \gets \frac{\nablax \tilde{u}}{\sqrt{|\nablax u|^2 - \frac{1}{f^2}}}$ for the first term in \eqref{eq:eikfrechet_new}. For the second term therein, let $u \gets \hat{u}$ and $v \gets \frac{\nablax \tilde{u}|\nablax u|^2}{(|\nablax u|^2 - \frac{1}{f^2})^{\frac{3}{2}}}$. Using the fact that $\hat{u}\in H_0^1(\Tau^2)$, and incorporating the first variation from \eqref{eq:eikfirstvar_new} as needed in \eqref{eq:eiknewtonweak_new}, we find the Newton system is equivalently expressed as
+\begin{align*}
+	\int_{\Tau^2} \hat{u} \Big[\nablax \cdot \Big(\frac{\nablax \tilde{u}|\nablax u|^2}{(|\nablax u|^2 - \frac{1}{f^2})^{\frac{3}{2}}} - \frac{\nablax \tilde{u} + \nablax u}{\sqrt{|\nablax u|^2 - \frac{1}{f^2}}} \Big) \Big]d(\bs{x}) = 0
+\end{align*}
+Then, by the arbitrariness of $\hat{u}$, we find the strong form of the Newton system is
+\begin{equation} \label{eq:eiknewtonstrong_new}
+	\begin{split}
+		\text{ Find } \tilde{u} \in H_0^1(\Tau^2) \text{ s.t. }&\\
+		\nablax \cdot \Big[\nablax \tilde{u}\Big(\frac{|\nablax u^k|^2}{(|\nablax u^k|^2 - \frac{1}{f^2})^{\frac{3}{2}}} - \frac{1}{\sqrt{|\nablax u^k|^2 - \frac{1}{f^2}}} \Big) \Big] &= \nablax \cdot\Big(\frac{\nablax u^k}{\sqrt{|\nablax u^k|^2 - \frac{1}{f^2}}} \Big)
+		\\
+		%0&=\nablax \cdot \Big(\frac{\nablax \tilde{u}|\nablax u^k|^2}{(|\nablax u^k|^2 - \frac{1}{f^2})^{\frac{3}{2}}} - \frac{\nablax \tilde{u} + \nablax u^k}{\sqrt{|\nablax u^k|^2 - \frac{1}{f^2}}} \Big)\\
+		\text{and set } u^{k+1} = u^k + \tilde{u},&\\
+		\text{with } u^0 = q \text{ on } \partial\Tau^2.&
+	\end{split}
+\end{equation}
+By choosing $u^0 = q$ on $\partial \Tau^2$, and setting $u^{k+1} = u^k + \tilde{u}$, we have an infinite-dimensional newton stepper for solving the Eikonal problem. To avoid the trivial solution $u\equiv 0$ when $q\equiv 0$, we can try this with $$u^0 = w^{(3/2,3/2,3/2)}(x,y) = xy(1-x-y),$$ and use the weighted basis for differentiation in coefficient space. We iterate until the relative step difference is within some tolerance, in the $L_2(\Tau^2, w)$ norm. I will give details on the weighted Laplace operator momentarily. 
+\begin{algorithm}
+	\caption{Netwon updates for solving \eqref{eq:eikonal}}\label{alg:eikalg_new}
+	\begin{algorithmic}
+		\Require $\texttt{tol} < 1$
+		\State $u^k \gets xy(1-x-y)$
+		\State $\tilde{u} \gets 1$
+		\While{$\big(|\nablax u^k|^2 - (\frac{1}{f})^2 > 0\big)$ and $||\tilde{u}||_{L^2(\Tau^2,\tilde{w})} > \texttt{tol}$}
+		\State $\tilde{u} \gets$ solution to \eqref{eq:eiknewtonstrong}
+		\State $u^{k+1} \gets u^k + \tilde{u}$
+		\State $u^k \gets u^{k+1}$
+		\EndWhile
+	\end{algorithmic}
+\end{algorithm}
 
 \subsection{A variational approach}
 Let's try framing the problem from the perspective of infinite dimensional optimization. Thus far, my efforts have fallen under the discretize-then-optimize approach for solving non-linear PDEs. So, let's flip that and consider the optimize-then-discretize approach. The first order conditions for optimality of the functional may serve as a way to initialize the problem for the discretized non-linear optimization call. We want to solve
@@ -265,7 +335,7 @@ where $\mathcal{L} : L_2(\Tau^2, w^{(a,bc)})\to \bb{R}^+$ is defined by
 \begin{equation}\label{eq:eikL}
 	\mathcal{L}(u) := \int_{\mathcal{T}^2}\Big[ |\nabla_{\bs{x}} u|^2 - \big(\frac{1}{f}\big)^2 \Big]^{\frac{1}{2}} d\bs{x},
 \end{equation}
-and $u,f$ are as in \eqref{eq:eikonal}, restricted to $L_2(\Tau^2, \mathcal{W}^{(a,bc)})$. The steps here are to first take the Gateaux derivative of $\mathcal{L}$ as $$\delta\mathcal{L}(u,\hat{u}) = \partial \varepsilon\mathcal{L}(u+\varepsilon \hat{u})|_{\varepsilon=0} = 0,$$ where $\hat{u} \in \mathcal{H}_0^1(\Tau^2)$.  This gives the necessary condition a minimizer of $\mathcal{L}$ must satisfy. Before proceeding, recall Green's identity for $u,v \in H^1(\Tau^2)$, i.e. a multidimensional integration by parts formula:
+and $u,f$ are as in \eqref{eq:eikonal}, restricted to $L_2(\Tau^2, \mathcal{W}^{(a,bc)})$. The steps here are to first take the Gateaux derivative of $\mathcal{L}$ as $$\delta\mathcal{L}(u,\hat{u}) = \partial_ \varepsilon\mathcal{L}(u+\varepsilon \hat{u})|_{\varepsilon=0} = 0,$$ where $\hat{u} \in \mathcal{H}_0^1(\Tau^2)$.  This gives the necessary condition a minimizer of $\mathcal{L}$ must satisfy. Before proceeding, recall Green's identity for $u,v \in H^1(\Tau^2)$, i.e. a multidimensional integration by parts formula:
 \begin{equation}\label{eq:greenident}
 	\int_{\Tau^2} \nabla_{\bs{x}} u \cdot v d(\bs{x}) = \int_{\partial\Tau^2} (uv) \cdot \bs{n} dS(\bs{x}) - \int_{\Tau^2} u \nabla_{\bs{x}} \cdot v d(\bs{x}).
 \end{equation}
