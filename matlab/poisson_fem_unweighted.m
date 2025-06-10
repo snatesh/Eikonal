@@ -67,7 +67,7 @@ R = importdata("../bin/xtri_N496_n30_M1378_m51.txt");
 S = importdata("../bin/ytri_N496_n30_M1378_m51.txt");
 W = importdata("../bin/wtri_N496_n30_M1378_m51.txt");
 
-DT = delaunayTriangulation([0 0; 1 0; 1 1; 0 1; 0.5 0.25]);
+DT = delaunayTriangulation([0 0; 1 0; 1 1; 0 1; 0.5 0.25; 0.5 0.75]);
 meshT = DT.ConnectivityList;
 meshP = DT.Points';
 
@@ -137,27 +137,33 @@ rhs  = @(x,y) -2*exp(x+y);
 [V_abc,dxP,dyP,Vl,Vb,Vh,...
  Rl,Sl,Rb,Sb,Rh,Sh,wleg,...
  intVlVl,intVbVb,intVhVh] = preAssemble_poisson1(n,R,S);
-
-% assemble system by looping over triangles
-K = zeros(M*nTri,M*nTri);
-B = zeros(M*nTri,M*nTri);
-F = zeros(M*nTri,1);
-for iTri = 1:nTri
-    Pts_Ti = meshP(:,meshT(iTri,:));
-    [Ki,Bi,Fi] = assemble_poisson_bulk(n,R,S,W,wleg, ...
-                                       V_abc,dxP,dyP,...
-                                       VlVl,VbVb,VhVh,...
-                                       rhs,Pts_Ti);
-    K((iTri-1)*M+1:M*iTri,(iTri-1)*M+1:M*iTri) = Ki;
-    Bdirch((iTri-1)*M+1:M*iTri,(iTri-1)*M+1:M*iTri) = Bi;
-    F((iTri-1)*M+1:M*iTri) = Fi;
-   
-    % now we handle inter-element continuity
+[K_glb,Bint_glb,Bdirch_glb,...
+          F_glb,G_glb] = assemble_poisson(n,R,S,W,...
+                                          Rl,Sl,Rb,Sb,Rh,Sh,wleg, ...
+                                          V_abc,dxP,dyP,Vl,Vb,Vh,...
+                                          intVlVl,intVbVb,intVhVh,...
+                                          rhs,udirch,DT);
 
 
 
+% interpolatory decomposition of Bdirch_glb
+[~,~,IIdirch] = qr(Bdirch_glb,0);
+nLambda_dirch = rank(Bdirch_glb);
+BBdirch = Bdirch_glb(IIdirch(1:nLambda_dirch),:);
+% interpolator decomposition of Bint_glb
+[~,~,IIint] = qr(Bint_glb,0);
+nLambda_int = rank(Bint_glb);
+BBint = Bint_glb(IIint(1:nLambda_int),:);
+Amat = zeros(M*nTri+nLambda_int+nLambda_dirch);
+Amat(1:M*nTri,1:M*nTri) = K_glb;
+BB = [BBint;BBdirch];
 
-end
+Amat(1:M*nTri,1:M*nTri) = K_glb;
+Amat(1:M*nTri,M*nTri+1:end) = BB';
+Amat(M*nTri+1:end,1:M*nTri) = BB;
+%Fvec = [F;G(II(1:nLambda))];
+
+
 
 %%%%%%%%%%%%%%%%%%%%%% FEM ASSEMBLY %%%%%%%%%%%%%%%%%%%
 
@@ -201,8 +207,9 @@ end
 
 
 function [K_glb,Bint_glb,Bdirch_glb,...
-          F_glb,G_glb] = assemble_poisson(n,R,S,W,wleg, ...
-                                          V_abc,dxP,dyP,...
+          F_glb,G_glb] = assemble_poisson(n,R,S,W,...
+                                          Rl,Sl,Rb,Sb,Rh,Sh,wleg, ...
+                                          V_abc,dxP,dyP,Vl,Vb,Vh,...
                                           intVlVl,intVbVb,intVhVh,...
                                           rhs,udirch,DT)
 
@@ -242,11 +249,15 @@ for iTri = 1:nTri
     lenE(1) = norm(Pts_Ti(:,2)-Pts_Ti(:,1));
     lenE(2) = norm(Pts_Ti(:,3)-Pts_Ti(:,2));
     lenE(3) = norm(Pts_Ti(:,1)-Pts_Ti(:,3));
-    % quadrature points mapped to phyiscal triangle
+    % quadrature points mapped to phyiscal tri
     XY = (J * [R,S]' + Pts_Ti(:,1))';
     X = XY(:,1);
     Y = XY(:,2);
-
+    % boundary quadrature points mapped to physical tri
+    XYl = (J * [Rl,Sl]' + Pts_Ti(:,1))';
+    XYb = (J * [Rb,Sb]' + Pts_Ti(:,1))';
+    XYh = (J * [Rh,Sh]' + Pts_Ti(:,1))';
+  
     % local interior stiffness
     K = zeros(M,M);
     for i = 1:M
@@ -268,8 +279,20 @@ for iTri = 1:nTri
     % save to global stiffness
     K_glb((iTri-1)*M+1:M*iTri,(iTri-1)*M+1:M*iTri) = K;
 
+
+    % local load (rhs)
+    F = zeros(M,1);
+    for i = 1:M
+        P_if = V_abc(:,i).*rhs(X,Y);
+        F(i) = (W/2)'*P_if*detJ;
+    end
+    % save to global load
+    F_glb((iTri-1)*M+1:M*iTri) = F;
+
     % local boundary stiffness
     Bdirch = zeros(M,M);
+    % boundary load (dirichlet condition)
+    G = zeros(M,1);
     % get edges of triangle, sorted to match bndry/int Edge lookup
     edgesT = sort([meshT(iTri, [1,2]);...
                    meshT(iTri, [2,3]);...
@@ -296,30 +319,100 @@ for iTri = 1:nTri
             % if it is, compute and store
             % local dirichlet contribution
             if edgesT(iedge,:) == bndEdges(ibnd,:)
-                intVV = 0;
+                intVV = 0; % needed for boundary stiffness
+                V = 0; g = 0; % dirichlet values on bndry
                 if bot
                     intVV = intVbVb;
+                    g = udirch(XYb(:,1),XYb(:,2));
+                    V = Vb;
                 elseif hyp
                     intVV = intVhVh;
+                    g = udirch(XYh(:,1),XYh(:,2));
+                    V = Vh;
                 elseif left
                     intVV = intVlVl;
+                    g = udirch(XYl(:,1),XYl(:,2));
+                    V = Vl;
                 end
                 
                 for i = 1:M
                     for j = 1:M     
                         Bdirch(i,j) = Bdirch(i,j) + intVV(i,j)*lenE(iedge);
                     end
+                    G(i) = G(i) + wleg'*(V(:,i).*g)*lenE(iedge);
                 end
             end
         end
     end
     % now save to global dirichlet matrix
     Bdirch_glb((iTri-1)*M+1:M*iTri,(iTri-1)*M+1:M*iTri) = Bdirch; 
-
-
+    % save dirichlet condition to global Gdirch
+    G_glb((iTri-1)*M+1:M*iTri) = G;
 end
 
+% now we loop over shared edges 
+% to assemble inter-element continuity matrix
+for iedge = 1:nintEdge
+    % get triangles sharing the edge
+    shared_tris = sharedEdge_tri_map(iedge,:);
+    tri1 = shared_tris(1);
+    tri2 = shared_tris(2);
+    % get vertices of each tri
+    Pts_T1 = meshP(:,meshT(tri1,:));
+    Pts_T2 = meshP(:,meshT(tri2,:));
+    % get parametric map for each tri
+    J1 = IncidenceMatrix(Pts_T1);
+    J2 = IncidenceMatrix(Pts_T2);
+    % get shared edge endpts
+    ve = meshP(:,intEdges(iedge,:));
+    % get edge length
+    lenE = norm(ve(:,2)-ve(:,1));
+    % get parametric coords of endpt on each tri
+    rve1 = J1\(ve-Pts_T1(:,1));
+    rve2 = J2\(ve-Pts_T2(:,1));
+    % label them as left, bottom or hypotenuse edge
+    intVV1 = 0; 
+    % bottom
+    if (all(rve1(:,1) == [0;0]) && all(rve1(:,2) == [1;0])) || ...
+       (all(rve1(:,1) == [1;0]) && all(rve1(:,2) == [0;0]))
+        intVV1 = intVbVb;
+    % hyp
+    elseif (all(rve1(:,1) == [1;0]) && all(rve1(:,2) == [0;1])) || ...
+           (all(rve1(:,1) == [0;1]) && all(rve1(:,2) == [1;0]))
+        intVV1 = intVhVh;
+    % left
+    else
+        intVV1 = intVlVl;
+    end
+    intVV2 = 0;
+    % bottom
+    if (all(rve2(:,1) == [0;0]) && all(rve2(:,2) == [1;0])) || ...
+       (all(rve2(:,1) == [1;0]) && all(rve2(:,2) == [0;0]))
+        intVV2 = intVbVb;
+    % hyp
+    elseif (all(rve2(:,1) == [1;0]) && all(rve2(:,2) == [0;1])) || ...
+           (all(rve2(:,1) == [0;1]) && all(rve2(:,2) == [1;0]))
+        intVV2 = intVhVh;
+    % left
+    else
+        intVV2 = intVlVl;
+    end
 
+    Bint1 = zeros(M,M);
+    Bint2 = zeros(M,M);
+
+    for i = 1:M
+        for j = 1:M
+            Bint1(i,j) = Bint1(i,j) + intVV1(i,j)*lenE;
+            Bint2(i,j) = Bint2(i,j) + intVV2(i,j)*lenE;
+        end
+    end
+
+    % now save to global inter-element continuity matrix
+    Bint_glb((tri1-1)*M+1:M*tri1,(tri1-1)*M+1:M*tri1) = Bint1; 
+    Bint_glb((tri2-1)*M+1:M*tri2,(tri2-1)*M+1:M*tri2) = Bint2; 
+
+end
 
 end
 
@@ -570,5 +663,8 @@ for iedge = 1:nintEdge
     sharedEdge_tri_map(iedge,:) = sharedTris{1};
 
 end
+
+% sort it to match vertex index ordering in intEdges
+sharedEdge_tri_map = sort(sharedEdge_tri_map,2);
 
 end
