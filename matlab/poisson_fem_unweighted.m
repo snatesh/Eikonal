@@ -67,7 +67,10 @@ R = importdata("../bin/xtri_N496_n30_M1378_m51.txt");
 S = importdata("../bin/ytri_N496_n30_M1378_m51.txt");
 W = importdata("../bin/wtri_N496_n30_M1378_m51.txt");
 
-DT = delaunayTriangulation([0 0; 1 0; 1 1; 0 1; 0.5 0.25; 0.5 0.75]);
+%DT = delaunayTriangulation([0 0; 1 0; 1 1; 0 1; 0.5 0.25; 0.5 0.75]);
+%DT = delaunayTriangulation([0 0; 1 0; 0 1]);
+%DT = delaunayTriangulation([0 0; 1 0; 1 1]);
+DT = delaunayTriangulation([0 0; 1 0; 1 1; 0 1]);
 meshT = DT.ConnectivityList;
 meshP = DT.Points';
 
@@ -87,6 +90,7 @@ counts = accumarray(ic, 1);
 intEdges = uniqueEdges(counts == 2, :);
 bndEdges = uniqueEdges(counts == 1,:);
 nTri = size(meshT,1);
+figure(1);
 for j = 1:size(bndEdges,1)
     p1 = meshP(:,bndEdges(j,1));
     p2 = meshP(:,bndEdges(j,2));
@@ -98,31 +102,6 @@ for j = 1:size(intEdges,1)
     p2 = meshP(:,intEdges(j,2));
     plot([p1(1),p2(1)],[p1(2),p2(2)],'b-'); hold on;
 end
-
-
-Edges = [meshT(:, [1,2]), meshT(:, [2,3]), meshT(:, [3,1])];
-
-nbndEdge = size(bndEdges,1);
-nintEdge = size(intEdges,1);
-refedge_map = zeros(nTri,3);
-bnd_map = zeros(nTri,3);
-
-iTri = 4;
-vT = meshP(:,meshT(iTri,:));
-edgesT = [Edges(iTri,1:2);Edges(iTri,3:4);Edges(iTri,5:6)];
-J = IncidenceMatrix(vT);
-ve1 = meshP(:,edgesT(1,:));
-ve2 = meshP(:,edgesT(2,:));
-ve3 = meshP(:,edgesT(3,:));
-rve1 = J\(ve1-vT(:,1));
-rve2 = J\(ve2-vT(:,1));
-rve3 = J\(ve3-vT(:,1));
-
-
-[meshP,meshT,intEdges,bndEdges,sharedEdge_tri_map] = process_mesh(DT);
-
-
-%%
 
 % there are M total polys
 m = 10; n = m+1; M = n*(n+1)/2;
@@ -138,80 +117,54 @@ rhs  = @(x,y) -2*exp(x+y);
  Rl,Sl,Rb,Sb,Rh,Sh,wleg,...
  intVlVl,intVbVb,intVhVh] = preAssemble_poisson1(n,R,S);
 [K_glb,Bint_glb,Bdirch_glb,...
-          F_glb,G_glb] = assemble_poisson(n,R,S,W,...
+          F_glb,G_glb,nintEdge,nbndEdge] = assemble_poisson(n,R,S,W,...
                                           Rl,Sl,Rb,Sb,Rh,Sh,wleg, ...
                                           V_abc,dxP,dyP,Vl,Vb,Vh,...
                                           intVlVl,intVbVb,intVhVh,...
                                           rhs,udirch,DT);
 
 
-
-% interpolatory decomposition of Bdirch_glb
-[~,~,IIdirch] = qr(Bdirch_glb,0);
-nLambda_dirch = rank(Bdirch_glb);
-BBdirch = Bdirch_glb(IIdirch(1:nLambda_dirch),:);
-% interpolator decomposition of Bint_glb
-[~,~,IIint] = qr(Bint_glb,0);
-nLambda_int = rank(Bint_glb);
-BBint = Bint_glb(IIint(1:nLambda_int),:);
-Amat = zeros(M*nTri+nLambda_int+nLambda_dirch);
+% stack the boundary and inter-element continuity constraints
+BB = [Bint_glb;Bdirch_glb];
+% identify the nLambda independent rows of BB
+[~,~,II] = qr(BB','vector');
+nLambda = rank(BB);
+BB_id = BB(II(1:nLambda),:);
+% assemble the fully constrained global system
+Amat = zeros(M*nTri+nLambda);
 Amat(1:M*nTri,1:M*nTri) = K_glb;
-BB = [BBint;BBdirch];
+Amat(1:M*nTri,M*nTri+1:end) = BB_id';
+Amat(M*nTri+1:end,1:M*nTri) = BB_id;
+Gbc = [zeros(M*nintEdge,1);G_glb];
+Gbc = Gbc(II(1:nLambda));
+Fvec = [F_glb;Gbc];
+% solve for solution modes on each tri
+cu = Amat \ Fvec;
+figure(2);
+for iTri = 1:nTri
 
-Amat(1:M*nTri,1:M*nTri) = K_glb;
-Amat(1:M*nTri,M*nTri+1:end) = BB';
-Amat(M*nTri+1:end,1:M*nTri) = BB;
-%Fvec = [F;G(II(1:nLambda))];
+    Pts_Ti = meshP(:,meshT(iTri,:));
+    J = IncidenceMatrix(Pts_Ti);
+    XYe = (J * [R,S]' + Pts_Ti(:,1))';
+    X = XYe(:,1);
+    Y = XYe(:,2);
+    cu_abc = cu((iTri-1)*M+1:M*iTri);
+    u = V_abc*cu_abc;
+    scatter3(X,Y,u); hold on;
+    scatter3(X,Y,usol(X,Y),'.'); hold on;
 
-
+end
 
 %%%%%%%%%%%%%%%%%%%%%% FEM ASSEMBLY %%%%%%%%%%%%%%%%%%%
 
 
-% TODO: should write functions which evaluates
-%       inner products of edge restricted basis (VlVl,VbVb,VhVh)
-%       in quadrature. then, we can just use the
-%       precomputed evaluations when assembling Bint, Bdirch
-%       - this can be added to preAssemble_poisson
-%       - but, they will not include the edge Jacobian factor
-% DONE
-
-% TODO: we also want a function which maps each interior edge
-%       to the two triangles which share it
-% DONE
-
-% TODO: once we have this,
-% 1) loop over triangles
-% 2) for each triangle, assemble the stiffness matrix K
-% 3) identify if triangle has boundary edges
-% 4) assemble the boundary dirichlet matrix contribution
-%    which will be the sum of at most 2 line integrals 
-%    with edge Jacobian factor 
-% DONE
-
-% Then, we do another loop
-
-% 1) loop over the shared edge map
-% 2) on a given shared edge, look up the two triangles which
-%    share it
-% 3) determine which edges in the reference triangle corresponds
-%    to the edge in T1 and T2
-% 4) pick the correct boundary continuity matrix contributions
-%    from the precomputed values of int VlVl, ..
-% 5) assemble it correctly in the global matrix
-%    like [Bint_T1 0 0 Bint_T4];
-
-% this ensures that we hit all interior edges once,
-% and have correct incorporation of the continuity constraints
-% to the global inter-element continuity block of the problem matrix.
-
-
 function [K_glb,Bint_glb,Bdirch_glb,...
-          F_glb,G_glb] = assemble_poisson(n,R,S,W,...
-                                          Rl,Sl,Rb,Sb,Rh,Sh,wleg, ...
-                                          V_abc,dxP,dyP,Vl,Vb,Vh,...
-                                          intVlVl,intVbVb,intVhVh,...
-                                          rhs,udirch,DT)
+          F_glb,G_glb,...
+          nintEdge,nbndEdge] = assemble_poisson(n,R,S,W,...
+                                                Rl,Sl,Rb,Sb,Rh,Sh,wleg, ...
+                                                V_abc,dxP,dyP,Vl,Vb,Vh,...
+                                                intVlVl,intVbVb,intVhVh,...
+                                                rhs,udirch,DT)
 
 
 % get mesh points, connectivity list
@@ -227,10 +180,13 @@ M = n*(n+1)/2;
 nintEdge = size(intEdges,1);
 nbndEdge = size(bndEdges,1);
 
-% global stifness, dirichlet and inter-element continuity matrices
+% global stifness
 K_glb = zeros(M*nTri,M*nTri);
+% global dirichlet
 Bdirch_glb = zeros(M*nTri,M*nTri);
-Bint_glb = zeros(M*nTri,M*nTri);
+% global inter-element continuity
+% there are nintEdge row blocks, each with M rows and M*nTri cols
+Bint_glb = zeros(M*nintEdge,M*nTri);
 F_glb = zeros(M*nTri,1);
 G_glb = zeros(M*nTri,1);
 
@@ -318,7 +274,7 @@ for iTri = 1:nTri
         for ibnd = 1:nbndEdge
             % if it is, compute and store
             % local dirichlet contribution
-            if edgesT(iedge,:) == bndEdges(ibnd,:)
+            if all(edgesT(iedge,:) == bndEdges(ibnd,:))
                 intVV = 0; % needed for boundary stiffness
                 V = 0; g = 0; % dirichlet values on bndry
                 if bot
@@ -353,10 +309,12 @@ end
 % now we loop over shared edges 
 % to assemble inter-element continuity matrix
 for iedge = 1:nintEdge
+    
     % get triangles sharing the edge
     shared_tris = sharedEdge_tri_map(iedge,:);
     tri1 = shared_tris(1);
     tri2 = shared_tris(2);
+
     % get vertices of each tri
     Pts_T1 = meshP(:,meshT(tri1,:));
     Pts_T2 = meshP(:,meshT(tri2,:));
@@ -370,7 +328,8 @@ for iedge = 1:nintEdge
     % get parametric coords of endpt on each tri
     rve1 = J1\(ve-Pts_T1(:,1));
     rve2 = J2\(ve-Pts_T2(:,1));
-    % label them as left, bottom or hypotenuse edge
+    % get the correct precomputed line integral corresponding
+    % to the parametric shared edge in each tri
     intVV1 = 0; 
     % bottom
     if (all(rve1(:,1) == [0;0]) && all(rve1(:,2) == [1;0])) || ...
@@ -397,7 +356,6 @@ for iedge = 1:nintEdge
     else
         intVV2 = intVlVl;
     end
-
     Bint1 = zeros(M,M);
     Bint2 = zeros(M,M);
 
@@ -409,8 +367,8 @@ for iedge = 1:nintEdge
     end
 
     % now save to global inter-element continuity matrix
-    Bint_glb((tri1-1)*M+1:M*tri1,(tri1-1)*M+1:M*tri1) = Bint1; 
-    Bint_glb((tri2-1)*M+1:M*tri2,(tri2-1)*M+1:M*tri2) = Bint2; 
+    Bint_glb((iedge-1)*M+1:M*iedge,(tri1-1)*M+1:M*tri1) = Bint1; 
+    Bint_glb((iedge-1)*M+1:M*iedge,(tri2-1)*M+1:M*tri2) = -Bint2; 
 
 end
 
