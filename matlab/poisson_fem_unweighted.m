@@ -56,6 +56,7 @@ for iM = 1:length(ms)
 end
 
 semilogy(ms,errs,'ro-'); hold on; semilogy(ms, exp(-2*ms), 'k--')
+%%
 
 
 %%
@@ -67,14 +68,29 @@ R = importdata("../bin/xtri_N496_n30_M1378_m51.txt");
 S = importdata("../bin/ytri_N496_n30_M1378_m51.txt");
 W = importdata("../bin/wtri_N496_n30_M1378_m51.txt");
 
-%DT = delaunayTriangulation([0 0; 1 0; 1 1; 0 1; 0.5 0.25; 0.5 0.75]);
+DT = delaunayTriangulation([0 0; 1 0; 1 1; 0 1; 0.5 0.25; 0.5 0.75]);
+%DT = delaunayTriangulation([0 0; 1 0; 0 1; 0.5 0.25; 0.5 0.75]);
+
 %DT = delaunayTriangulation([0 0; 1 0; 0 1]);
 %DT = delaunayTriangulation([0 0; 1 0; 1 1]);
-DT = delaunayTriangulation([0 0; 1 0; 1 1; 0 1]);
+%DT = delaunayTriangulation([0 0; 1 0; 1 1; 0 1]);
+%DT = annulus();
+
 meshT = DT.ConnectivityList;
 meshP = DT.Points';
 
-% Extract all edges from triangles
+% Extract all edges from triangles[~,~,II] = qr(Bint_glb','vector');
+% nLambda = rank(Bint_glb);
+% BBint = Bint_glb(II(1:nLambda),:);
+% 
+% 
+% Amat = zeros(M*nTri+nLambda);
+% Amat(1:M*nTri,1:M*nTri) = K_glb;
+% Amat(1:M*nTri,M*nTri+1:end) = BBint';
+% Amat(M*nTri+1:end,1:M*nTri) = BBint;
+% Gbc = zeros(nLambda,1);
+% Fvec = [F_glb;Gbc];
+
 Edges = [meshT(:, [1,2]); meshT(:, [2,3]); meshT(:, [3,1])];
 
 % Sort edges so that (i,j) and (j,i) are considered the same
@@ -107,30 +123,93 @@ end
 m = 10; n = m+1; M = n*(n+1)/2;
 
 % manufactured sol and corresponding dirchlet data/rhs
-usol = @(x,y) exp(x+y);
+% usol = @(x,y) exp(x+y);
+% udirch = @(x,y) usol(x,y);
+% rhs  = @(x,y) -2*exp(x+y);
+usol = @(x,y) sin(x.*y).*exp(x+y);
 udirch = @(x,y) usol(x,y);
-rhs  = @(x,y) -2*exp(x+y);
+rhs = @(x,y) ((x.^2+y.^2).*sin(x.*y) - 2*(x+y).*cos(x.*y) - 2*sin(x.*y)).*exp(x+y);
 
 % finite element discretization for poisson
 % on triangulated domain
 [V_abc,dxP,dyP,Vl,Vb,Vh,...
- Rl,Sl,Rb,Sb,Rh,Sh,wleg,...
- intVlVl,intVbVb,intVhVh] = preAssemble_poisson1(n,R,S);
+    Vl_flip,Vb_flip,Vh_flip,...
+    Rl,Sl,Rb,Sb,Rh,Sh,...
+    Rl_flip,Sl_flip,Rb_flip,Sb_flip,...
+    Rh_flip,Sh_flip,wleg,...
+    intVlVl,intVbVb,intVhVh,...
+    intVlVl_flip,intVbVb_flip,intVhVh_flip] = preAssemble_poisson1(n,R,S);
+nleg = size(wleg,1);
+
 [K_glb,Bint_glb,Bdirch_glb,...
-          F_glb,G_glb,nintEdge,nbndEdge] = assemble_poisson(n,R,S,W,...
-                                          Rl,Sl,Rb,Sb,Rh,Sh,wleg, ...
-                                          V_abc,dxP,dyP,Vl,Vb,Vh,...
-                                          intVlVl,intVbVb,intVhVh,...
-                                          rhs,udirch,DT);
-
-
+    F_glb,G_glb,nintEdge,...
+    nbndEdge,nbndTri] = assemble_poisson_pwc(n,R,S,W,...
+    Rl,Sl,Rb,Sb,Rh,Sh,...
+    Rl_flip,Sl_flip, ...
+    Rb_flip,Sb_flip, ...
+    Rh_flip,Sh_flip,wleg, ...
+    V_abc,dxP,dyP,Vl,Vb,Vh,...
+    Vl_flip,Vb_flip,Vh_flip,...
+    rhs,udirch,DT);
 % stack the boundary and inter-element continuity constraints
 BB = [Bint_glb;Bdirch_glb];
 % identify the nLambda independent rows of BB
 [~,~,II] = qr(BB','vector');
 nLambda = rank(BB);
 BB_id = BB(II(1:nLambda),:);
-% assemble the fully constrained global system
+Amat = zeros(M*nTri+nLambda);
+Amat(1:M*nTri,1:M*nTri) = K_glb;
+Amat(1:M*nTri,M*nTri+1:end) = BB_id';
+Amat(M*nTri+1:end,1:M*nTri) = BB_id;
+Gbc = [zeros(nleg*nintEdge,1);G_glb];
+Gbc = Gbc(II(1:nLambda));
+Fvec = [F_glb;Gbc];
+% solve for solution modes on each tri
+cu = Amat \ Fvec;
+
+figure(2);
+for iTri = 1:nTri
+
+    Pts_Ti = meshP(:,meshT(iTri,:));
+    J = IncidenceMatrix(Pts_Ti);
+    detJ = det(J);
+    XYe = (J * [R,S]' + Pts_Ti(:,1))';
+    X = XYe(:,1);
+    Y = XYe(:,2);
+    cu_abc = cu((iTri-1)*M+1:M*iTri);
+    u = V_abc*cu_abc;
+    scatter3(X,Y,u,'.'); hold on;
+    %scatter3(X,Y,usol(X,Y),'.');
+    XYl = (J * [Rl,Sl]' + Pts_Ti(:,1))';
+    XYb = (J * [Rb,Sb]' + Pts_Ti(:,1))';
+    XYh = (J * [Rh,Sh]' + Pts_Ti(:,1))';
+    %scatter3(XYl(:,1),XYl(:,2),Vl*cu_abc,'.'); hold on; 
+    %scatter3(XYb(:,1),XYb(:,2),Vb*cu_abc,'.'); 
+    %scatter3(XYh(:,1),XYh(:,2),Vh*cu_abc,'.'); 
+    %scatter3(XYl(:,1),XYl(:,2),usol(XYl(:,1),XYl(:,2)),'o'); hold on; 
+    %scatter3(XYb(:,1),XYb(:,2),usol(XYb(:,1),XYb(:,2)),'o'); 
+    %scatter3(XYh(:,1),XYh(:,2),usol(XYh(:,1),XYh(:,2)),'o'); 
+    errs(iTri) = sqrt((W/2)'*((V_abc*cu_abc-usol(X,Y)).^2 * detJ));
+
+end
+
+
+%%
+[K_glb,Bint_glb,Bdirch_glb,...
+ F_glb,G_glb,...
+ nintEdge,nbndEdge,nbndTri] = assemble_poisson(n,R,S,W,...
+                                                Rl,Sl,Rb,Sb,Rh,Sh,...
+                                                V_abc,dxP,dyP,Vl,Vb,Vh,...
+                                                intVlVl,intVbVb,intVhVh,...
+                                                intVlVl_flip,...
+                                                intVbVb_flip,...
+                                                intVhVh_flip,wleg,...
+                                                rhs,udirch,DT);
+BB = [Bint_glb;Bdirch_glb];
+% identify the nLambda independent rows of BB
+[~,~,II] = qr(BB','vector');
+nLambda = rank(BB);
+BB_id = BB(II(1:nLambda),:);
 Amat = zeros(M*nTri+nLambda);
 Amat(1:M*nTri,1:M*nTri) = K_glb;
 Amat(1:M*nTri,M*nTri+1:end) = BB_id';
@@ -145,234 +224,43 @@ for iTri = 1:nTri
 
     Pts_Ti = meshP(:,meshT(iTri,:));
     J = IncidenceMatrix(Pts_Ti);
+    detJ = det(J);
     XYe = (J * [R,S]' + Pts_Ti(:,1))';
     X = XYe(:,1);
     Y = XYe(:,2);
     cu_abc = cu((iTri-1)*M+1:M*iTri);
     u = V_abc*cu_abc;
-    scatter3(X,Y,u); hold on;
-    scatter3(X,Y,usol(X,Y),'.'); hold on;
+    scatter3(X,Y,u,'o'); hold on;
+    %scatter3(X,Y,usol(X,Y),'.');
+    XYl = (J * [Rl,Sl]' + Pts_Ti(:,1))';
+    XYb = (J * [Rb,Sb]' + Pts_Ti(:,1))';
+    XYh = (J * [Rh,Sh]' + Pts_Ti(:,1))';
+    scatter3(XYl(:,1),XYl(:,2),Vl*cu_abc,'.'); hold on; 
+    scatter3(XYb(:,1),XYb(:,2),Vb*cu_abc,'.'); 
+    scatter3(XYh(:,1),XYh(:,2),Vh*cu_abc,'.'); 
+    %scatter3(XYl(:,1),XYl(:,2),usol(XYl(:,1),XYl(:,2)),'.'); hold on; 
+    %scatter3(XYb(:,1),XYb(:,2),usol(XYb(:,1),XYb(:,2)),'.'); 
+    %scatter3(XYh(:,1),XYh(:,2),usol(XYh(:,1),XYh(:,2)),'.'); 
+    errs(iTri) = sqrt((W/2)'*((V_abc*cu_abc-usol(X,Y)).^2 * detJ));
 
 end
+
+
+
+
+
+
+
+
+
 
 %%%%%%%%%%%%%%%%%%%%%% FEM ASSEMBLY %%%%%%%%%%%%%%%%%%%
 
 
-function [K_glb,Bint_glb,Bdirch_glb,...
-          F_glb,G_glb,...
-          nintEdge,nbndEdge] = assemble_poisson(n,R,S,W,...
-                                                Rl,Sl,Rb,Sb,Rh,Sh,wleg, ...
-                                                V_abc,dxP,dyP,Vl,Vb,Vh,...
-                                                intVlVl,intVbVb,intVhVh,...
-                                                rhs,udirch,DT)
 
 
-% get mesh points, connectivity list
-% as well as interior/bndry edges
-% and map taking shared edge to the two triangles which share it
-[meshP,meshT,intEdges,bndEdges,sharedEdge_tri_map] = process_mesh(DT);
-
-% number of triangles in mesh
-nTri = size(meshT,1);
-% total number of polynomials
-M = n*(n+1)/2;
-% number of boundary and interior edges
-nintEdge = size(intEdges,1);
-nbndEdge = size(bndEdges,1);
-
-% global stifness
-K_glb = zeros(M*nTri,M*nTri);
-% global dirichlet
-Bdirch_glb = zeros(M*nTri,M*nTri);
-% global inter-element continuity
-% there are nintEdge row blocks, each with M rows and M*nTri cols
-Bint_glb = zeros(M*nintEdge,M*nTri);
-F_glb = zeros(M*nTri,1);
-G_glb = zeros(M*nTri,1);
 
 
-% now we loop over triangles 
-% and assemble stiffness and dirichlet matrices
-for iTri = 1:nTri
-
-    % get tri pts, incidence matrix and edge jacobians
-    Pts_Ti = meshP(:,meshT(iTri,:));
-
-    J = IncidenceMatrix(Pts_Ti);
-    detJ = det(J);
-    invJ = inv(J);
-    lenE = zeros(3,1);
-    lenE(1) = norm(Pts_Ti(:,2)-Pts_Ti(:,1));
-    lenE(2) = norm(Pts_Ti(:,3)-Pts_Ti(:,2));
-    lenE(3) = norm(Pts_Ti(:,1)-Pts_Ti(:,3));
-    % quadrature points mapped to phyiscal tri
-    XY = (J * [R,S]' + Pts_Ti(:,1))';
-    X = XY(:,1);
-    Y = XY(:,2);
-    % boundary quadrature points mapped to physical tri
-    XYl = (J * [Rl,Sl]' + Pts_Ti(:,1))';
-    XYb = (J * [Rb,Sb]' + Pts_Ti(:,1))';
-    XYh = (J * [Rh,Sh]' + Pts_Ti(:,1))';
-  
-    % local interior stiffness
-    K = zeros(M,M);
-    for i = 1:M
-        dxP_i = dxP(:,i);
-        dyP_i = dyP(:,i);
-        gradP_i = invJ'*[dxP_i';dyP_i'];
-        dxP_i = gradP_i(1,:)';
-        dyP_i = gradP_i(2,:)';
-        for j = 1:M
-            dxP_j = dxP(:,j);
-            dyP_j = dyP(:,j);
-            gradP_j = invJ'*[dxP_j';dyP_j'];
-            dxP_j = gradP_j(1,:)';
-            dyP_j = gradP_j(2,:)';
-            dPidPj = dxP_i.*dxP_j + dyP_i.*dyP_j;
-            K(i,j) = (W/2)'*dPidPj*detJ;
-        end
-    end
-    % save to global stiffness
-    K_glb((iTri-1)*M+1:M*iTri,(iTri-1)*M+1:M*iTri) = K;
-
-
-    % local load (rhs)
-    F = zeros(M,1);
-    for i = 1:M
-        P_if = V_abc(:,i).*rhs(X,Y);
-        F(i) = (W/2)'*P_if*detJ;
-    end
-    % save to global load
-    F_glb((iTri-1)*M+1:M*iTri) = F;
-
-    % local boundary stiffness
-    Bdirch = zeros(M,M);
-    % boundary load (dirichlet condition)
-    G = zeros(M,1);
-    % get edges of triangle, sorted to match bndry/int Edge lookup
-    edgesT = sort([meshT(iTri, [1,2]);...
-                   meshT(iTri, [2,3]);...
-                   meshT(iTri, [3,1])],2);
-    % for each edge of triangle
-    for iedge = 1:3
-        % get endpts
-        ve = meshP(:,edgesT(iedge,:));
-        % get parametric coords of endpt
-        rve = J\(ve-Pts_Ti(:,1));
-        % label them as left, bottom or hypotenuse edge
-        left = false; bot = false; hyp = false;
-        if (all(rve(:,1) == [0;0]) && all(rve(:,2) == [1;0])) || ...
-           (all(rve(:,1) == [1;0]) && all(rve(:,2) == [0;0]))           
-            bot = true;
-        elseif (all(rve(:,1) == [1;0]) && all(rve(:,2) == [0;1])) || ...
-               (all(rve(:,1) == [0;1]) && all(rve(:,2) == [1;0]))
-            hyp = true;
-        else
-            left = true;
-        end
-        % test if it is a boundary edge
-        for ibnd = 1:nbndEdge
-            % if it is, compute and store
-            % local dirichlet contribution
-            if all(edgesT(iedge,:) == bndEdges(ibnd,:))
-                intVV = 0; % needed for boundary stiffness
-                V = 0; g = 0; % dirichlet values on bndry
-                if bot
-                    intVV = intVbVb;
-                    g = udirch(XYb(:,1),XYb(:,2));
-                    V = Vb;
-                elseif hyp
-                    intVV = intVhVh;
-                    g = udirch(XYh(:,1),XYh(:,2));
-                    V = Vh;
-                elseif left
-                    intVV = intVlVl;
-                    g = udirch(XYl(:,1),XYl(:,2));
-                    V = Vl;
-                end
-                
-                for i = 1:M
-                    for j = 1:M     
-                        Bdirch(i,j) = Bdirch(i,j) + intVV(i,j)*lenE(iedge);
-                    end
-                    G(i) = G(i) + wleg'*(V(:,i).*g)*lenE(iedge);
-                end
-            end
-        end
-    end
-    % now save to global dirichlet matrix
-    Bdirch_glb((iTri-1)*M+1:M*iTri,(iTri-1)*M+1:M*iTri) = Bdirch; 
-    % save dirichlet condition to global Gdirch
-    G_glb((iTri-1)*M+1:M*iTri) = G;
-end
-
-% now we loop over shared edges 
-% to assemble inter-element continuity matrix
-for iedge = 1:nintEdge
-    
-    % get triangles sharing the edge
-    shared_tris = sharedEdge_tri_map(iedge,:);
-    tri1 = shared_tris(1);
-    tri2 = shared_tris(2);
-
-    % get vertices of each tri
-    Pts_T1 = meshP(:,meshT(tri1,:));
-    Pts_T2 = meshP(:,meshT(tri2,:));
-    % get parametric map for each tri
-    J1 = IncidenceMatrix(Pts_T1);
-    J2 = IncidenceMatrix(Pts_T2);
-    % get shared edge endpts
-    ve = meshP(:,intEdges(iedge,:));
-    % get edge length
-    lenE = norm(ve(:,2)-ve(:,1));
-    % get parametric coords of endpt on each tri
-    rve1 = J1\(ve-Pts_T1(:,1));
-    rve2 = J2\(ve-Pts_T2(:,1));
-    % get the correct precomputed line integral corresponding
-    % to the parametric shared edge in each tri
-    intVV1 = 0; 
-    % bottom
-    if (all(rve1(:,1) == [0;0]) && all(rve1(:,2) == [1;0])) || ...
-       (all(rve1(:,1) == [1;0]) && all(rve1(:,2) == [0;0]))
-        intVV1 = intVbVb;
-    % hyp
-    elseif (all(rve1(:,1) == [1;0]) && all(rve1(:,2) == [0;1])) || ...
-           (all(rve1(:,1) == [0;1]) && all(rve1(:,2) == [1;0]))
-        intVV1 = intVhVh;
-    % left
-    else
-        intVV1 = intVlVl;
-    end
-    intVV2 = 0;
-    % bottom
-    if (all(rve2(:,1) == [0;0]) && all(rve2(:,2) == [1;0])) || ...
-       (all(rve2(:,1) == [1;0]) && all(rve2(:,2) == [0;0]))
-        intVV2 = intVbVb;
-    % hyp
-    elseif (all(rve2(:,1) == [1;0]) && all(rve2(:,2) == [0;1])) || ...
-           (all(rve2(:,1) == [0;1]) && all(rve2(:,2) == [1;0]))
-        intVV2 = intVhVh;
-    % left
-    else
-        intVV2 = intVlVl;
-    end
-    Bint1 = zeros(M,M);
-    Bint2 = zeros(M,M);
-
-    for i = 1:M
-        for j = 1:M
-            Bint1(i,j) = Bint1(i,j) + intVV1(i,j)*lenE;
-            Bint2(i,j) = Bint2(i,j) + intVV2(i,j)*lenE;
-        end
-    end
-
-    % now save to global inter-element continuity matrix
-    Bint_glb((iedge-1)*M+1:M*iedge,(tri1-1)*M+1:M*tri1) = Bint1; 
-    Bint_glb((iedge-1)*M+1:M*iedge,(tri2-1)*M+1:M*tri2) = -Bint2; 
-
-end
-
-end
 
 
 
@@ -467,65 +355,7 @@ end
 
 end
 
-function [V_abc,dxP,dyP,Vl,Vb,Vh,...
-          Rl,Sl,Rb,Sb,Rh,Sh,wleg,...
-          intVlVl,intVbVb,intVhVh] = preAssemble_poisson1(n,R,S)
-a = 1/2; b = a; c = a;
-M = n*(n+1)/2;
 
-% normalization under (a,b,c), (a+1,b,c) etc.
-H_abc = structure_factors_tri(n+1,a,b,c);
-H_a1bc1 = structure_factors_tri(n+1,a+1,b,c+1);
-H_ab1c1 = structure_factors_tri(n+1,a,b+1,c+1);
-
-% vandermonde under (a,b,c), (a+1,b,c+1), (a,b+1,c+1)
-V_abc = jPoly_tri(R,S,H_abc,n-1,a,b,c);
-V_a1bc1 = jPoly_tri(R,S,H_a1bc1,n-1,a+1,b,c+1);
-V_ab1c1 = jPoly_tri(R,S,H_ab1c1,n-1,a,b+1,c+1);
-
-% derivative amatrices
-Dx_a1bc1 = D1_tri(a,b,c,H_abc,H_a1bc1,0);
-Dy_ab1c1 = D1_tri(a,b,c,H_abc,H_ab1c1,1);
-
-
-Nrs = length(R);
-
-% interior basis derivatives at abscissa
-dxP = zeros(Nrs,M);
-dyP = zeros(Nrs,M);
-for i = 1:M
-    dxP(:,i) = V_a1bc1 * Dx_a1bc1(:,i);
-    dyP(:,i) = V_ab1c1 * Dy_ab1c1(:,i);
-end
-
-nleg = 50;
-[xleg,wleg,~] = gjQuad(nleg,0,0);
-wleg = wleg'/2; xleg = (xleg+1)/2;
-Rl = 0*xleg; Sl = xleg;
-Rb = xleg; Sb = 0*xleg;
-Rh = xleg; Sh = 1-Rh;
-
-Vl = jPoly_tri(Rl,Sl,H_abc,n-1,a,b,c);
-Vb = jPoly_tri(Rb,Sb,H_abc,n-1,a,b,c);
-Vh = jPoly_tri(Rh,Sh,H_abc,n-1,a,b,c);
-
-
-intVlVl = zeros(M,M);
-intVbVb = zeros(M,M);
-intVhVh = zeros(M,M);
-
-for i = 1:M
-    for j = 1:M
-        VlVlij = reshape(Vl(:,i).*Vl(:,j),nleg,1);
-        VbVbij = reshape(Vb(:,i).*Vb(:,j),nleg,1);
-        VhVhij = reshape(Vh(:,i).*Vh(:,j),nleg,1);
-        intVlVl(i,j) = wleg'*VlVlij;
-        intVbVb(i,j) = wleg'*VbVbij;
-        intVhVh(i,j) = wleg'*VhVhij;
-    end
-end
-
-end
 
 
 function [V_abc,dxP,dyP,Vl,Vb,Vh,VlVl,VbVb,VhVh,...
@@ -583,46 +413,51 @@ end
 
 end
 
-function Ixe = IncidenceMatrix(Xe)
 
-Ixe = [Xe(:,2)-Xe(:,1), Xe(:,3)-Xe(:,1)];
 
+
+
+
+function DT = annulus()
+% Parameters
+r_inner = 0.5;
+r_outer = 1.0;
+numPoints = 50;
+
+% Generate points uniformly in the annulus
+points = [];
+while size(points,1) < numPoints
+    % Generate points in square bounding box
+    pts = (rand(numPoints*2,1)*2 - 1) * r_outer;
+    pts = [pts, (rand(numPoints*2,1)*2 - 1) * r_outer];
+    
+    % Keep points between inner and outer radius
+    r = sqrt(sum(pts.^2, 2));
+    mask = (r >= r_inner) & (r <= r_outer);
+    
+    points = [points; pts(mask,:)];
+    points = unique(points,'rows','stable');
 end
+points = points(1:numPoints,:);
 
+% Create delaunay triangulation
+DT = delaunayTriangulation(points);
 
-function [meshP,meshT,intEdges,bndEdges,sharedEdge_tri_map] = process_mesh(DT)
+% Filter triangles: keep only those with centroid inside annulus
+triangles = DT.ConnectivityList;
+pts = DT.Points;
 
-meshT = DT.ConnectivityList;
-meshP = DT.Points';
+centroids = (pts(triangles(:,1),:) + pts(triangles(:,2),:) + pts(triangles(:,3),:)) / 3;
+r_cent = sqrt(sum(centroids.^2, 2));
+keep = (r_cent >= r_inner) & (r_cent <= r_outer);
 
-% Extract all edges from triangles
-Edges = [meshT(:, [1,2]); meshT(:, [2,3]); meshT(:, [3,1])];
+% Create filtered triangulation
+DT_annulus = triangulation(triangles(keep,:), pts);
 
-% Sort edges so that (i,j) and (j,i) are considered the same
-Edges = sort(Edges, 2);
-
-% Count occurrences of each edge
-[uniqueEdges, ~, ic] = unique(Edges, 'rows');
-counts = accumarray(ic, 1);
-
-% classify edges 
-% edges that appear twice are interior
-% edges that appear once are on boundary
-intEdges = uniqueEdges(counts == 2, :);
-bndEdges = uniqueEdges(counts == 1,:);
-nintEdge = size(intEdges,1);
-
-sharedEdge_tri_map = zeros(nintEdge,2);
-
-
-for iedge = 1:nintEdge
-
-    sharedTris = edgeAttachments(DT,intEdges(iedge,:));
-    sharedEdge_tri_map(iedge,:) = sharedTris{1};
-
-end
-
-% sort it to match vertex index ordering in intEdges
-sharedEdge_tri_map = sort(sharedEdge_tri_map,2);
-
-end
+% Plot
+figure;
+triplot(DT_annulus, 'Color', 'b');
+axis equal;
+title('Delaunay Triangulation of Annulus');
+xlabel('x'); ylabel('y');
+end 
