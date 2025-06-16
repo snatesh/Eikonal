@@ -1,5 +1,4 @@
 clear all; close all; clc;
-clear all; close all; clc;
 % jacobi poly params
 a = 1/2; b = 1/2; c = 1/2;
 % legendre analog quadrature rule on triangle
@@ -47,9 +46,9 @@ for j = 1:size(intEdges,1)
 end
 
 % there are M total polys
-m = 5; n = m+1; M = n*(n+1)/2;
+m = 8; n = m+1; M = n*(n+1)/2;
 speed = 1;
-xi = 0.01;
+xi = 0.1;
 % manufactured sol and corresponding dirchlet data/rhs
 udirch = @(x,y) zeros(size(x));
 rhs = @(x,y) RHS(x,y,speed);
@@ -113,7 +112,85 @@ end
 
 
 
- 
+%%
+xi0 = 0.1;          % Initial penalty
+xi_min = 1e-3;      % Do not let xi drop below this
+xi = xi0;
+xi_decay = 0.8;     % Reduce xi by this factor
+xi_trigger = 1e-10;  % When residual norm drops below this, reduce xi
+% Initial nonlinear term
+[N_glb, H_glb] = assemble_eik_nonlin_unweighted(cu, M, W, xi, ...
+                                       V_abc, dPdP, ...
+                                       meshT, meshP, K_glb);
+H_glb = H_glb';
+
+max_iter = 1000;
+rtol = 1e-6;
+%tol = norm(N_glb + xi*K_glb*cu(1:M*nTri) - BB_id'*cu(M*nTri+1:end) - F_glb) * rtol;
+tol = 1e-14;
+
+
+fprintf("It \t (g,du) \t\t ||g|| \t\t xi\n");
+
+for it = 1:max_iter
+
+    % Assemble global system
+    HHmat = zeros(M*nTri + nLambda);
+    HHmat(1:M*nTri, 1:M*nTri) = H_glb;
+    HHmat(1:M*nTri, M*nTri+1:end) = BB_id';
+    HHmat(M*nTri+1:end, 1:M*nTri) = BB_id;
+
+    % Compute residual
+    brhs = [N_glb + xi*K_glb*cu(1:M*nTri) + BB_id'*cu(M*nTri+1:end) - F_glb;
+            BB_id*cu(1:M*nTri)];
+
+    norm_g = norm(brhs);
+
+    if norm_g < tol
+        fprintf("Converged in %d iterations\n", it);
+        break;
+    end
+
+    % Newton update (no line search)
+    du = -HHmat \ brhs;
+    cu = cu + du;
+
+    % Update residual and Jacobian
+    [N_glb] = assemble_eik_nonlin_unweighted(cu, M, W, xi, ...
+                                                    V_abc, dPdP, ...
+                                                    meshT, meshP, K_glb);
+    %H_glb = H_glb';
+
+    % Dynamically reduce xi if residual is small
+    if norm_g < xi_trigger && xi > xi_min
+        xi = max(xi * xi_decay, xi_min);
+        [N_glb, H_glb] = assemble_eik_nonlin_unweighted(cu, M, W, xi, ...
+                                                        V_abc, dPdP, ...
+                                                        meshT, meshP, K_glb);
+        H_glb = H_glb';
+    end
+
+    fprintf("%d \t %.4e \t %.4e \t %.3e\n", it, -brhs'*du, norm_g, xi);
+end
+
+%%
+figure(3);
+for iTri = 1:nTri
+
+    Pts_Ti = meshP(:,meshT(iTri,:));
+    J = IncidenceMatrix(Pts_Ti);
+    detJ = det(J);
+    XYe = (J * [R,S]' + Pts_Ti(:,1))';
+    X = XYe(:,1);
+    Y = XYe(:,2);
+    T = delaunay(X,Y);
+    cu_abc = cu((iTri-1)*M+1:M*iTri);
+    u = V_abc*cu_abc;
+    scatter3(X,Y,u,'.'); hold on;
+end
+[XX,YY] = meshgrid(linspace(0,1,10));
+scatter3(XX(:),YY(:),distanceToUnitSquareBoundary(XX(:),YY(:)));
+%%
 % now do an inf-dim newton stepper for eikonal
 [N_glb,H_glb] = assemble_eik_nonlin_unweighted(cu,M,W,xi,...
                                        V_abc, dPdP,...
@@ -126,10 +203,10 @@ rtol = 1e-6;
 tol = norm(N_glb+xi*K_glb*cu(1:M*nTri) - BB_id'*cu(M*nTri+1:end)-F_glb)*rtol;
 
 
-fprintf("It \t (g,du) \t ||g||l2\n")
+fprintf("It \t (g,du) \t ||g||l2 \t cond(H)\n")
 for it = 1:max_iter
 
-    alph = 0.01;
+    alph = 1;
     HHmat = zeros(M*nTri+nLambda);
     HHmat(1:M*nTri,1:M*nTri) = H_glb;
     HHmat(1:M*nTri,M*nTri+1:end) = BB_id';
@@ -147,11 +224,8 @@ for it = 1:max_iter
 
     cu = cu1;
     
-    fprintf("%d \t %1.10f \t %1.10f \n", it, -brhs'*du, norm(brhs))
+    fprintf("%d \t %1.10f \t %1.10f \t %f\n", it, -brhs'*du, norm(brhs),cond(HHmat))
 
-    %[N,K,F,H] = assemble_eik_nonlin_unweighted(cu,M,W,xi,...
-    %                                           V_abc, Dx, Dy,...
-    %                                           K, F, dPdP);
     [N_glb] = assemble_eik_nonlin_unweighted(cu,M,W,xi,...
                                              V_abc, dPdP,...
                                              meshT,meshP,K_glb);
@@ -170,7 +244,7 @@ for iTri = 1:nTri
     u = V_abc*cu_abc;
     scatter3(X,Y,u,'.'); hold on;
 end
-figure(3);
+%figure(3);
 [XX,YY] = meshgrid(linspace(0,1,10));
 scatter3(XX(:),YY(:),distanceToUnitSquareBoundary(XX(:),YY(:)));
 
