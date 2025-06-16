@@ -2,7 +2,11 @@ function [K_glb,Bint_glb,Bdirch_glb,...
           F_glb,G_glb,...
           nintEdge,nbndEdge,nbndTri] = assemble_poisson(n,R,S,W,...
                                                 Rl,Sl,Rb,Sb,Rh,Sh,...
+                                                Rl_flip,Sl_flip,...
+                                                Rb_flip,Sb_flip,...
+                                                Rh_flip,Sh_flip,...
                                                 V_abc,dxP,dyP,Vl,Vb,Vh,...
+                                                Vl_flip,Vb_flip,Vh_flip,...
                                                 intVlVl,intVbVb,intVhVh,...
                                                 intVlVl_flip,...
                                                 intVbVb_flip,...
@@ -59,6 +63,9 @@ for iTri = 1:nTri
     XYl = (J * [Rl,Sl]' + Pts_Ti(:,1))';
     XYb = (J * [Rb,Sb]' + Pts_Ti(:,1))';
     XYh = (J * [Rh,Sh]' + Pts_Ti(:,1))';
+    XYl_flip = (J * [Rl_flip,Sl_flip]' + Pts_Ti(:,1))';
+    XYb_flip = (J * [Rb_flip,Sb_flip]' + Pts_Ti(:,1))';
+    XYh_flip = (J * [Rh_flip,Sh_flip]' + Pts_Ti(:,1))';
   
     % local interior stiffness
     K = zeros(M,M);
@@ -139,23 +146,40 @@ for iTri = 1:nTri
                     V = 0; g = 0; % dirichlet values on bndry
                     if bot
                         intVV = intVbVb;
-                        g = udirch(XYb(:,1),XYb(:,2));
-                        V = Vb;
+                        if flip == 1
+                          g = udirch(XYb(:,1),XYb(:,2));
+                          V = Vb;
+                        elseif flip == -1
+                          g = udirch(XYb_flip(:,1),XYb_flip(:,2));
+                          V = Vb_flip;
+                        end
+
                     elseif hyp
                         intVV = intVhVh;
-                        g = udirch(XYh(:,1),XYh(:,2));
-                        V = Vh;
+                        if flip == 1;
+                          g = udirch(XYh(:,1),XYh(:,2));
+                          V = Vh;
+                        elseif flip == -1;
+                          g = udirch(XYh_flip(:,1),XYh_flip(:,2));
+                          V = Vh_flip;
+                        end    
                     elseif left
                         intVV = intVlVl;
-                        g = udirch(XYl(:,1),XYl(:,2));
-                        V = Vl;
+                        if flip == 1;
+                          g = udirch(XYl(:,1),XYl(:,2));
+                          V = Vl;
+                        elseif flip == -1;
+                          g = udirch(XYl_flip(:,1),XYl_flip(:,2));
+                          V = Vl_flip;
+                        end
+
                     end
 
                     for i = 1:M
                         for j = 1:M
-                            Bdirch(i,j) = Bdirch(i,j) + intVV(i,j)*lenE(iedge)*flip;
+                            Bdirch(i,j) = Bdirch(i,j) + intVV(i,j)*lenE(iedge);
                         end
-                        G(i) = G(i) + wleg'*(V(:,i).*g)*lenE(iedge)*flip;
+                        G(i) = G(i) + wleg'*(V(:,i).*g)*lenE(iedge);
                     end
                 end
             end
@@ -193,86 +217,95 @@ for iedge = 1:nintEdge
     % to the parametric shared edge in each tri
     intVV1 = 0; intVV2 = 0;
 
-    %tol = 1e-13;
-    %edge1 = 0; edge2 = 0;
-    %% bottom
-    %if ((norm(rve1(:,1) - [0;0]) < tol) && (norm(rve1(:,2) - [1;0]) < tol)) || ... 
-    %   ((norm(rve1(:,1) - [1;0]) < tol) && (norm(rve1(:,2) -[0;0]) < tol))
-    %    intVV1 = intVbVb;
-    %    edge1 = 2;
-    %% hyp
-    %elseif ((norm(rve1(:,1) - [1;0]) < tol) && (norm(rve1(:,2) - [0;1]) < tol)) || ...
-    %       ((norm(rve1(:,1) - [0;1])< tol) && (norm(rve1(:,2) - [1;0]) < tol))
-    %    intVV1 = intVhVh;
-    %    edge1 = 3;
-    %% left
-    %else
-    %    intVV1 = intVlVl;
-    %    edge1 = 1;
-    %end
-    %% bottom
-    %if ((norm(rve2(:,1) - [0;0]) < tol) && (norm(rve2(:,2) - [1;0]) < tol)) || ...
-    %   ((norm(rve2(:,1) - [1;0]) < tol) && (norm(rve2(:,2) - [0;0]) < tol))
-    %    intVV2 = intVbVb;
-    %    edge2 = 2;
-    %% hyp
-    %elseif ((norm(rve2(:,1) - [1;0]) < tol) && (norm(rve2(:,2) - [0;1]) < tol)) || ...
-    %       ((norm(rve2(:,1) - [0;1]) < tol) && (norm(rve2(:,2) - [1;0]) < tol))
-    %    intVV2 = intVhVh;
-    %    edge2 = 3;
-    %% left
-    %else
-    %    intVV2 = intVlVl;
-    %    edge2 = 1;
-    %end
-    %
-    %% Align the bases
-    %[intVV1a, intVV2a] = getAlignedEdgeBases(intVV1, intVV2, Pts_T1, Pts_T2, edge1, edge2, Rl, Sl);  
-
+    tol = 1e-13;
+    edge1 = 0; edge2 = 0;
+    rleg1 = 0; sleg1 = 0;
+    rleg2 = 0; sleg2 = 0;
     % bottom
-    if (all(rve1(:,1) == [0;0]) && all(rve1(:,2) == [1;0]))
+    if ((norm(rve1(:,1) - [0;0]) < tol) && (norm(rve1(:,2) - [1;0]) < tol)) || ... 
+       ((norm(rve1(:,1) - [1;0]) < tol) && (norm(rve1(:,2) -[0;0]) < tol))
         intVV1 = intVbVb;
-    elseif (all(rve1(:,1) == [1;0]) && all(rve1(:,2) == [0;0]))
-        intVV1 = -intVbVb;
+        edge1 = 2;
+        rleg1 = Rb; sleg1 = Sb;
     % hyp
-    elseif (all(rve1(:,1) == [1;0]) && all(rve1(:,2) == [0;1]))
+    elseif ((norm(rve1(:,1) - [1;0]) < tol) && (norm(rve1(:,2) - [0;1]) < tol)) || ...
+           ((norm(rve1(:,1) - [0;1])< tol) && (norm(rve1(:,2) - [1;0]) < tol))
         intVV1 = intVhVh;
-    elseif (all(rve1(:,1) == [0;1]) && all(rve1(:,2) == [1;0]))
-        intVV1 = -intVhVh;
+        rleg1 = Rh; sleg1 = Sh;
+        edge1 = 3;
     % left
-    elseif (all(rve1(:,1) == [0;1]) && all(rve1(:,2) == [0;0]))
+    else
         intVV1 = intVlVl;
-    elseif (all(rve1(:,1) == [0;0]) && all(rve1(:,2) == [0;1]))
-        intVV1 = -intVlVl;
+        rleg1 = Rl; sleg1 = Sl;
+        edge1 = 1;
     end
-    intVV2 = 0;
     % bottom
-    if (all(rve2(:,1) == [0;0]) && all(rve2(:,2) == [1;0]))
+    if ((norm(rve2(:,1) - [0;0]) < tol) && (norm(rve2(:,2) - [1;0]) < tol)) || ...
+       ((norm(rve2(:,1) - [1;0]) < tol) && (norm(rve2(:,2) - [0;0]) < tol))
         intVV2 = intVbVb;
-    elseif (all(rve2(:,1) == [1;0]) && all(rve2(:,2) == [0;0]))
-        intVV2 = -intVbVb;
+        rleg2 = Rb; sleg2 = Sb;
+        edge2 = 2;
     % hyp
-    elseif (all(rve2(:,1) == [1;0]) && all(rve2(:,2) == [0;1]))
+    elseif ((norm(rve2(:,1) - [1;0]) < tol) && (norm(rve2(:,2) - [0;1]) < tol)) || ...
+           ((norm(rve2(:,1) - [0;1]) < tol) && (norm(rve2(:,2) - [1;0]) < tol))
         intVV2 = intVhVh;
-    elseif (all(rve2(:,1) == [0;1]) && all(rve2(:,2) == [1;0]))
-        intVV2 = -intVhVh;
+        rleg2 = Rh; sleg2 = Sh;
+        edge2 = 3;
     % left
-    elseif (all(rve2(:,1) == [0;1]) && all(rve2(:,2) == [0;0]))
+    else
         intVV2 = intVlVl;
-    elseif (all(rve2(:,1) == [0;0]) && all(rve2(:,2) == [0;1]))
-        intVV2 = -intVlVl;
+        rleg2 = Rl; sleg2 = Sl;
+        edge2 = 1;
     end
-    Bint1 = zeros(M,M);
-    Bint2 = zeros(M,M);
-    for i = 1:M
-        for j = 1:M
-            Bint1(i,j) = intVV1(i,j)*lenE;
-            Bint2(i,j) = intVV2(i,j)*lenE;
-        end
-    end
+    
+    % Align the bases
+
+    [intVV1a,intVV2a] = getAlignedEdgeBasesInt(intVV1, rleg1, sleg1, intVV2, ...
+                                               rleg2, sleg2, Pts_T1, Pts_T2, edge1, edge2);
+    %% bottom
+    %if (all(rve1(:,1) == [0;0]) && all(rve1(:,2) == [1;0]))
+    %    intVV1 = intVbVb;
+    %elseif (all(rve1(:,1) == [1;0]) && all(rve1(:,2) == [0;0]))
+    %    intVV1 = -intVbVb;
+    %% hyp
+    %elseif (all(rve1(:,1) == [1;0]) && all(rve1(:,2) == [0;1]))
+    %    intVV1 = intVhVh;
+    %elseif (all(rve1(:,1) == [0;1]) && all(rve1(:,2) == [1;0]))
+    %    intVV1 = -intVhVh;
+    %% left
+    %elseif (all(rve1(:,1) == [0;1]) && all(rve1(:,2) == [0;0]))
+    %    intVV1 = intVlVl;
+    %elseif (all(rve1(:,1) == [0;0]) && all(rve1(:,2) == [0;1]))
+    %    intVV1 = -intVlVl;
+    %end
+    %intVV2 = 0;
+    %% bottom
+    %if (all(rve2(:,1) == [0;0]) && all(rve2(:,2) == [1;0]))
+    %    intVV2 = intVbVb;
+    %elseif (all(rve2(:,1) == [1;0]) && all(rve2(:,2) == [0;0]))
+    %    intVV2 = -intVbVb;
+    %% hyp
+    %elseif (all(rve2(:,1) == [1;0]) && all(rve2(:,2) == [0;1]))
+    %    intVV2 = intVhVh;
+    %elseif (all(rve2(:,1) == [0;1]) && all(rve2(:,2) == [1;0]))
+    %    intVV2 = -intVhVh;
+    %% left
+    %elseif (all(rve2(:,1) == [0;1]) && all(rve2(:,2) == [0;0]))
+    %    intVV2 = intVlVl;
+    %elseif (all(rve2(:,1) == [0;0]) && all(rve2(:,2) == [0;1]))
+    %    intVV2 = -intVlVl;
+    %end
+    %Bint1 = zeros(M,M);
+    %Bint2 = zeros(M,M);
+    %for i = 1:M
+    %    for j = 1:M
+    %        Bint1(i,j) = intVV1(i,j)*lenE;
+    %        Bint2(i,j) = intVV2(i,j)*lenE;
+    %    end
+    %end
     % now save to global inter-element continuity matrix
-    Bint_glb((iedge-1)*M+1:M*iedge,(tri1-1)*M+1:M*tri1) = Bint1; 
-    Bint_glb((iedge-1)*M+1:M*iedge,(tri2-1)*M+1:M*tri2) = -Bint2; 
+    Bint_glb((iedge-1)*M+1:M*iedge,(tri1-1)*M+1:M*tri1) = intVV1a; 
+    Bint_glb((iedge-1)*M+1:M*iedge,(tri2-1)*M+1:M*tri2) = intVV2a; 
 
 end
 

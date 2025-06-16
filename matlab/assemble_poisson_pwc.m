@@ -1,7 +1,9 @@
 function [K_glb,Bint_glb,Bdirch_glb,...
           F_glb,G_glb,...
-          nintEdge,nbndEdge,...
-          nbndTri] = assemble_poisson_pwc(n,R,S,W,...
+          meshP, meshT,...
+          sharedEdge_tri_map,...
+          bndTris,nintEdge,nbndEdge,...
+          nbndTri,varargout] = assemble_poisson_pwc(n,R,S,W,...
                                           Rl,Sl,Rb,Sb,Rh,Sh, ...
                                           Rl_flip,Sl_flip,...
                                           Rb_flip,Sb_flip,...
@@ -40,6 +42,10 @@ G_glb = zeros(nleg*nbndEdge,1);
 % now we loop over triangles 
 % and assemble stiffness and dirichlet matrices
 ibndtri = 0;
+hasdpdp = false; dPdP = 0;
+if nargout == 13
+  dPdP = zeros(M,M,length(R));
+end
 for iTri = 1:nTri
 
     % get tri pts, incidence matrix and edge jacobians
@@ -81,6 +87,9 @@ for iTri = 1:nTri
             dyP_j = gradP_j(2,:)';
             dPidPj = dxP_i.*dxP_j + dyP_i.*dyP_j;
             K(i,j) = (W/2)'*dPidPj*detJ;
+            if nargout == 13 && ~hasdpdp
+              dPdP(i,j,:) = dPidPj;
+            end 
         end
     end
     % save to global stiffness
@@ -289,5 +298,9 @@ for iedge = 1:nintEdge
     
 
 end
+
+  if nargout == 13
+    varargout{1} = dPdP;
+  end
 
 end
