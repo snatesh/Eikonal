@@ -68,13 +68,13 @@ R = importdata("../bin/xtri_N496_n30_M1378_m51.txt");
 S = importdata("../bin/ytri_N496_n30_M1378_m51.txt");
 W = importdata("../bin/wtri_N496_n30_M1378_m51.txt");
 
-DT = delaunayTriangulation([0 0; 1 0; 1 1; 0 1; 0.5 0.25; 0.5 0.75]);
+%DT = delaunayTriangulation([0 0; 1 0; 1 1; 0 1; 0.5 0.25; 0.5 0.75]);
 %DT = delaunayTriangulation([0 0; 1 0; 0 1; 0.5 0.25; 0.5 0.75]);
 
 %DT = delaunayTriangulation([0 0; 1 0; 0 1]);
 %DT = delaunayTriangulation([0 0; 1 0; 1 1]);
 %DT = delaunayTriangulation([0 0; 1 0; 1 1; 0 1]);
-%DT = annulus();
+DT = annulus();
 
 
 meshT = DT.ConnectivityList;
@@ -124,13 +124,13 @@ end
 m = 10; n = m+1; M = n*(n+1)/2;
 
 % manufactured sol and corresponding dirchlet data/rhs
-% usol = @(x,y) exp(x+y);
-% udirch = @(x,y) usol(x,y);
-% rhs  = @(x,y) -2*exp(x+y);
-usol = @(x,y) sin(x.*y).*exp(x+y);
-%udirch = @(x,y) sin(x+y);%usol(x,y);
+usol = @(x,y) exp(x+y);
+%udirch = @(x,y) usol(x,y);
+rhs  = @(x,y) -2*exp(x+y);
+%usol = @(x,y) sin(x.*y).*exp(x+y);
+%udirch = @(x,y) usol(x,y);
 udirch = @(x,y) zeros(size(x));
-rhs = @(x,y) -((x.^2+y.^2).*sin(x.*y) - 2*(x+y).*cos(x.*y) - 2*sin(x.*y)).*exp(x+y);
+%rhs = @(x,y) -((x.^2+y.^2).*sin(x.*y) - 2*(x+y).*cos(x.*y) - 2*sin(x.*y)).*exp(x+y);
 
 % finite element discretization for poisson
 % on triangulated domain
@@ -146,8 +146,8 @@ nleg = size(wleg,1);
 [K_glb,Bint_glb,Bdirch_glb,...
     F_glb,G_glb,meshP,meshT,...
     sharedEdge_tri_map,...
-    bndTris,nintEdge,...
-    nbndEdge,nbndTri] = assemble_poisson_pwc(n,R,S,W,...
+    nintEdge,nbndEdge,...
+    bndEdge_tri_map,dPdP] = assemble_poisson_pwc(n,R,S,W,...
                                             Rl,Sl,Rb,Sb,Rh,Sh,...
                                             Rl_flip,Sl_flip, ...
                                             Rb_flip,Sb_flip, ...

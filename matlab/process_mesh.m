@@ -1,4 +1,4 @@
-function [meshP,meshT,intEdges,bndEdges,sharedEdge_tri_map,bndTris] = process_mesh(DT)
+function [meshP,meshT,intEdges,bndEdges,sharedEdge_tri_map,bndEdge_tri_map] = process_mesh(DT)
 
 meshT = DT.ConnectivityList;
 meshP = DT.Points';
@@ -19,6 +19,14 @@ counts = accumarray(ic, 1);
 intEdges = uniqueEdges(counts == 2, :);
 bndEdges = uniqueEdges(counts == 1,:);
 nintEdge = size(intEdges,1);
+nbndEdge = size(bndEdges,1);
+bndEdge_tri_map = zeros(nbndEdge,1);
+
+for i = 1:nbndEdge
+    edge = bndEdges(i,:);
+    tris = edgeAttachments(DT, edge);  % Only one triangle for boundary edge
+    bndEdge_tri_map(i) = tris{1};
+end
 
 sharedEdge_tri_map = zeros(nintEdge,2);
 
@@ -33,10 +41,5 @@ end
 % sort it to match vertex index ordering in intEdges
 sharedEdge_tri_map = sort(sharedEdge_tri_map,2);
 
-% find triangles with boundary edge
-triangleIDs = repmat((1:size(meshT,1))', 3, 1);  
-[~, loc] = ismember(Edges, bndEdges, 'rows');
-isBoundaryEdge = loc > 0;
-bndTris = unique(triangleIDs(isBoundaryEdge));
 
 end
