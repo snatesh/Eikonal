@@ -11,38 +11,14 @@ W = importdata("../bin/wtri_N496_n30_M1378_m51.txt");
 
 %DT = delaunayTriangulation([0 0; 1 0; 0 1]);
 %DT = delaunayTriangulation([0 0; 1 0; 1 1]);
-DT = delaunayTriangulation([0 0; 1 0; 1 1; 0 1]);
+%DT = delaunayTriangulation([0 0; 1 0; 1 1; 0 1]);
 %DT = delaunay_unit_square(2);
+%DT = annulus();
+DT = delaunay_disk(20,3);
 meshT = DT.ConnectivityList;
 meshP = DT.Points';
-
-Edges = [meshT(:, [1,2]); meshT(:, [2,3]); meshT(:, [3,1])];
-
-% Sort edges so that (i,j) and (j,i) are considered the same
-Edges = sort(Edges, 2);
-
-% Count occurrences of each edge
-[uniqueEdges, ~, ic] = unique(Edges, 'rows');
-counts = accumarray(ic, 1);
-
-% classify edges 
-% edges that appear twice are interior
-% edges that appear once are on boundary
-intEdges = uniqueEdges(counts == 2, :);
-bndEdges = uniqueEdges(counts == 1,:);
 nTri = size(meshT,1);
-figure(1);
-for j = 1:size(bndEdges,1)
-    p1 = meshP(:,bndEdges(j,1));
-    p2 = meshP(:,bndEdges(j,2));
-    plot([p1(1),p2(1)],[p1(2),p2(2)],'r-'); hold on;
-end
 
-for j = 1:size(intEdges,1)
-    p1 = meshP(:,intEdges(j,1));
-    p2 = meshP(:,intEdges(j,2));
-    plot([p1(1),p2(1)],[p1(2),p2(2)],'b-'); hold on;
-end
 
 % there are M total polys
 m = 10; n = m+1; M = n*(n+1)/2;
@@ -89,25 +65,74 @@ Fvec = [F_glb;Gbc];
 % solve for solution modes on each tri
 cu = Amat \ Fvec;
 
-% figure(2);
-% for iTri = 1:nTri
-%     Pts_Ti = meshP(:,meshT(iTri,:));
-%     J = IncidenceMatrix(Pts_Ti);
-%     detJ = det(J);
-%     XYe = (J * [R,S]' + Pts_Ti(:,1))';
-%     X = XYe(:,1);
-%     Y = XYe(:,2);
-%     T = delaunay(X,Y);
-%     cu_abc = cu((iTri-1)*M+1:M*iTri);
-%     u = V_abc*cu_abc;
-%     scatter3(X,Y,u,'.'); hold on;
-%     %trisurf(T,X,Y,u); hold on;
-%     XYl = (J * [Rl,Sl]' + Pts_Ti(:,1))';
-%     XYb = (J * [Rb,Sb]' + Pts_Ti(:,1))';
-%     XYh = (J * [Rh,Sh]' + Pts_Ti(:,1))';
-% end
+% IMEX loop
+xi = 0.0001;
+dt = 0.01;
+dt_factor = 2;
+max_tstep = 10000;
+tol = 1e-7;
+LHS = [eye(M*nTri) + dt*xi*K_glb BB_id';...
+    BB_id zeros(nLambda)];
+% get current residual
+u = cu;
+[N_glb, ~] = assemble_eik_nonlin_unweighted(u, M, W, xi, ...
+                                            V_abc, dPdP, ...
+                                            meshT, meshP, K_glb);
+res_curr = norm([N_glb + xi*K_glb*u(1:M*nTri)-F_glb+BB_id'*u(M*nTri+1:end);...
+                BB_id*u(1:M*nTri)]);
+for tstep = 1:max_tstep
+
+    % Assemble global system
+
+    [N_glb, ~] = assemble_eik_nonlin_unweighted(u, M, W, xi, ...
+                                                V_abc, dPdP, ...
+                                                meshT, meshP, K_glb);
+
+    rhs = [u(1:M*nTri) - dt*(N_glb-F_glb); Gbc];
 
 
+    % solve
+    sol = LHS \ rhs;
+    
+    % get new residual
+    res_new = norm([N_glb + xi*K_glb*sol(1:M*nTri)-F_glb+BB_id'*sol(M*nTri+1:end);...
+                BB_id*sol(1:M*nTri)]);
+    fprintf("tstep %d: res_new = %.3e\t res_old=%.3e\n", tstep, res_new, res_curr);
+
+    if res_new < res_curr
+        fprintf('accept step\n');
+        u = sol;
+        res_curr = res_new;
+        for iTri = 1:nTri
+            Pts_Ti = meshP(:,meshT(iTri,:));
+            Ixe = IncidenceMatrix(Pts_Ti);
+            detJ = det(Ixe);
+            XYe = (Ixe * [R,S]' + Pts_Ti(:,1))';
+            X = XYe(:,1);
+            Y = XYe(:,2);
+            %T = delaunay(X,Y);
+            cu_abc = u((iTri-1)*M+1:M*iTri);
+            u_sol = V_abc*cu_abc;
+            scatter3(X,Y,u_sol); hold on;
+        end
+        drawnow;
+        hold off;
+    else
+        fprintf('step rejected. (res_new-res_old)=%.3e\n',abs(res_new-res_curr)')
+        break;
+        %dt = dt*dt_factor;
+        %if (dt < 1e-8)
+        %    fprintf('dt no longer reducible. (res_new-res_old)=%.3e\n',abs(res_new-res_curr));
+        %    break;
+        %end
+        % reassemble sys mat with new dt
+        %LHS = [eye(M*nTri) + dt*xi*K_glb BB_id';...
+        %       BB_id zeros(nLambda)];
+            
+    end
+end
+
+%% Backward euler+newton loop
 xi = 0.01;
 dt = 1;
 alph = 0.1;
@@ -116,7 +141,7 @@ max_tstep = 10000;
 tol = 1e-10;
 u = cu;
 % Initialize residual history
-res_prev = Inf;
+res_curr = Inf;
 for tstep = 1:max_tstep
     u_n = u;
     u_m = u_n;
@@ -153,7 +178,7 @@ for tstep = 1:max_tstep
     % Compute residual norm for this time step
     res_new = norm(Ru);
     
-    if ~converged || res_new > res_prev
+    if ~converged || res_new > res_curr
         % Reject time step and reduce dt
         dt = dt / 2;
         fprintf("  Rejected step %d: residual = %.3e ↑: dt → %.3e\n", tstep, res_new, dt);
@@ -162,7 +187,7 @@ for tstep = 1:max_tstep
     else
         % Accept step
         u = u_m;
-        res_prev = res_new;
+        res_curr = res_new;
         % Optionally increase dt for efficiency
         dt = min(dt * 1.25, 1); % optional upper bound
         fprintf("  Accepted step %d: residual = %.3e ↓: dt → %.3e\n", tstep, res_new,dt);
@@ -406,4 +431,79 @@ function dt = delaunay_unit_square(N)
 
     % Optional: create Delaunay triangulation object
     dt = delaunayTriangulation(p);
+end
+
+function DT_annulus = annulus()
+% Parameters
+r_inner = 0.5;
+r_outer = 1.0;
+numPoints = 50;
+
+% Generate points uniformly in the annulus
+points = [];
+while size(points,1) < numPoints
+    % Generate points in square bounding box
+    pts = (rand(numPoints*2,1)*2 - 1) * r_outer;
+    pts = [pts, (rand(numPoints*2,1)*2 - 1) * r_outer];
+    
+    % Keep points between inner and outer radius
+    r = sqrt(sum(pts.^2, 2));
+    mask = (r >= r_inner) & (r <= r_outer);
+    
+    points = [points; pts(mask,:)];
+    points = unique(points,'rows','stable');
+end
+points = points(1:numPoints,:);
+
+% Create delaunay triangulation
+DT = delaunayTriangulation(points);
+
+% Filter triangles: keep only those with centroid inside annulus
+triangles = DT.ConnectivityList;
+pts = DT.Points;
+
+centroids = (pts(triangles(:,1),:) + pts(triangles(:,2),:) + pts(triangles(:,3),:)) / 3;
+r_cent = sqrt(sum(centroids.^2, 2));
+keep = (r_cent >= r_inner) & (r_cent <= r_outer);
+
+% Create filtered triangulation
+DT_annulus = triangulation(triangles(keep,:), pts);
+
+% Plot
+%figure;
+%triplot(DT_annulus, 'Color', 'b');
+%axis equal;
+%title('Delaunay Triangulation of Annulus');
+%xlabel('x'); ylabel('y');
+end 
+
+function DT = delaunay_disk(N_boundary, N_radial)
+    % Generate boundary points on unit circle
+    theta = linspace(0, 2*pi, N_boundary + 1);
+    theta(end) = [];  % Remove duplicate point at 2*pi
+    xb = cos(theta);
+    yb = sin(theta);
+
+    % Generate interior points in polar coordinates
+    r = linspace(0, 1, N_radial + 1);
+    r = r(2:end);  % skip r=0 (handled separately)
+    p_interior = [];
+
+    for i = 1:length(r)
+        Ni = round(N_boundary * r(i));  % number of points on i-th ring
+        thetai = linspace(0, 2*pi, Ni+1); thetai(end) = [];
+        xi = r(i) * cos(thetai);
+        yi = r(i) * sin(thetai);
+        p_interior = [p_interior; xi(:), yi(:)];
+    end
+
+    % Combine all points (add center point)
+    p = [0, 0; p_interior; xb(:), yb(:)];
+
+    % Delaunay triangulation
+    dt = delaunayTriangulation(p);
+    t = dt.ConnectivityList;
+    p = dt.Points;
+
+    DT = delaunayTriangulation(p);
 end
