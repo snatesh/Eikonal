@@ -11,17 +11,17 @@ W = importdata("../bin/wtri_N496_n30_M1378_m51.txt");
 
 %DT = delaunayTriangulation([0 0; 1 0; 0 1]);
 %DT = delaunayTriangulation([0 0; 1 0; 1 1]);
-%DT = delaunayTriangulation([0 0; 1 0; 1 1; 0 1]);
-%DT = delaunay_unit_square(2);
+DT = delaunayTriangulation([0 0; 1 0; 1 1; 0 1]);
+%DT = delaunay_unit_square(3);
 %DT = annulus();
-DT = delaunay_disk(20,3);
+%DT = delaunay_disk(20,3);
 meshT = DT.ConnectivityList;
 meshP = DT.Points';
 nTri = size(meshT,1);
 
 
 % there are M total polys
-m = 10; n = m+1; M = n*(n+1)/2;
+m = 16; n = m+1; M = n*(n+1)/2;
 speed = 1;
 % manufactured sol and corresponding dirchlet data/rhs
 udirch = @(x,y) zeros(size(x));
@@ -64,12 +64,27 @@ Gbc = Gbc(II(1:nLambda));
 Fvec = [F_glb;Gbc];
 % solve for solution modes on each tri
 cu = Amat \ Fvec;
+        for iTri = 1:nTri
+            Pts_Ti = meshP(:,meshT(iTri,:));
+            Ixe = IncidenceMatrix(Pts_Ti);
+            detJ = det(Ixe);
+            XYe = (Ixe * [R,S]' + Pts_Ti(:,1))';
+            X = XYe(:,1);
+            Y = XYe(:,2);
+            %T = delaunay(X,Y);
+            cu_abc = cu((iTri-1)*M+1:M*iTri);
+            u_sol = V_abc*cu_abc;
+            scatter3(X,Y,u_sol,'.'); hold on;
+        end
+%% ETDRK2
 
-% IMEX loop
-xi = 0.0001;
+
+
+%% IMEX 
+xi = 0.01;
 dt = 0.01;
 dt_factor = 2;
-max_tstep = 10000;
+max_tstep = 100;
 tol = 1e-7;
 LHS = [eye(M*nTri) + dt*xi*K_glb BB_id';...
     BB_id zeros(nLambda)];
@@ -98,8 +113,12 @@ for tstep = 1:max_tstep
     res_new = norm([N_glb + xi*K_glb*sol(1:M*nTri)-F_glb+BB_id'*sol(M*nTri+1:end);...
                 BB_id*sol(1:M*nTri)]);
     fprintf("tstep %d: res_new = %.3e\t res_old=%.3e\n", tstep, res_new, res_curr);
+    % Optionally check convergence
+    if norm(u - sol) / max(norm(u), 1e-14) < tol
+        break;
+    end
 
-    if res_new < res_curr
+    %if res_new < res_curr
         fprintf('accept step\n');
         u = sol;
         res_curr = res_new;
@@ -117,22 +136,22 @@ for tstep = 1:max_tstep
         end
         drawnow;
         hold off;
-    else
-        fprintf('step rejected. (res_new-res_old)=%.3e\n',abs(res_new-res_curr)')
-        break;
-        %dt = dt*dt_factor;
-        %if (dt < 1e-8)
-        %    fprintf('dt no longer reducible. (res_new-res_old)=%.3e\n',abs(res_new-res_curr));
-        %    break;
-        %end
-        % reassemble sys mat with new dt
-        %LHS = [eye(M*nTri) + dt*xi*K_glb BB_id';...
-        %       BB_id zeros(nLambda)];
-            
-    end
+    % else
+    %     fprintf('step rejected. (res_new-res_old)=%.3e\n',abs(res_new-res_curr)')
+    %     break;
+    %     %dt = dt*dt_factor;
+    %     %if (dt < 1e-8)
+    %     %    fprintf('dt no longer reducible. (res_new-res_old)=%.3e\n',abs(res_new-res_curr));
+    %     %    break;
+    %     %end
+    %     % reassemble sys mat with new dt
+    %     %LHS = [eye(M*nTri) + dt*xi*K_glb BB_id';...
+    %     %       BB_id zeros(nLambda)];
+    % 
+    % end
 end
 
-%% Backward euler+newton loop
+%% Backward euler (with newton inner loop for implicit solve)
 xi = 0.01;
 dt = 1;
 alph = 0.1;
@@ -220,7 +239,7 @@ hold on;
 [XX,YY] = meshgrid(linspace(0,1,10));
 scatter3(XX(:),YY(:),distanceToUnitSquareBoundary(XX(:),YY(:)));
 
-%%
+%% newton + homotopic continuation
 xi0 = 0.1;          % Initial penalty
 xi_min = 1e-3;      % Do not let xi drop below this
 xi = xi0;
@@ -308,29 +327,9 @@ for it = 1:max_iter
 
 end
 
-%%
-figure(3);
-for iTri = 1:nTri
 
-    Pts_Ti = meshP(:,meshT(iTri,:));
-    J = IncidenceMatrix(Pts_Ti);
-    detJ = det(J);
-    XYe = (J * [R,S]' + Pts_Ti(:,1))';
-    X = XYe(:,1);
-    Y = XYe(:,2);
-    T = delaunay(X,Y);
-    cu_abc = cu((iTri-1)*M+1:M*iTri);
-    u = V_abc*cu_abc;
-    %scatter3(X,Y,abs(u),'.'); hold on;
-     trisurf(T,X,Y,u); hold on;
-end
 
-%%
-hold on;
-[XX,YY] = meshgrid(linspace(0,1,10));
-scatter3(XX(:),YY(:),distanceToUnitSquareBoundary(XX(:),YY(:)));
-%%
-% now do an inf-dim newton stepper for eikonal
+%% straight forward newton iteration
 [N_glb,H_glb] = assemble_eik_nonlin_unweighted(cu,M,W,xi,...
                                        V_abc, dPdP,...
                                        meshT,meshP,K_glb);

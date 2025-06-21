@@ -87,7 +87,7 @@ The \emph{minimal} time $u(\bs{x})$ to reach the boundary $\partial \Tau^d$ from
 	\end{cases}
 \end{equation}
 where $f : \overline{\Tau^d} \to \bb{R}_\star^+$ is the speed in the medium, $q : \partial\Tau^d \to \bb{R}^+$ is the time to leave $\Tau^d$ from a point on $\partial\Tau^d$. We seek to represent $u$ under an optimal, finite, weighted $L_2$ expansion, wherein $$u(\bs{x}) \approx \sum_{j = 1}^n u_jP_j(\bs{x}) = \bs{u}\cdot \bs{P}(\bs{x}),$$
-and $\bs{u}$ is the vector in $\bb{R}^n$ of coefficients of $u$ under the elements of the basis $\bs{P}(\bs{x}) : \bb{R}^d \to \bb{R}^n$. Here $\approx$ must be taken in the sense of weighted $L_2$ convergence of the series to $u$ as $n\to \infty$. For the typical case of $q\equiv 0$ (i.e. time to boundary is 0 if on the boundary), we employ a weighted basis which evaluates to 0 on the boundary, thereby naturally satisfying homogeneous Dirichlet conditions. 
+and $\bs{u}$ is the vector in $\bb{R}^n$ of coefficients of $u$ under the elements of the basis $\bs{P}(\bs{x}) : \bb{R}^d \to \bb{R}^n$. Here $\approx$ must be taken in the sense of weighted $L_2$ convergence of the series to $u$ as $n\to \infty$.
 \subsection{Jacobi bases on the Triangle}\label{sec:jacobibasis}
 Let us specialize for $d=2$. By $P_k^n$, we denote the $k^{\text{th}}$ Jacobi polynomial on the triangle of degree $n$ with parameters $(a,b,c)$. When the parameters must be specified, we will refer to the same polynomial by $P_{k,n}^{(a,b,c)}$. The weight function is
 \begin{equation}\label{eq:koornweight}
@@ -248,223 +248,359 @@ Note, we can find $p$ by the number of singular values above some small threshol
 There is a ton of material in chapter 12 and 16 of the Nocedal/Wright optimization book. I believe I can prove properties on minimizers to \eqref{eq:eikonalqp} (though unnecessary) and maybe use a direct method therein. There still remains the problem of initialization..perhaps we just initialize from the null space, or solve a linearized problem?
 \end{remark}
 
-\begin{remark}By making use of a weighted basis $\bs{\tilde{P}}(\bs{x})$, and expressing our solution coefficients and differential operators in terms of this weighted basis, we can alternatively eliminate the constraint equation and solve a completely unconstrained quadratic optimization problem \color{red}  I think I need to do some more symbolic computation to figure out the form of the RHS and/or additional conditions $u$ must first satisfy so that we solve the same problem. I implemented that weighted basis, but I don't think I will get things to work properly, or rather, I will not continue trying.\color{black} We provide more details in the next section.
+\begin{remark}By making use of a weighted basis $\bs{\tilde{P}}(\bs{x})$, and expressing our solution coefficients and differential operators in terms of this weighted basis, we can alternatively eliminate the constraint equation and solve a completely unconstrained quadratic optimization problem \color{red}  I think I need to do some more symbolic computation to figure out the form of the RHS and/or additional conditions $u$ must first satisfy so that we solve the same problem. I implemented that weighted basis, but I don't think I will get things to work properly, or rather, I will not continue trying.\color{black} 
 \end{remark}
-
+\begin{remark}
+	\color{red} It turns out that this squared version of the Eikonal problem is not coercive. That is, there is no associated coercive bilinear form, which we need if we want to initialize the method with something other than the true solution! The elegance of a polynomial identity in coefficient space is, alas, forgone in practice. Instead, we turn to a regularized version of the un-squared Eikonal problem, and try our hand at a modal finite element method.\color{black}
+\end{remark}
 \newpage
-\subsection{A variational approach (NEW)}
-Let's try framing the problem from the perspective of infinite dimensional optimization. Thus far, my efforts have fallen under the discretize-then-optimize approach for solving non-linear PDEs. So, let's flip that and consider the optimize-then-discretize approach. The first order conditions for optimality of the functional may serve as a way to initialize the problem for the discretized non-linear optimization call. We want to solve
-\begin{equation}
+\subsection{Regularized Eikonal Problem}
+Here, we consider the regularized Eikonal problem
+\begin{equation}\label{eq:eikreg}
 	\begin{split}
-		\min_{u\in L_2(\Tau^2,w^{(a,b,c)})}\mathcal{L}(u),\\
-		\text{s.t. } u = q \text{ on } \partial\Tau^2
-	\end{split},
+	|\nabla u| - \Big(\frac{1}{f}\Big) &= \xi \nabla^2 u,\quad x \in \Omega \\
+	u &= g , \quad x \in \partial \Omega
+	\end{split}
 \end{equation}
-where $\mathcal{L} : L_2(\Tau^2, w^{(a,bc)})\to \bb{R}^+$ is defined by 
-\begin{equation}\label{eq:eik_new}
-	\mathcal{L}(u) := \int_{\mathcal{T}^2}\Big( \big(\nablax u \cdot \nablax u + (\xi \nablax^2 u)^2\big)^{\frac{1}{2}} - \frac{1}{f}\Big) d\bs{x}  
-\end{equation}
-and $u,f$ are as in \eqref{eq:eikonal}, restricted to $L_2(\Tau^2, \mathcal{W}^{(a,bc)})$. Note, we have added a viscosity term $\xi \nabla_{\bs{x}}^2u$ with $\xi > 0$ to \eqref{eq:eikonal}. In the limit of $\xi\to 0$, we solve the same problem, and the addition of the term helps the optimization routines converge to a ``physically'' correct solution. The steps here are to first take the first variation of $\mathcal{L}$ as $$\delta\mathcal{L}(u,\hat{u}) = \partial_ \varepsilon\mathcal{L}(u+\varepsilon \hat{u})|_{\varepsilon=0} = 0,$$ where $\hat{u} \in \mathcal{H}_0^1(\Tau^2)$.  This gives the necessary condition a minimizer of $\mathcal{L}$ must satisfy. Before proceeding, recall Green's identity for $u,v \in H^1(\Tau^2)$, i.e. a multidimensional integration by parts formula:
-\begin{equation}\label{eq:greenident_new}
-	\int_{\Tau^2} \nabla_{\bs{x}} u \cdot v d(\bs{x}) = \int_{\partial\Tau^2} (uv) \cdot \bs{n} dS(\bs{x}) - \int_{\Tau^2} u \nabla_{\bs{x}} \cdot v d(\bs{x}).
-\end{equation}
-Accordingly, we have
-\begin{align*}
-	\partial_\varepsilon \mathcal{L}(u + \varepsilon \hat{u})|_{\varepsilon=0} 
-	&= \partial_\epsilon\big[\int_{\Tau^2} \Big((u_x^2 + u_y^2) + 2\varepsilon(\hat{u}_x u_x + \hat{u}_yu_y) + \varepsilon^2 (\hat{u}_x^2 + \hat{u}_y^2) + \xi^2 \big((\nabla_{\bs{x}}^2u)^2 + 2\varepsilon \nablax^2\hat{u}\nablax^2 u + \varepsilon^2 (\nablax^2 \hat{u})^2\big) \Big)^{\frac{1}{2}}d(\bs{x}) \big]\Big|_{\varepsilon=0}\\
-	& = \Big[\frac{1}{2}\int_{\Tau^2} \frac{\Big( 2(\hat{u}_x u_x + \hat{u}_yu_y) + 2\varepsilon (\hat{u}_x^2 + \hat{u}_y^2) + \xi^2\big(2\nablax^2\hat{u}\nablax^2 u + 2\varepsilon (\nablax^2 \hat{u})^2  \big)  \Big)}{\Big((u_x^2 + u_y^2) + 2\varepsilon(\hat{u}_x u_x + \hat{u}_yu_y) + \varepsilon^2 (\hat{u}_x^2 + \hat{u}_y^2) + \xi^2 \big((\nabla_{\bs{x}}^2u)^2 + 2\varepsilon \nablax^2\hat{u}\nablax^2 u + \varepsilon^2 (\nablax^2 \hat{u})^2\big) \Big)^{\frac{1}{2}}} d(\bs{x})\Big]\Big|_{\varepsilon=0}.
-\end{align*}
-The first variation is then given by
-\begin{equation}\label{eq:eikfirstvar_new}
-	\delta \mathcal{L}(u,\hat{u})= \int_{\mathcal{T}^2} \Big(\frac{\nabla_{\bs{x}}u \cdot \nabla_{\bs{x}}\hat{u} + \xi^2\nablax^2 \hat{u}\nablax^2 u}{\sqrt{ (\nabla_{\bs{x}}u \cdot \nabla_{\bs{x}} u) + \xi^2(\nablax^2 u})^2 } \Big)d(\bs{x}).
-\end{equation}
-Next, we compute the second variation $\delta^2 \mathcal{L}(u,\hat{u},\tilde{u})$, where $\tilde{u} \in H_0^1(\Tau^2)$. Letting $u \gets u + \varepsilon\tilde{u}$ in \eqref{eq:eikfirstvar_new}, we have
+which we discretize with a \emph{modal} finite-element method. That is, let $\Omega = \Tau = \bigcup_{k=1}^{N_T} T_k$ be tesselated by triangles $T_k$. Let $A_k$ map points $\bs{x} \in T_k$ to points $\bs{r} \in T_\text{ref}$ the reference triangle. For $\bs{x} \in T_k$, we represent the solution $$u^k(\bs{x}) = \sum_{j=1}^M u_j^k \phi_j(A_k^{-1} \bs{x}),$$ where $u_j^k$ are the Jacobi polynomial coefficients associated to Jacobi basis function $\phi_j$. Each triangle uses the same basis functions with mapped argument, and we stack the $M$ unknown coefficients for each triangle as $$\bs{U} = \begin{bmatrix} \bs{u}^1 \\ \vdots \\ \bs{u}^{N_T} \end{bmatrix} \in \bb{R}^{MN_T}.$$ We enforce Dirichlet conditions on all boundary edges, and inter-element continuity on all interior edges. Let $$\mathcal{E}_{\text{dirch}} = \{\partial T_i \cap \partial \Omega\} = \{\varepsilon_{\text{dirch}}^i\},\quad \mathcal{E}_{\text{int}} = \{\varepsilon_{\text{int}}^i\}$$ be the set of boundary and interior edges in the tesselation $\Tau$. We have the associated index maps between $T_j$ and boundary edge index $i$, and interior edge index $i$ with triangles $j,k$:
+$$b(i) = \begin{cases} j,&\s \varepsilon_{\text{dirch}}^i \cap \partial T_j \neq \emptyset \\ \emptyset,&\s \text{else} \end{cases},\quad t(i) = (t_1(i),t_2(i)) = \begin{cases} (j,k), &\s (\varepsilon_{\text{int}}^i \cap \partial T_j \neq \emptyset)\wedge (\varepsilon_{\text{int}}^i \cap \partial T_k \neq \emptyset ) \end{cases}.$$ Note, the map $t$ is always non-empty, as every interior edge is shared by two triangles (\color{red} probably have to reformulate notation for this map \color{black}). Now, we proceed with the normal weak formulation of \eqref{eq:eikreg}, in which we evaluate the entries of the block diagonal stiffness matrix, nonlinear functional and load vector, $\mathcal{K} \in \bb{R}^{MN_T \times MN_T}$ (each of the $N_T$ blocks is $M\times M$), $\mathcal{\bs{N}}(\bs{U}) \in \bb{R}^{M N_T}, \mathcal{\bs{F}} \in \bb{R}^{MN_T}$, with a Gaussian-like quadrature rule consisting of abscissa and weights $\{\bs{r}_j,w_j\}$ (see Section \ref{sec:jquad}) on $T_\text{ref}$. For triangle $T_k$, we have for $i,j = 1,\cdots M$, $k = 1,\cdots N_T$,
 \begin{align}
-	&\delta^2 \mathcal{L}(u,\hat{u},\tilde{u})= \partial_\varepsilon \delta \mathcal{L}(u+\varepsilon \tilde{u}, \hat{u}) \Big|_{\varepsilon=0} \nonumber \\
-	&= \partial_{\varepsilon}\int_{\mathcal{T}^2} \Bigg(\frac{\nabla_{\bs{x}}u \cdot \nabla_{\bs{x}}\hat{u} + \varepsilon \nabla_{\bs{x}} \tilde{u} \cdot \nabla_{\bs{x}} \hat{u} + \xi^2 \big(\nablax^2 \hat{u} \nablax^2 u + \varepsilon \nablax^2\hat{u}\nablax^2\tilde{u}\big)}{\sqrt{\nablax u \cdot \nablax u + 2\varepsilon \nablax u \cdot \nablax \tilde{u} + \varepsilon^2 \nablax \tilde{u}\cdot \nablax\tilde{u} + \xi^2\big(\nablax^2 u \nablax^2 u + 2\varepsilon \nablax^2 u \nablax^2 \tilde{u} + \varepsilon^2 \nablax^2 \tilde{u} \nablax^2\tilde{u}\big)}}\Bigg)d(\bs{x})\Bigg|_{\varepsilon=0} \nonumber \\
-	&= \int_{\Tau^2} \Bigg(\frac{\nablax \tilde{u} \cdot \nablax \hat{u} + \xi^2\nablax^2 \tilde{u}\nablax^2\hat{u}}{\sqrt{\nablax u\cdot \nablax u + \xi^2\nablax^2 u \nablax^2 u}} - \frac{(\nablax u \cdot \nablax \hat{u} + \xi^2 \nablax^2 u \nablax^2 \hat{u})(\nablax u \cdot \nablax \tilde{u} + \xi^2 \nablax^2 u \nablax^2 \tilde{u})}{(\nablax u \cdot \nablax u + \xi^2 \nablax^2 u \nablax^2 u)^{\frac{3}{2}}}\Bigg)d(\bs{x}) \label{eq:eikfrechet_new}
+	\mathcal{K}_{ij}^k &= \int_{T_\text{ref}} (A_k^{-1} \nabla \phi_i)\cdot (A_k^{-1} \nabla \phi_j) |A_k| d\bs{r},\quad \mathcal{K} = \begin{bmatrix} \mathcal{K}^1 & & \\ & \ddots & \\ & & \mathcal{K}^{N_T} \end{bmatrix} \label{eq:eikreg_stiff} \\
+	\mathcal{N}(\bs{u}^k)_i &= \int_{T_\text{ref}} \phi_i|A_k| \sqrt{\sum_{l=1}^M \sum_{p=1}^M u_l^k u_p^k (A_k^{-1} \nabla \phi_l)\cdot (A_k^{-1} \nabla \phi_p)} d\bs{r},\quad \mathcal{\bs{N}}(\bs{U}) = \begin{bmatrix} \mathcal{N}(\bs{u}^1)_1 \\ \vdots \\ \mathcal{N}(\bs{u}^{N_T})_M \end{bmatrix} \label{eq:eikreg_nonlin} \\
+	\mathcal{F}_i^k &= \int_{T_{\text{ref}}} \frac{\phi_i}{f}|A_k| d\bs{r},\quad \bs{F} = \begin{bmatrix} \mathcal{F}_1^1 \\ \vdots \\ \mathcal{F}^{N_T}_M \end{bmatrix} \label{eq:eikreg_load}
 \end{align}
-The weak form of the Newton system at a point $u^k \in H_0^1(\Tau^2)$ is then independent of $\hat{u}$, and given by
-\begin{equation} \label{eq:eiknewtonweak_new}
-	\begin{split}
-		&\text{ Find } \tilde{u} \in H_0^1(\Tau^2) \text{ s.t. } \\
-		&\delta^2 \mathcal{L}(u^k)(\hat{u}, \tilde{u}) = -\delta \mathcal{L}(u^k)(\hat{u}),\\
-		&\text{and set } u^{k+1} = u^k + \tilde{u},\\
-		&\text{with } u^0 = q \text{ on } \partial\Tau^2.
-	\end{split}
-\end{equation}
-To derive the strong form of the Newton system, we proceed as for the first variation using integration by parts formula. Let $u \gets \hat{u}$ and $v \gets \frac{\nablax \tilde{u}}{\sqrt{|\nablax u|^2 - \frac{1}{f^2}}}$ for the first term in \eqref{eq:eikfrechet_new}. For the second term therein, let $u \gets \hat{u}$ and $v \gets \frac{\nablax \tilde{u}|\nablax u|^2}{(|\nablax u|^2 - \frac{1}{f^2})^{\frac{3}{2}}}$. Using the fact that $\hat{u}\in H_0^1(\Tau^2)$, and incorporating the first variation from \eqref{eq:eikfirstvar_new} as needed in \eqref{eq:eiknewtonweak_new}, we find the Newton system is equivalently expressed as
-\begin{align*}
-	\int_{\Tau^2} \hat{u} \Big[\nablax \cdot \Big(\frac{\nablax \tilde{u}|\nablax u|^2}{(|\nablax u|^2 - \frac{1}{f^2})^{\frac{3}{2}}} - \frac{\nablax \tilde{u} + \nablax u}{\sqrt{|\nablax u|^2 - \frac{1}{f^2}}} \Big) \Big]d(\bs{x}) = 0
-\end{align*}
-Then, by the arbitrariness of $\hat{u}$, we find the strong form of the Newton system is
-\begin{equation} \label{eq:eiknewtonstrong_new}
-	\begin{split}
-		\text{ Find } \tilde{u} \in H_0^1(\Tau^2) \text{ s.t. }&\\
-		\nablax \cdot \Big[\nablax \tilde{u}\Big(\frac{|\nablax u^k|^2}{(|\nablax u^k|^2 - \frac{1}{f^2})^{\frac{3}{2}}} - \frac{1}{\sqrt{|\nablax u^k|^2 - \frac{1}{f^2}}} \Big) \Big] &= \nablax \cdot\Big(\frac{\nablax u^k}{\sqrt{|\nablax u^k|^2 - \frac{1}{f^2}}} \Big)
-		\\
-		%0&=\nablax \cdot \Big(\frac{\nablax \tilde{u}|\nablax u^k|^2}{(|\nablax u^k|^2 - \frac{1}{f^2})^{\frac{3}{2}}} - \frac{\nablax \tilde{u} + \nablax u^k}{\sqrt{|\nablax u^k|^2 - \frac{1}{f^2}}} \Big)\\
-		\text{and set } u^{k+1} = u^k + \tilde{u},&\\
-		\text{with } u^0 = q \text{ on } \partial\Tau^2.&
-	\end{split}
-\end{equation}
-By choosing $u^0 = q$ on $\partial \Tau^2$, and setting $u^{k+1} = u^k + \tilde{u}$, we have an infinite-dimensional newton stepper for solving the Eikonal problem. To avoid the trivial solution $u\equiv 0$ when $q\equiv 0$, we can try this with $$u^0 = w^{(3/2,3/2,3/2)}(x,y) = xy(1-x-y),$$ and use the weighted basis for differentiation in coefficient space. We iterate until the relative step difference is within some tolerance, in the $L_2(\Tau^2, w)$ norm. I will give details on the weighted Laplace operator momentarily. 
-\begin{algorithm}
-	\caption{Netwon updates for solving \eqref{eq:eikonal}}\label{alg:eikalg_new}
-	\begin{algorithmic}
-		\Require $\texttt{tol} < 1$
-		\State $u^k \gets xy(1-x-y)$
-		\State $\tilde{u} \gets 1$
-		\While{$\big(|\nablax u^k|^2 - (\frac{1}{f})^2 > 0\big)$ and $||\tilde{u}||_{L^2(\Tau^2,\tilde{w})} > \texttt{tol}$}
-		\State $\tilde{u} \gets$ solution to \eqref{eq:eiknewtonstrong}
-		\State $u^{k+1} \gets u^k + \tilde{u}$
-		\State $u^k \gets u^{k+1}$
-		\EndWhile
-	\end{algorithmic}
-\end{algorithm}
-
-\subsection{A variational approach}
-Let's try framing the problem from the perspective of infinite dimensional optimization. Thus far, my efforts have fallen under the discretize-then-optimize approach for solving non-linear PDEs. So, let's flip that and consider the optimize-then-discretize approach. The first order conditions for optimality of the functional may serve as a way to initialize the problem for the discretized non-linear optimization call. We want to solve
-\begin{equation}
-	\begin{split}
-	\min_{u\in L_2(\Tau^2,w^{(a,b,c)})}\mathcal{L}(u),\\
-	\text{s.t. } u = q \text{ on } \partial\Tau^2
-	\end{split},
-\end{equation}
-where $\mathcal{L} : L_2(\Tau^2, w^{(a,bc)})\to \bb{R}^+$ is defined by 
-\begin{equation}\label{eq:eikL}
-	\mathcal{L}(u) := \int_{\mathcal{T}^2}\Big[ |\nabla_{\bs{x}} u|^2 - \big(\frac{1}{f}\big)^2 \Big]^{\frac{1}{2}} d\bs{x},
-\end{equation}
-and $u,f$ are as in \eqref{eq:eikonal}, restricted to $L_2(\Tau^2, \mathcal{W}^{(a,bc)})$. The steps here are to first take the Gateaux derivative of $\mathcal{L}$ as $$\delta\mathcal{L}(u,\hat{u}) = \partial_ \varepsilon\mathcal{L}(u+\varepsilon \hat{u})|_{\varepsilon=0} = 0,$$ where $\hat{u} \in \mathcal{H}_0^1(\Tau^2)$.  This gives the necessary condition a minimizer of $\mathcal{L}$ must satisfy. Before proceeding, recall Green's identity for $u,v \in H^1(\Tau^2)$, i.e. a multidimensional integration by parts formula:
-\begin{equation}\label{eq:greenident}
-	\int_{\Tau^2} \nabla_{\bs{x}} u \cdot v d(\bs{x}) = \int_{\partial\Tau^2} (uv) \cdot \bs{n} dS(\bs{x}) - \int_{\Tau^2} u \nabla_{\bs{x}} \cdot v d(\bs{x}).
-\end{equation}
-Accordingly, we have
-\begin{align*}
-	0 &= \partial_\varepsilon \mathcal{L}(u + \varepsilon \hat{u})|_{\varepsilon=0} \\
-	&= \partial_\epsilon\big[\int_{\Tau^2} \Big((u_x^2 + u_y^2) + 2\varepsilon(\hat{u}_x u_x + \hat{u}_yu_y) + \varepsilon^2 (\hat{u}_x^2 + \hat{u}_y^2) -\big(\frac{1}{f}\big)^2\Big)^{\frac{1}{2}}d(\bs{x})\big]\Big|_{\varepsilon=0}\\
-	& = \Big[\frac{1}{2}\int_{\Tau^2} \frac{\Big( 2(\hat{u}_x u_x + \hat{u}_yu_y) + 2\varepsilon (\hat{u}_x^2 + \hat{u}_y^2) \Big)}{\Big((u_x^2 + u_y^2) + 2\varepsilon(\hat{u}_x u_x + \hat{u}_yu_y) + \varepsilon^2 (\hat{u}_x^2 + \hat{u}_y^2) -\big(\frac{1}{f}\big)^2\Big)^{\frac{1}{2}}} d(\bs{x})\Big]\Big|_{\varepsilon=0}.
-\end{align*}
-The first variation is then given by
-\begin{equation}\label{eq:eikfirstvar}
-	\delta \mathcal{L}(u,\hat{u})=  \int_{\mathcal{T}^2} \frac{\nabla_{\bs{x}}u \cdot \nabla_{\bs{x}}\hat{u}}{\sqrt{ |\nabla_{\bs{x}}u|^2 - (\frac{1}{f})^2}} d(\bs{x}) .
-\end{equation}
-We can apply \eqref{eq:greenident} with $u \gets \hat{u}$ and $v \gets \frac{\nabla_{\bs{x}} u}{\sqrt{|\nabla_{\bs{x}} u}|^2-\frac{1}{f^2} }$ to derive the strong (PDE) form of the first order necessary condition a minimizer of $\mathcal{L}$ must satisfy. Using the fact that $\hat{u}$ is 0 on the boundary, we have
-\begin{align}
-	\delta\mathcal{L}(u,\hat{u}) &= \int_{\partial\Tau^2} \hat{u} \frac{\nabla_{\bs{x}} u}{\sqrt{ |\nabla_{\bs{x}} u|^2-\frac{1}{f^2}}} \cdot \bs{n} dS(\bs{x}) - \int_{\Tau^2} \hat{u} \nabla_{\bs{x}} \cdot \frac{\nabla_{\bs{x}} u}{\sqrt{|\nabla_{\bs{x}} u|^2-\frac{1}{f^2} }} d(\bs{x}) \nonumber \\
-	&= - \int_{\Tau^2} \hat{u} \nabla_{\bs{x}} \cdot \frac{\nabla_{\bs{x}} u}{\sqrt{|\nabla_{\bs{x}} u|^2-\frac{1}{f^2} }} d(\bs{x}) = 0 \label{eq:eikfirstvaribp}
-\end{align}
-Furthermore, the choice of $\hat{u}$ is arbitrary. Thus, we find that a minimizer $u$ satisfies the following PDE in $\mathcal{T}^2$;
-\begin{equation}\label{eq:eiklin}
-	\begin{split}
--\nabla_{\bs{x}} \cdot \Bigg( \frac{\nabla_{\bs{x}} u}{\sqrt{ |\nabla_{\bs{x}} u|^2 -\frac{1}{f^2}}}\Bigg) &= 0 ,\quad \bs{x} \in \mathcal{T}^2,\\
-	u &= q,\quad \bs{x} \in \partial \Tau^2.
-	\end{split}
-\end{equation}
-Next, we compute the Frechet derivative $\delta^2 \mathcal{L}(u,\hat{u},\tilde{u})$, where $\tilde{u} \in H_0^1(\Tau^2)$. Letting $u \gets u + \varepsilon\tilde{u}$ in \eqref{eq:eikfirstvar}, we have
-\begin{align}
-	&\delta^2 \mathcal{L}(u,\hat{u},\tilde{u})= \partial_\varepsilon \delta \mathcal{L}(u+\varepsilon \tilde{u}, \hat{u}) \Big|_{\varepsilon=0} \nonumber \\
-	&= \Bigg(\partial_{\varepsilon}\int_{\mathcal{T}^2} \frac{\nabla_{\bs{x}}u \cdot \nabla_{\bs{x}}\hat{u} + \varepsilon \nabla_{\bs{x}} \tilde{u} \cdot \nabla_{\bs{x}} \hat{u}}{\sqrt{-\frac{1}{f^2} + \nablax u \cdot \nablax u + 2\varepsilon \nablax u \cdot \nablax \tilde{u} + \varepsilon^2 \nablax \tilde{u}\cdot \nablax\tilde{u} }}d(\bs{x})\Bigg)\Big|_{\varepsilon=0} \nonumber \\
-	&= \int_{\Tau^2} \Bigg(\frac{\nablax \tilde{u} \cdot \nablax \hat{u}}{\sqrt{-\frac{1}{f^2} + |\nablax u|^2}} - \frac{(\nablax u \cdot \nablax \hat{u})(\nablax u \cdot \nablax \tilde{u})}{(-\frac{1}{f^2} + |\nablax u|^2)^{\frac{3}{2}}} \Bigg)d(\bs{x}) \label{eq:eikfrechet}
-\end{align}
-The weak form of the Newton system at a point $u^k \in H_0^1(\Tau^2)$ is then independent of $\hat{u}$, and given by
-\begin{equation} \label{eq:eiknewtonweak}
-	\begin{split}
-		&\text{ Find } \tilde{u} \in H_0^1(\Tau^2) \text{ s.t. } \\
-	&\delta^2 \mathcal{L}(u^k)(\hat{u}, \tilde{u}) = -\delta \mathcal{L}(u^k)(\hat{u}),\\
-	&\text{and set } u^{k+1} = u^k + \tilde{u},\\
-	&\text{with } u^0 = q \text{ on } \partial\Tau^2.
-	\end{split}
-\end{equation}
-To derive the strong form of the Newton system, we proceed as for the first variation using integration by parts formula. Let $u \gets \hat{u}$ and $v \gets \frac{\nablax \tilde{u}}{\sqrt{|\nablax u|^2 - \frac{1}{f^2}}}$ for the first term in \eqref{eq:eikfrechet}. For the second term therein, let $u \gets \hat{u}$ and $v \gets \frac{\nablax \tilde{u}|\nablax u|^2}{(|\nablax u|^2 - \frac{1}{f^2})^{\frac{3}{2}}}$. Using the fact that $\hat{u}\in H_0^1(\Tau^2)$, and incorporating the first variation from \eqref{eq:eikfirstvar} as needed in \eqref{eq:eiknewtonweak}, we find the Newton system is equivalently expressed as
-\begin{align*}
-	\int_{\Tau^2} \hat{u} \Big[\nablax \cdot \Big(\frac{\nablax \tilde{u}|\nablax u|^2}{(|\nablax u|^2 - \frac{1}{f^2})^{\frac{3}{2}}} - \frac{\nablax \tilde{u} + \nablax u}{\sqrt{|\nablax u|^2 - \frac{1}{f^2}}} \Big) \Big]d(\bs{x}) = 0
-\end{align*}
-Then, by the arbitrariness of $\hat{u}$, we find the strong form of the Newton system is
-\begin{equation} \label{eq:eiknewtonstrong}
-	\begin{split}
-		\text{ Find } \tilde{u} \in H_0^1(\Tau^2) \text{ s.t. }&\\
-		\nablax \cdot \Big[\nablax \tilde{u}\Big(\frac{|\nablax u^k|^2}{(|\nablax u^k|^2 - \frac{1}{f^2})^{\frac{3}{2}}} - \frac{1}{\sqrt{|\nablax u^k|^2 - \frac{1}{f^2}}} \Big) \Big] &= \nablax \cdot\Big(\frac{\nablax u^k}{\sqrt{|\nablax u^k|^2 - \frac{1}{f^2}}} \Big)
-		\\
-	%0&=\nablax \cdot \Big(\frac{\nablax \tilde{u}|\nablax u^k|^2}{(|\nablax u^k|^2 - \frac{1}{f^2})^{\frac{3}{2}}} - \frac{\nablax \tilde{u} + \nablax u^k}{\sqrt{|\nablax u^k|^2 - \frac{1}{f^2}}} \Big)\\
-		\text{and set } u^{k+1} = u^k + \tilde{u},&\\
-		\text{with } u^0 = q \text{ on } \partial\Tau^2.&
-	\end{split}
-\end{equation}
-By choosing $u^0 = q$ on $\partial \Tau^2$, and setting $u^{k+1} = u^k + \tilde{u}$, we have an infinite-dimensional newton stepper for solving the Eikonal problem. To avoid the trivial solution $u\equiv 0$ when $q\equiv 0$, we can try this with $$u^0 = w^{(3/2,3/2,3/2)}(x,y) = xy(1-x-y),$$ and use the weighted basis for differentiation in coefficient space. We iterate until the relative step difference is within some tolerance, in the $L_2(\Tau^2, w)$ norm. I will give details on the weighted Laplace operator momentarily. 
-\begin{algorithm}
-\caption{Netwon updates for solving \eqref{eq:eikonal}}\label{alg:eikalg}
-\begin{algorithmic}
-\Require $\texttt{tol} < 1$
-\State $u^k \gets xy(1-x-y)$
-\State $\tilde{u} \gets 1$
-\While{$\big(|\nablax u^k|^2 - (\frac{1}{f})^2 > 0\big)$ and $||\tilde{u}||_{L^2(\Tau^2,\tilde{w})} > \texttt{tol}$}
-\State $\tilde{u} \gets$ solution to \eqref{eq:eiknewtonstrong}
-\State $u^{k+1} \gets u^k + \tilde{u}$
-\State $u^k \gets u^{k+1}$
-\EndWhile
-\end{algorithmic}
-\end{algorithm}
-\\
-\noindent
-Note, Algorithm \ref{alg:eikalg} as well as the preceding derivations of weak and strong forms all assume that $|\nablax u^k|^2 - (\frac{1}{f})^2 > 0$ for any $k$. To prevent the need for this check, we can consider the modified (though equivalent) functional
-\begin{equation}\label{eq:eikLcheat}
-	\mathcal{L}(u) = \int_{\Tau^2} [(|\nablax u|^2 - \frac{1}{f^2})^2]^{\frac{1}{4}}
+We use the derivative maps, as in \eqref{eq:jactrideriv}, to compute the gradients of the basis functions appearing in \eqref{eq:eikreg_stiff}-\eqref{eq:eikreg_nonlin}. That is,
+$$ \partial_x \phi_j^{(a,b,c)}(\bs{r}) = \partial_x \bs{\phi}^{(a,b,c)}(\bs{r})^T \bs{e}_j = \bs{\phi}^{a+1,b,c+1}(\bs{r})\mathcal{D}_x \bs{e}_j,$$
+and similar for $\partial_y \phi_j^{(a,b,c)}$. At this point, we should note that our basis functions to not encode the boundary conditions, and are non-conforming between elements. Hence, we enforce Dirichlet boundary conditions and inter-element continuity using Lagrange multipliers. We can do this in two ways - weakly or pointwise. In the weak constraint enforcement, we seek a solution $\bs{U}$ which lies in the null-space of a Lagrange multiplier function space, defined as the span of the edge-restricted basis functions. In the point-wise enforcement, we seek a solution which lies in the null-space of a finite-dimensional Lagrange multiplier  vector space, which constrains the solution at finitely many points. We take the latter approach. In fact, if we use the same quadrature points on the edges for the strong enforcement as in the quadrature rules for the weak enforcement, numerical satisfaction of the point-wise constraints implies that we satisfy the weak constraints as well. 
+\\\\
+Consider $n_\text{leg}$ Legendre points $\{r_j\}$ in $[0,1]$. Each edge of the reference triangle can be parameterized with this set of points.
+\begin{itemize}
+	\item The left edge is $\{\bs{x}^l\} = \{(0,r_j)\}$
+	\item The bottom edge is $\{\bs{x}^b\} = \{(r_j,0)\}$
+	\item The hypotenuse edge is $\{\bs{x}^h\} = \{(r_j,1-r_j)\}$
+\end{itemize}
+Say Dirichlet edge $\varepsilon_{\text{dirch}}^i$ is discretized with Legendre points $\bs{x}^e$ (it could be any of the edges in the reference). Then, we want
+\begin{equation}\label{eq:eikreg_dirch}
+\bs{\phi}(\bs{x}^e)^T\bs{u}^{b(i)} = 0 \text{ (or $g(\bs{x}^e)$ if condition is non-homogeneous)}.
 \end{equation} 
-Even though \eqref{eq:eikLcheat} is equivalent to \eqref{eq:eikL}, the latter does not necessarily ensure that the range of $\mathcal{L}$ is $\bb{R}^+$ without specifying the appropriate branch of $\sqrt{}$ to consider. The modified functional does this without us having to deal with absolute values or the $\text{sgn}$ function. Any arguments raised to the $\frac{1}{2}$ or  $\frac{3}{2}$ powers, as they are in \eqref{eq:eiknewtonstrong}, can simply be squared and square root-ed before exponentiation. That is, the numerical implementation will include such a transformation to those arguments (this might work? we'll see). Expressing \eqref{eq:eiknewtonstrong} in modal form is our next challenge.
-\newpage
-\section{The weighted Jacobi basis}
-The weighted basis 
-\begin{equation}\label{eq:wbasis}
-	\tilde{\bs{P}}^{(a,b,c)}(x,y) = x^{a-\frac{1}{2}}y^{b-\frac{1}{2}}(1-x-y)^{c-\frac{1}{2}}\bs{P}^{(a,b,c)}
+Similarly, for shared edge $\varepsilon_{\text{int}}^i$, we require
+\begin{equation}\label{eq:eikreg_int}
+	\bs{\phi}(\bs{x}^e)^T \bs{u}^{t_1(i)} - \bs{\phi}(\bs{x}^e)^T \bs{u}^{t_2(i)} = 0.
 \end{equation}
-will prove useful for incorporating boundary conditions to the discrete operator, while preserving its sparsity. Note, we are simply multiplying the original basis by the weight function $W^{(a,b,c)}(\bs{x})$ which forms the measure under which they are orthogonal. We need the following weighted ladder operators for differentiation in the weighted basis:
-\begin{align}
-	-(2k+b+c+1)h_{k,n}^{(a,b,c)}\partial_x\tilde{P}_{k,n}^{(a,b,c)} &=  (k+c)(n-k+1)h_{k,n+1}^{(a-1,b,c-1)}\tilde{P}_{k,n+1}^{(a-1,b,c-1)} \nonumber \\&+ (k+1)(n-k+a)h_{k+1,n+1}^{(a-1,b,c-1)}\tilde{P}_{k+1,n+1}^{(a-1,b,c-1)}\\
-	h_{k,n}^{(a,b,c)}\partial_y\tilde{P}_{k,n}^{(a,b,c)} &= -(k+1)h_{k+1,n+1}^{(a,b-1,c-1)}\tilde{P}_{k+1,n+1}^{(a,b-1,c-1)}.
-\end{align}
-If $\bs{f}$ are the coefficients of $f$ under the $(a,b,c)$  basis, then we have sparse banded matrices $\mathcal{W}_{x,(a,b,c)}^{(a-1,b,c-1)},\mathcal{W}_{y,(a,b,c)}^{(a,b-1,c-1)}$ such that
-\begin{align}
-	\partial_x [x^{a-\frac{1}{2}}y^{b-\frac{1}{2}}(1-x-y)^{c-\frac{1}{2}}f(x,y)] &= \partial_x (\tilde{\bs{P}}^{(a,b,c)}(x,y)^T\bs{f}) \\&= \tilde{\bs{P}}^{(a-1,b,c-1)}(x,y)^T \mathcal{W}_{x,(a,b,c)}^{(a-1,b,c-1)}\bs{f}, \nonumber\\
-	\partial_y [x^{a-\frac{1}{2}}y^{b-\frac{1}{2}}(1-x-y)^{c-\frac{1}{2}}f(x,y)] &= \partial_y (\tilde{\bs{P}}^{(a,b,c)}(x,y)^T\bs{f}) \\ &= \tilde{\bs{P}}^{(a,b-1,c-1)}(x,y)^T \mathcal{W}_{y,(a,b,c)}^{(a,b-1,c-1)}\bs{f} \nonumber
-\end{align}
-\subsubsection{Lowering operators}{}
-Additionally, we have lowering operators which relate $xP_{k,n}^{(a,b,c)}$ to $P_{k,n}^{(a-1,b,c)}$ and $yP_{k,n}^{(a,b,c)}$ to $P_{k,n}^{(a,b-1,c)}$. These are given by the following recurrences:
-\begin{align}
-	(2n+a+b+c+2)h_{k,n}^{(a,b,c)}xP_{k,n}^{(a,b,c)} &= (n-k+a)h_{k,n}^{(a-1,b,c)}P_{k,n}^{(a-1,b,c)} \\ &+ (n-k+1)h_{k,n+1}^{(a-1,b,c)}P_{k,n+1}^{(a-1,b,c)},\\
-	(2k+b+c+1)(2n+a+b+c+2)h_{k,n}^{(a,b,c)}yP_{k,n}^{(a,b,c)} &= (k+b)(n+k+b+c+1)h_{k,n}^{(a,b-1,c)}P_{k,n}^{(a,b-1,c)} \nonumber \\
-	&-(k+1)(n-k+a)h_{k+1,n}^{(a,b-1,c)}P_{k+1,n}^{(a,b-1,c)} \nonumber \\
-	&-(k+b)(n-k+1)h_{k,n+1}^{(a,b-1,c)}P_{k,n+1}^{(a,b-1,c)} \nonumber \\
-	&+(k+1)(n+k+a+b+c+2)h_{k+1,n+1}^{(a,b-1,c)}P_{k+1,n+1}^{(a,b-1,c)}.
-\end{align}
-So, there are sparse banded matrices $\mathcal{L}_{(a,b,c)}^{(a-1,b,c)}$ and $\mathcal{L}_{(a,b,c)}^{(a,b-1,c)}$ corresponding to multiplication by $x$ and $y$, respectively, such that
-\begin{align}
-	xf(x,y) &= x\bs{P}^{(a,b,c)}(x,y)^T\bs{f} = \bs{P}^{(a-1,b,c)}(x,y)^T\mathcal{L}_{(a,b,c)}^{(a-1,b,c)}\bs{f},\\
-	yf(x,y) &= y\bs{P}^{(a,b,c)}(x,y)^T\bs{f} = \bs{P}^{(a,b-1,c)}(x,y)^T\mathcal{L}_{(a,b,c)}^{(a,b-1,c)}\bs{f}.
-\end{align}
-\subsubsection{Discrete differential operators}\label{sec:weightedop}
-We will construct the modal Eikonal operator which operates on coefficients under the basis $\tilde{\bs{P}}^{(3/2,3/2,3/2)}$ and produces coefficients under $\bs{P}^{(3/2,3/2,3/2)}$. Note, \emph{the conversion from the weighted to regular Jacobi basis depends on our choice of parameters $a=b=c=3/2$}. With $\bs{f}$ the coefficients of $f(x,y)$ in the $(a,b,c)$ basis, 
-\begin{align*}
-	&\partial_x[W^{(a,b,c)}(x,y)f(x,y)] =  \tilde{\bs{P}}^{(a-1,b,c-1)}(x,y)^T \mathcal{W}_{x,(a,b,c)}^{(a-1,b,c-1)}\bs{f} \\
-	& = x^{a-\frac{3}{2}}y^{b-\frac{3}{2}}(1-x-y)^{c-\frac{3}{2}}\big(y\bs{P}^{(a-1,b,c-1)}(x,y)\big)^T(\mathcal{W}_{x,(a,b,c)}^{(a-1,b,c-1)}\bs{f})\\
-	&= x^{a-\frac{3}{2}}y^{b-\frac{3}{2}}(1-x-y)^{c-\frac{3}{2}}\bs{P}^{(a-1,b-1,c-1)}(x,y)^T(\mathcal{L}_{(a-1,b,c-1)}^{(a-1,b-1,c-1)}\mathcal{W}_{x,(a,b,c)}^{(a-1,b,c-1)}\bs{f}),\\
-	&\partial_y[W^{(a,b,c)}(x,y) f(x,y)] = \tilde{\bs{P}}^{(a,b-1,c-1)}(x,y)^T \mathcal{W}_{y,(a,b,c)}^{(a,b-1,c-1)}\bs{f} \\
-	&= x^{a-\frac{3}{2}}y^{b-\frac{3}{2}}(1-x-y)^{c-\frac{3}{2}}\big(x\bs{P}^{(a,b-1,c-1)}(x,y)\big)^T(\mathcal{W}_{y,(a,b,c)}^{(a,b-1,c-1)}\bs{f})\\
-	&=x^{a-\frac{3}{2}}y^{b-\frac{3}{2}}(1-x-y)^{c-\frac{3}{2}}\bs{P}^{(a-1,b-1,c-1)}(x,y)^T(\mathcal{L}_{(a,b-1,c-1)}^{(a-1,b-1,c-1)}\mathcal{W}_{y,(a,b,c)}^{(a,b-1,c-1)}\bs{f})
-\end{align*}
-When $a=b=c=3/2$, we have 
-\begin{align*}
-	\partial_x[W^{(a,b,c)}(x,y) f(x,y)] &=  \bs{P}^{(a-1,b-1,c-1)}(x,y)^T(\mathcal{L}_{(a-1,b,c-1)}^{(a-1,b-1,c-1)}\mathcal{W}_{x,(a,b,c)}^{(a-1,b,c-1)}\bs{f}),\\
-	\partial_y[W^{(a,b,c)}(x,y) f(x,y)] &= \bs{P}^{(a-1,b-1,c-1)}(x,y)^T(\mathcal{L}_{(a,b-1,c-1)}^{(a-1,b-1,c-1)}\mathcal{W}_{y,(a,b,c)}^{(a,b-1,c-1)}\bs{f}),
-\end{align*}
-
-We need to see what auxiliary problems we must solve, as the nonlinearity of \eqref{eq:eikonal} leads to cross-terms that must cancel if we hope that a solution to the weighted problem also solves the unweighted problem. In the bulk, we have
-
-\begin{align*}
-	[\partial_x (W u)]^2 + [\partial_y (Wu)]^2 &= W^2[u_x^2 + u_y^2] + u^2(W_x + W_y) + 2uW(W_x u_x + W_y u_y), \\
-\end{align*}
-and we need the second two terms in the equation to cancel.
-\color{blue}There's something here we can do by integrating, and finding the additional conditions $u$ must satisfy. I think it would become a solution for the initial guess of $u$. Essentially, we know $W^2[u_x^2+u_y^2] = W^2/f^2$, since we assume that $u$ solve \eqref{eq:eikonal}. Then, we can enforce that $$\int_{\Tau^2} u^2(W_x + W_y) + 2uW(W_xu_x + W_y u_y) = 0.$$ There may be some simplification that occurs if we plug in the Jacobi expansion of $u$ .. idk \color{black}
+In the actual assembly procedure, care must be taken to ensure these evaluations occur as written. That is, a Dirichlet edge in physical space may be flipped in the reference triangle. A shared edge in physical space may belong to different edges in the sharing triangles when mapped to reference space, and the parametrization may be flipped as well. Hence, we use edge alignment detection procedures to ensure the basis evaluations are aligned. For Dirichlet edges, this is as simple as mapping the edge vertices to the reference triangle, and checking if the mapped vertices are flipped (eg. edge is mapped to (1,0)-(0,0) is bottom flipped). If they are, we flip the rows of $\bs{\phi}(\bs{x}^e)^T$. For shared edges, we detect if one edge is flipped relative to the other by mapping the quadrature points using either triangles' $A_j,A_k$ incidence matrices, and doing the same for the flipped quadrature points for one of the triangles. If the norm of the difference in physical space between the flipped quadrature points of $T_k$ and the un-flipped quadrature points of $T_j$ is $\mathcal{O}(\eps_{\text{mach}})$, then the basis of $T_k$ must be flipped.\\\\
+Ultimately, we assemble two matrices to enforce these constraints. Let $n_{\text{bnd}} = |\mathcal{E}_{\text{dirch}}|$ and $n_{\text{int}} = |\mathcal{E}_{\text{int}}|$. Then, we define $$B^{\text{dirch}} \in \bb{R}^{n_{\text{bnd}}n_{\text{leg}}\times MN_T},\quad B^{\text{int}} \in \bb{R}^{n_{\text{int}}n_{\text{leg}}\times MN_T}$$ which are both block-sparse. $B^{\text{dirch}}$ has $n_{\text{bnd}}$ row blocks, one for each boundary edge, and each is of size $n_{\text{leg}} \times MN_T$ with only $n_{\text{leg}} \times M$ non zeros. $B^{\text{int}}$ has $n_{\text{int}}$ row blocks, on for each interior edge, and each is of size $n_{\text{int}} \times MN_T$, with two separate sub-blocks of size $n_{\text{leg}} \times M$. The specific structure of these matrices depends entirely on the geometry and tesselation, though we can specify how a given row block of either matrix is computed. For boundary edge $i$, 
+$$ B^{\text{dirch},i}_{k,(b(i)-1)M+1:b(i)M} = \bs{\phi}(x^e_k)^T,$$
+while for shared edge $i$,
+$$ B^{\text{int},i}_{k,(t_1(i)-1)M+1:t_1(i)M} = \bs{\phi}(x^e_k)^T,\quad B^{\text{int},i}_{k,(t_2(i)-1)M+1:t_2(i)M} = -\bs{\phi}(x^e_k)^T   $$
+For clarity, we visualize the structure of these matrices for a unit-square domain tesselated with 18 triangles and an order 10 discretization.
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.75\linewidth]{./mesh_quad_square.png}
+	\caption{$[0,1]^2$ tesselated with 18 triangles, showing mapped quadrature points in each triangle.}
+\end{figure}
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.75\linewidth]{./mesh_quad_square_dirch.png}
+	\caption{Structure of $B^{\text{dirch}}$. $M=66, N_T= 18, n_{\text{bnd}} = 12, n_{\text{leg}}=50$}
+\end{figure}
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.75\linewidth]{./mesh_quad_square_int.png}
+	\caption{Structure of $B^{\text{int}}$. $M=66, N_T= 18, n_{\text{int}} = 21, n_{\text{leg}}=50$}
+\end{figure}
+\newpage
+\noindent
+The structure we described earlier is evident from these figures. In particular, each block row of $B^{\text{int}}$ has two non-zero blocks of size $n_{\text{leg}}\times M$, and each block row of $B^{\text{dirch}}$ has only one non-zero block of size $n_{\text{leg}} \times M$. Also note, the bottom-left and upper-right triangles in the mesh both have two boundary edges, and these manifest as block columns in $B^{\text{dirch}}$ with two non-zero blocks of size $n_{\text{leg}}\times M$ (see block columns 4 and 15). \\\\
+At this point, we have not addressed the rank deficiency of the combined matrix $$B = \begin{bmatrix} B^{\text{int}} \\ B^{\text{dirch}}\end{bmatrix}.$$ There are row redundancies in the constraint equations, both within the Dirichlet and inter-element matrices, as well as between them. To eliminate these redundancies and arrive at a full-rank constraint system, we employ an interpolatory decomposition to select only the independent rows of $B$, described below.\\
+\begin{itemize}
+	\item Use a rank-revealing \texttt{QR} factorization to get pivot information, providing the independent rows of $B$. Arrange the pivot information as a vector $P$ so that $B^T(:,P) = QR$. Let $n_{\lambda} = \texttt{rank}(B)$.
+	\item Construct $B_{\text{id}} = B(P(1:n_{\lambda},:))$. This new matrix has full rank.
+	\item In the case of non-zero Dirichlet conditions $g$, we must carefully select the correct elements of the assembled vector $G$, according to the permutation vector $P$, as in $$\bs{G}_{\text{bc}} = \begin{bmatrix}\bs{O}_{n_\text{leg}n_{\text{int}}}\\G\end{bmatrix},\quad \bs{G}_{\text{bc}} \to \bs{G}_{\text{bc}}(P(1:n_{\lambda}))$$
+\end{itemize}
+Now, we can specify the fully discretized variational formulation. We seek $\bs{U} \in \bb{R}^{MN_T}, \bs{\Lambda} \in \bb{R}^{n_\lambda}$ such that 
+\begin{equation}
+\begin{split}
+\bs{N}(\bs{U}) + \xi \mathcal{K} \bs{U} - \bs{F} + B_{\text{id}}^T\bs{\Lambda} &= 0 \\
+B_{\text{id}}\bs{U} &= \bs{G}_{\text{bc}}\s (\equiv 0 \text{ for the typical problem})
+\end{split}
+\end{equation}
+Here, we have a constrained non-linear system of equations, and there are many ways in which we can attempt to solve it. We define the residual of the system as
+\begin{equation}\label{eq:eikreg_res}
+	\bs{R}(\bs{U},\bs{\Lambda}) = \begin{bmatrix} \bs{N}(\bs{U}) + \xi \mathcal{K} \bs{U} - \bs{F} + B_{\text{id}}^T\bs{\Lambda} \\ B_{\text{id}} \bs{U} - \bs{G}_{\text{bc}} \end{bmatrix}.
+\end{equation}
+Our goal is to drive this residual to 0.
+\newpage
+\subsubsection{Infinite-dimensional Newton iteration}
+The first approach falls under the family of infinite-dimensional newton steppers. That is, we start with an initial guess, typically a solution to the Poisson problem $\nabla^2 u = 1/f$ with the same boundary and inter-element conditions. Then, we seek a descent direction $\delta \begin{bmatrix} \bs{U} \\ \bs{\Lambda} \end{bmatrix}$ which will reduce the residual $\bs{R}(\bs{U},\Lambda)$, update the current solution, and iterate until we achieve some tolerance for the residual. If we view the weak form of $\eqref{eq:eikreg}$ as corresponding to the first variation of an energy functional $\mathcal{L}$ (whether it does in the right sense is unclear - this is an inverse problem of calculus of variations), then driving the residual to 0 is akin to satisfying the necessary condition for a minimizer of the functional ($\delta \mathcal{L}(u,v) = 0$). Naturally, a strong descent direction can be found by quadratic approximation of the functional in perturbations of $u$ by $\varepsilon w$ belonging to the same space as $v$, which requires its second variation, or, in other words, the first variation of the weak form. For triangle $T_k$, this is
+\begin{equation}\label{eq:eikreg_hess}
+	\mathcal{H}_{ij}(\bs{u}^k) = \int_{T_{\text{ref}}} \phi_j|A_k|\big(A_k^{-1} \nabla \phi_i\big) \cdot \frac{ \Big( \sum_{l=1}^M u_l^k \big(A_k^{-1} \nabla \phi_l\big)\Big)  }{\sum_{l=1}^M \sum_{p=1}^M u_l^k u_p^k \big(A_k^{-1} \nabla \phi_l\big) \cdot \big(A_k^{-1} \nabla \phi_p\big)}d\bs{r} + \xi \mathcal{K}_{ij}
+\end{equation}
+Then, a newton iteration which respects the boundary and inter-element continuity conditions at every step and terminates when the residual meets some tolerance \texttt{tol} is:
+\begin{itemize}
+	\item[(i)] Initialize a solution $\begin{bmatrix}\bs{U}^{(0)}\\\bs{\Lambda}^{(0)}\end{bmatrix}$ by solving the discretized Poisson problem with constraints
+	\begin{equation*}
+		\begin{bmatrix}
+			\mathcal{K} & B_{\text{id}}^T \\
+			B_{\text{id}} & 0 \end{bmatrix} \begin{bmatrix}\bs{U}^{(0)}\\\bs{\Lambda^{(0)}} 		\end{bmatrix}= \begin{bmatrix}\bs{F} \\ \bs{G}_{\text{bc}} \end{bmatrix}.
+	\end{equation*}
+	\item[(ii)] Let $\begin{bmatrix} \bs{U} \\ \bs{\Lambda} \end{bmatrix} = \begin{bmatrix}\bs{U}^{(0)}\\\bs{\Lambda}^{(0)}\end{bmatrix}$. 
+	\item[(iii)] If $||\bs{R}(\bs{U},\Lambda)|| > \texttt{tol}$, solve for descent direction $\begin{bmatrix}\delta \bs{U} \\ \delta \bs{\Lambda} \end{bmatrix}$ through
+	\begin{equation*}
+	\begin{bmatrix}
+	\mathcal{H}^T & B_{\text{id}}^T \\
+	B_{\text{id}} & 0
+	\end{bmatrix}\begin{bmatrix}\delta \bs{U} \\ \delta \bs{\Lambda} \end{bmatrix} = -\bs{R}(\bs{U},\bs{\Lambda})
+	\end{equation*}
+	The constraints ensure that the computed descent direction still lies in the correct, constrained solution space.
+	\item[(iv)] Update the solution with an optional step length $0 < \alpha < 1$.
+	\begin{equation*}
+		\begin{bmatrix} \bs{U} \\ \bs{\Lambda} \end{bmatrix} \to \begin{bmatrix} \bs{U} \\ \bs{\Lambda} \end{bmatrix} + \alpha \begin{bmatrix}\delta \bs{U} \\ \delta \bs{\Lambda} \end{bmatrix}
+	\end{equation*}
+	\item[(v)] Repeat from step (iii) until the residual norm is less than \texttt{tol}.
+\end{itemize}
+This approach works for viscosity parameter $\xi\sim \mathcal{O}(1e2)$, but is rather unstable for smaller $\xi$. This holds true even if we use homotopic continuation methods, where we have a loop wrapping around the Newton method which starts with $\xi = 0.1$, decreases $\xi$ when the residual tolerance is met, and repeats with the solution for the previous $\xi$ as the initial guess for the Newton iteration. I found that as $\xi \to 0$, the magnitude of solution modes across the spectrum ``lifts" up. This means that $\xi \nabla^2 u$ serves as a smoothing operator on high frequency solution components, and decreasing $\xi$ too much results in a degenerate weak form. The Newton step will have many null components in modal directions that don't affect the residual, and the new direction drifts into moving the higher-energy non-physical directions (higher degree modes). This takes us away from the correct viscosity limit. 
+\subsubsection{Pseudo-time relaxation}
+The second approach is one in which we reduce the residual by casting the problem as a system of ordinary differential algebraic equations with a fictitious time parameter $\tau$. We write
+\begin{equation}\label{eq:eikreg_trel}
+	\partial_\tau\bs{U} = -\bs{R}(\bs{U},\bs{\Lambda}),
+\end{equation}
+and discretize this DAE system in time with common techniques. The first we try is an implicit-explicit discretization, where we handle the non-linear term explicitly, and the stiff linear term implicitly. That is,
+\begin{equation}\label{eq:eikreg_imex}
+\begin{split}
+\frac{\bs{U}^{n+1}-\bs{U}^n}{\Delta \tau} &= -(\bs{N}(\bs{U^n}) + \xi \mathcal{K} \bs{U^{n+1}} - \bs{F})\\
+\Rightarrow (I+\xi\Delta\tau\mathcal{K})\bs{U}^{n+1} &= \bs{U}^n - \Delta \tau(\bs{N}(\bs{U}^n) - \bs{F})
+\end{split}
+\end{equation}
+We want to enforce the constraints at each time step, so we solve the augmented system
+\begin{equation}
+\begin{bmatrix}
+	I+\xi\Delta\tau\mathcal{K} & B_{\text{id}}^T \\
+	B_{\text{id}} & 0 
+\end{bmatrix}\begin{bmatrix} \bs{U}^{n+1} \\ \bs{\Lambda}^{n+1} \end{bmatrix} = \begin{bmatrix}
+\bs{U}^n - \Delta \tau(\bs{N}(\bs{U}^n) - \bs{F}) \\ \bs{G}_{\text{bc}}
+\end{bmatrix}
+\end{equation}
+So far, this method is the fastest, and most accurate in terms of converging to a reasonable solution for moderate $\xi$. A plot of the solution is depicted below for the unit square. Note, $\xi$ has the effect of preserving the behavior of the time to boundary, but either reducing or increasing the maximum value (which occurs at the medial point (1/2,1/2).)
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.75\linewidth]{./square_sol1.png}
+	\caption{Solution to \eqref{eq:eikreg} after 100 timesteps, with $\Delta\tau = 0.01$, $\xi = 0.01$ on the unit square $[0,1]^2$ discretized with two triangles.}
+\end{figure}
+I would like to work-out the ETDRK2 method for this problem. It is specifically designed to allow larger time steps for stiff problems with a non-linear part, and exhibits second-order accuracy in time.
+\newpage
+%\subsection{A variational approach (NEW)}
+%Let's try framing the problem from the perspective of infinite dimensional optimization. Thus far, my efforts have fallen under the discretize-then-optimize approach for solving non-linear PDEs. So, let's flip that and consider the optimize-then-discretize approach. The first order conditions for optimality of the functional may serve as a way to initialize the problem for the discretized non-linear optimization call. We want to solve
+%\begin{equation}
+%	\begin{split}
+%		\min_{u\in L_2(\Tau^2,w^{(a,b,c)})}\mathcal{L}(u),\\
+%		\text{s.t. } u = q \text{ on } \partial\Tau^2
+%	\end{split},
+%\end{equation}
+%where $\mathcal{L} : L_2(\Tau^2, w^{(a,bc)})\to \bb{R}^+$ is defined by 
+%\begin{equation}\label{eq:eik_new}
+%	\mathcal{L}(u) := \int_{\mathcal{T}^2}\Big( \big(\nablax u \cdot \nablax u + (\xi \nablax^2 u)^2\big)^{\frac{1}{2}} - \frac{1}{f}\Big) d\bs{x}  
+%\end{equation}
+%and $u,f$ are as in \eqref{eq:eikonal}, restricted to $L_2(\Tau^2, \mathcal{W}^{(a,bc)})$. Note, we have added a viscosity term $\xi \nabla_{\bs{x}}^2u$ with $\xi > 0$ to \eqref{eq:eikonal}. In the limit of $\xi\to 0$, we solve the same problem, and the addition of the term helps the optimization routines converge to a ``physically'' correct solution. The steps here are to first take the first variation of $\mathcal{L}$ as $$\delta\mathcal{L}(u,\hat{u}) = \partial_ \varepsilon\mathcal{L}(u+\varepsilon \hat{u})|_{\varepsilon=0} = 0,$$ where $\hat{u} \in \mathcal{H}_0^1(\Tau^2)$.  This gives the necessary condition a minimizer of $\mathcal{L}$ must satisfy. Before proceeding, recall Green's identity for $u,v \in H^1(\Tau^2)$, i.e. a multidimensional integration by parts formula:
+%\begin{equation}\label{eq:greenident_new}
+%	\int_{\Tau^2} \nabla_{\bs{x}} u \cdot v d(\bs{x}) = \int_{\partial\Tau^2} (uv) \cdot \bs{n} dS(\bs{x}) - \int_{\Tau^2} u \nabla_{\bs{x}} \cdot v d(\bs{x}).
+%\end{equation}
+%Accordingly, we have
+%\begin{align*}
+%	\partial_\varepsilon \mathcal{L}(u + \varepsilon \hat{u})|_{\varepsilon=0} 
+%	&= \partial_\epsilon\big[\int_{\Tau^2} \Big((u_x^2 + u_y^2) + 2\varepsilon(\hat{u}_x u_x + \hat{u}_yu_y) + \varepsilon^2 (\hat{u}_x^2 + \hat{u}_y^2) + \xi^2 \big((\nabla_{\bs{x}}^2u)^2 + 2\varepsilon \nablax^2\hat{u}\nablax^2 u + \varepsilon^2 (\nablax^2 \hat{u})^2\big) \Big)^{\frac{1}{2}}d(\bs{x}) \big]\Big|_{\varepsilon=0}\\
+%	& = \Big[\frac{1}{2}\int_{\Tau^2} \frac{\Big( 2(\hat{u}_x u_x + \hat{u}_yu_y) + 2\varepsilon (\hat{u}_x^2 + \hat{u}_y^2) + \xi^2\big(2\nablax^2\hat{u}\nablax^2 u + 2\varepsilon (\nablax^2 \hat{u})^2  \big)  \Big)}{\Big((u_x^2 + u_y^2) + 2\varepsilon(\hat{u}_x u_x + \hat{u}_yu_y) + \varepsilon^2 (\hat{u}_x^2 + \hat{u}_y^2) + \xi^2 \big((\nabla_{\bs{x}}^2u)^2 + 2\varepsilon \nablax^2\hat{u}\nablax^2 u + \varepsilon^2 (\nablax^2 \hat{u})^2\big) \Big)^{\frac{1}{2}}} d(\bs{x})\Big]\Big|_{\varepsilon=0}.
+%\end{align*}
+%The first variation is then given by
+%\begin{equation}\label{eq:eikfirstvar_new}
+%	\delta \mathcal{L}(u,\hat{u})= \int_{\mathcal{T}^2} \Big(\frac{\nabla_{\bs{x}}u \cdot \nabla_{\bs{x}}\hat{u} + \xi^2\nablax^2 \hat{u}\nablax^2 u}{\sqrt{ (\nabla_{\bs{x}}u \cdot \nabla_{\bs{x}} u) + \xi^2(\nablax^2 u})^2 } \Big)d(\bs{x}).
+%\end{equation}
+%Next, we compute the second variation $\delta^2 \mathcal{L}(u,\hat{u},\tilde{u})$, where $\tilde{u} \in H_0^1(\Tau^2)$. Letting $u \gets u + \varepsilon\tilde{u}$ in \eqref{eq:eikfirstvar_new}, we have
+%\begin{align}
+%	&\delta^2 \mathcal{L}(u,\hat{u},\tilde{u})= \partial_\varepsilon \delta \mathcal{L}(u+\varepsilon \tilde{u}, \hat{u}) \Big|_{\varepsilon=0} \nonumber \\
+%	&= \partial_{\varepsilon}\int_{\mathcal{T}^2} \Bigg(\frac{\nabla_{\bs{x}}u \cdot \nabla_{\bs{x}}\hat{u} + \varepsilon \nabla_{\bs{x}} \tilde{u} \cdot \nabla_{\bs{x}} \hat{u} + \xi^2 \big(\nablax^2 \hat{u} \nablax^2 u + \varepsilon \nablax^2\hat{u}\nablax^2\tilde{u}\big)}{\sqrt{\nablax u \cdot \nablax u + 2\varepsilon \nablax u \cdot \nablax \tilde{u} + \varepsilon^2 \nablax \tilde{u}\cdot \nablax\tilde{u} + \xi^2\big(\nablax^2 u \nablax^2 u + 2\varepsilon \nablax^2 u \nablax^2 \tilde{u} + \varepsilon^2 \nablax^2 \tilde{u} \nablax^2\tilde{u}\big)}}\Bigg)d(\bs{x})\Bigg|_{\varepsilon=0} \nonumber \\
+%	&= \int_{\Tau^2} \Bigg(\frac{\nablax \tilde{u} \cdot \nablax \hat{u} + \xi^2\nablax^2 \tilde{u}\nablax^2\hat{u}}{\sqrt{\nablax u\cdot \nablax u + \xi^2\nablax^2 u \nablax^2 u}} - \frac{(\nablax u \cdot \nablax \hat{u} + \xi^2 \nablax^2 u \nablax^2 \hat{u})(\nablax u \cdot \nablax \tilde{u} + \xi^2 \nablax^2 u \nablax^2 \tilde{u})}{(\nablax u \cdot \nablax u + \xi^2 \nablax^2 u \nablax^2 u)^{\frac{3}{2}}}\Bigg)d(\bs{x}) \label{eq:eikfrechet_new}
+%\end{align}
+%The weak form of the Newton system at a point $u^k \in H_0^1(\Tau^2)$ is then independent of $\hat{u}$, and given by
+%\begin{equation} \label{eq:eiknewtonweak_new}
+%	\begin{split}
+%		&\text{ Find } \tilde{u} \in H_0^1(\Tau^2) \text{ s.t. } \\
+%		&\delta^2 \mathcal{L}(u^k)(\hat{u}, \tilde{u}) = -\delta \mathcal{L}(u^k)(\hat{u}),\\
+%		&\text{and set } u^{k+1} = u^k + \tilde{u},\\
+%		&\text{with } u^0 = q \text{ on } \partial\Tau^2.
+%	\end{split}
+%\end{equation}
+%To derive the strong form of the Newton system, we proceed as for the first variation using integration by parts formula. Let $u \gets \hat{u}$ and $v \gets \frac{\nablax \tilde{u}}{\sqrt{|\nablax u|^2 - \frac{1}{f^2}}}$ for the first term in \eqref{eq:eikfrechet_new}. For the second term therein, let $u \gets \hat{u}$ and $v \gets \frac{\nablax \tilde{u}|\nablax u|^2}{(|\nablax u|^2 - \frac{1}{f^2})^{\frac{3}{2}}}$. Using the fact that $\hat{u}\in H_0^1(\Tau^2)$, and incorporating the first variation from \eqref{eq:eikfirstvar_new} as needed in \eqref{eq:eiknewtonweak_new}, we find the Newton system is equivalently expressed as
+%\begin{align*}
+%	\int_{\Tau^2} \hat{u} \Big[\nablax \cdot \Big(\frac{\nablax \tilde{u}|\nablax u|^2}{(|\nablax u|^2 - \frac{1}{f^2})^{\frac{3}{2}}} - \frac{\nablax \tilde{u} + \nablax u}{\sqrt{|\nablax u|^2 - \frac{1}{f^2}}} \Big) \Big]d(\bs{x}) = 0
+%\end{align*}
+%Then, by the arbitrariness of $\hat{u}$, we find the strong form of the Newton system is
+%\begin{equation} \label{eq:eiknewtonstrong_new}
+%	\begin{split}
+%		\text{ Find } \tilde{u} \in H_0^1(\Tau^2) \text{ s.t. }&\\
+%		\nablax \cdot \Big[\nablax \tilde{u}\Big(\frac{|\nablax u^k|^2}{(|\nablax u^k|^2 - \frac{1}{f^2})^{\frac{3}{2}}} - \frac{1}{\sqrt{|\nablax u^k|^2 - \frac{1}{f^2}}} \Big) \Big] &= \nablax \cdot\Big(\frac{\nablax u^k}{\sqrt{|\nablax u^k|^2 - \frac{1}{f^2}}} \Big)
+%		\\
+%		%0&=\nablax \cdot \Big(\frac{\nablax \tilde{u}|\nablax u^k|^2}{(|\nablax u^k|^2 - \frac{1}{f^2})^{\frac{3}{2}}} - \frac{\nablax \tilde{u} + \nablax u^k}{\sqrt{|\nablax u^k|^2 - \frac{1}{f^2}}} \Big)\\
+%		\text{and set } u^{k+1} = u^k + \tilde{u},&\\
+%		\text{with } u^0 = q \text{ on } \partial\Tau^2.&
+%	\end{split}
+%\end{equation}
+%By choosing $u^0 = q$ on $\partial \Tau^2$, and setting $u^{k+1} = u^k + \tilde{u}$, we have an infinite-dimensional newton stepper for solving the Eikonal problem. To avoid the trivial solution $u\equiv 0$ when $q\equiv 0$, we can try this with $$u^0 = w^{(3/2,3/2,3/2)}(x,y) = xy(1-x-y),$$ and use the weighted basis for differentiation in coefficient space. We iterate until the relative step difference is within some tolerance, in the $L_2(\Tau^2, w)$ norm. I will give details on the weighted Laplace operator momentarily. 
+%\begin{algorithm}
+%	\caption{Netwon updates for solving \eqref{eq:eikonal}}\label{alg:eikalg_new}
+%	\begin{algorithmic}
+%		\Require $\texttt{tol} < 1$
+%		\State $u^k \gets xy(1-x-y)$
+%		\State $\tilde{u} \gets 1$
+%		\While{$\big(|\nablax u^k|^2 - (\frac{1}{f})^2 > 0\big)$ and $||\tilde{u}||_{L^2(\Tau^2,\tilde{w})} > \texttt{tol}$}
+%		\State $\tilde{u} \gets$ solution to \eqref{eq:eiknewtonstrong}
+%		\State $u^{k+1} \gets u^k + \tilde{u}$
+%		\State $u^k \gets u^{k+1}$
+%		\EndWhile
+%	\end{algorithmic}
+%\end{algorithm}
+%
+%\subsection{A variational approach}
+%Let's try framing the problem from the perspective of infinite dimensional optimization. Thus far, my efforts have fallen under the discretize-then-optimize approach for solving non-linear PDEs. So, let's flip that and consider the optimize-then-discretize approach. The first order conditions for optimality of the functional may serve as a way to initialize the problem for the discretized non-linear optimization call. We want to solve
+%\begin{equation}
+%	\begin{split}
+%	\min_{u\in L_2(\Tau^2,w^{(a,b,c)})}\mathcal{L}(u),\\
+%	\text{s.t. } u = q \text{ on } \partial\Tau^2
+%	\end{split},
+%\end{equation}
+%where $\mathcal{L} : L_2(\Tau^2, w^{(a,bc)})\to \bb{R}^+$ is defined by 
+%\begin{equation}\label{eq:eikL}
+%	\mathcal{L}(u) := \int_{\mathcal{T}^2}\Big[ |\nabla_{\bs{x}} u|^2 - \big(\frac{1}{f}\big)^2 \Big]^{\frac{1}{2}} d\bs{x},
+%\end{equation}
+%and $u,f$ are as in \eqref{eq:eikonal}, restricted to $L_2(\Tau^2, \mathcal{W}^{(a,bc)})$. The steps here are to first take the Gateaux derivative of $\mathcal{L}$ as $$\delta\mathcal{L}(u,\hat{u}) = \partial_ \varepsilon\mathcal{L}(u+\varepsilon \hat{u})|_{\varepsilon=0} = 0,$$ where $\hat{u} \in \mathcal{H}_0^1(\Tau^2)$.  This gives the necessary condition a minimizer of $\mathcal{L}$ must satisfy. Before proceeding, recall Green's identity for $u,v \in H^1(\Tau^2)$, i.e. a multidimensional integration by parts formula:
+%\begin{equation}\label{eq:greenident}
+%	\int_{\Tau^2} \nabla_{\bs{x}} u \cdot v d(\bs{x}) = \int_{\partial\Tau^2} (uv) \cdot \bs{n} dS(\bs{x}) - \int_{\Tau^2} u \nabla_{\bs{x}} \cdot v d(\bs{x}).
+%\end{equation}
+%Accordingly, we have
+%\begin{align*}
+%	0 &= \partial_\varepsilon \mathcal{L}(u + \varepsilon \hat{u})|_{\varepsilon=0} \\
+%	&= \partial_\epsilon\big[\int_{\Tau^2} \Big((u_x^2 + u_y^2) + 2\varepsilon(\hat{u}_x u_x + \hat{u}_yu_y) + \varepsilon^2 (\hat{u}_x^2 + \hat{u}_y^2) -\big(\frac{1}{f}\big)^2\Big)^{\frac{1}{2}}d(\bs{x})\big]\Big|_{\varepsilon=0}\\
+%	& = \Big[\frac{1}{2}\int_{\Tau^2} \frac{\Big( 2(\hat{u}_x u_x + \hat{u}_yu_y) + 2\varepsilon (\hat{u}_x^2 + \hat{u}_y^2) \Big)}{\Big((u_x^2 + u_y^2) + 2\varepsilon(\hat{u}_x u_x + \hat{u}_yu_y) + \varepsilon^2 (\hat{u}_x^2 + \hat{u}_y^2) -\big(\frac{1}{f}\big)^2\Big)^{\frac{1}{2}}} d(\bs{x})\Big]\Big|_{\varepsilon=0}.
+%\end{align*}
+%The first variation is then given by
+%\begin{equation}\label{eq:eikfirstvar}
+%	\delta \mathcal{L}(u,\hat{u})=  \int_{\mathcal{T}^2} \frac{\nabla_{\bs{x}}u \cdot \nabla_{\bs{x}}\hat{u}}{\sqrt{ |\nabla_{\bs{x}}u|^2 - (\frac{1}{f})^2}} d(\bs{x}) .
+%\end{equation}
+%We can apply \eqref{eq:greenident} with $u \gets \hat{u}$ and $v \gets \frac{\nabla_{\bs{x}} u}{\sqrt{|\nabla_{\bs{x}} u}|^2-\frac{1}{f^2} }$ to derive the strong (PDE) form of the first order necessary condition a minimizer of $\mathcal{L}$ must satisfy. Using the fact that $\hat{u}$ is 0 on the boundary, we have
+%\begin{align}
+%	\delta\mathcal{L}(u,\hat{u}) &= \int_{\partial\Tau^2} \hat{u} \frac{\nabla_{\bs{x}} u}{\sqrt{ |\nabla_{\bs{x}} u|^2-\frac{1}{f^2}}} \cdot \bs{n} dS(\bs{x}) - \int_{\Tau^2} \hat{u} \nabla_{\bs{x}} \cdot \frac{\nabla_{\bs{x}} u}{\sqrt{|\nabla_{\bs{x}} u|^2-\frac{1}{f^2} }} d(\bs{x}) \nonumber \\
+%	&= - \int_{\Tau^2} \hat{u} \nabla_{\bs{x}} \cdot \frac{\nabla_{\bs{x}} u}{\sqrt{|\nabla_{\bs{x}} u|^2-\frac{1}{f^2} }} d(\bs{x}) = 0 \label{eq:eikfirstvaribp}
+%\end{align}
+%Furthermore, the choice of $\hat{u}$ is arbitrary. Thus, we find that a minimizer $u$ satisfies the following PDE in $\mathcal{T}^2$;
+%\begin{equation}\label{eq:eiklin}
+%	\begin{split}
+%-\nabla_{\bs{x}} \cdot \Bigg( \frac{\nabla_{\bs{x}} u}{\sqrt{ |\nabla_{\bs{x}} u|^2 -\frac{1}{f^2}}}\Bigg) &= 0 ,\quad \bs{x} \in \mathcal{T}^2,\\
+%	u &= q,\quad \bs{x} \in \partial \Tau^2.
+%	\end{split}
+%\end{equation}
+%Next, we compute the Frechet derivative $\delta^2 \mathcal{L}(u,\hat{u},\tilde{u})$, where $\tilde{u} \in H_0^1(\Tau^2)$. Letting $u \gets u + \varepsilon\tilde{u}$ in \eqref{eq:eikfirstvar}, we have
+%\begin{align}
+%	&\delta^2 \mathcal{L}(u,\hat{u},\tilde{u})= \partial_\varepsilon \delta \mathcal{L}(u+\varepsilon \tilde{u}, \hat{u}) \Big|_{\varepsilon=0} \nonumber \\
+%	&= \Bigg(\partial_{\varepsilon}\int_{\mathcal{T}^2} \frac{\nabla_{\bs{x}}u \cdot \nabla_{\bs{x}}\hat{u} + \varepsilon \nabla_{\bs{x}} \tilde{u} \cdot \nabla_{\bs{x}} \hat{u}}{\sqrt{-\frac{1}{f^2} + \nablax u \cdot \nablax u + 2\varepsilon \nablax u \cdot \nablax \tilde{u} + \varepsilon^2 \nablax \tilde{u}\cdot \nablax\tilde{u} }}d(\bs{x})\Bigg)\Big|_{\varepsilon=0} \nonumber \\
+%	&= \int_{\Tau^2} \Bigg(\frac{\nablax \tilde{u} \cdot \nablax \hat{u}}{\sqrt{-\frac{1}{f^2} + |\nablax u|^2}} - \frac{(\nablax u \cdot \nablax \hat{u})(\nablax u \cdot \nablax \tilde{u})}{(-\frac{1}{f^2} + |\nablax u|^2)^{\frac{3}{2}}} \Bigg)d(\bs{x}) \label{eq:eikfrechet}
+%\end{align}
+%The weak form of the Newton system at a point $u^k \in H_0^1(\Tau^2)$ is then independent of $\hat{u}$, and given by
+%\begin{equation} \label{eq:eiknewtonweak}
+%	\begin{split}
+%		&\text{ Find } \tilde{u} \in H_0^1(\Tau^2) \text{ s.t. } \\
+%	&\delta^2 \mathcal{L}(u^k)(\hat{u}, \tilde{u}) = -\delta \mathcal{L}(u^k)(\hat{u}),\\
+%	&\text{and set } u^{k+1} = u^k + \tilde{u},\\
+%	&\text{with } u^0 = q \text{ on } \partial\Tau^2.
+%	\end{split}
+%\end{equation}
+%To derive the strong form of the Newton system, we proceed as for the first variation using integration by parts formula. Let $u \gets \hat{u}$ and $v \gets \frac{\nablax \tilde{u}}{\sqrt{|\nablax u|^2 - \frac{1}{f^2}}}$ for the first term in \eqref{eq:eikfrechet}. For the second term therein, let $u \gets \hat{u}$ and $v \gets \frac{\nablax \tilde{u}|\nablax u|^2}{(|\nablax u|^2 - \frac{1}{f^2})^{\frac{3}{2}}}$. Using the fact that $\hat{u}\in H_0^1(\Tau^2)$, and incorporating the first variation from \eqref{eq:eikfirstvar} as needed in \eqref{eq:eiknewtonweak}, we find the Newton system is equivalently expressed as
+%\begin{align*}
+%	\int_{\Tau^2} \hat{u} \Big[\nablax \cdot \Big(\frac{\nablax \tilde{u}|\nablax u|^2}{(|\nablax u|^2 - \frac{1}{f^2})^{\frac{3}{2}}} - \frac{\nablax \tilde{u} + \nablax u}{\sqrt{|\nablax u|^2 - \frac{1}{f^2}}} \Big) \Big]d(\bs{x}) = 0
+%\end{align*}
+%Then, by the arbitrariness of $\hat{u}$, we find the strong form of the Newton system is
+%\begin{equation} \label{eq:eiknewtonstrong}
+%	\begin{split}
+%		\text{ Find } \tilde{u} \in H_0^1(\Tau^2) \text{ s.t. }&\\
+%		\nablax \cdot \Big[\nablax \tilde{u}\Big(\frac{|\nablax u^k|^2}{(|\nablax u^k|^2 - \frac{1}{f^2})^{\frac{3}{2}}} - \frac{1}{\sqrt{|\nablax u^k|^2 - \frac{1}{f^2}}} \Big) \Big] &= \nablax \cdot\Big(\frac{\nablax u^k}{\sqrt{|\nablax u^k|^2 - \frac{1}{f^2}}} \Big)
+%		\\
+%	%0&=\nablax \cdot \Big(\frac{\nablax \tilde{u}|\nablax u^k|^2}{(|\nablax u^k|^2 - \frac{1}{f^2})^{\frac{3}{2}}} - \frac{\nablax \tilde{u} + \nablax u^k}{\sqrt{|\nablax u^k|^2 - \frac{1}{f^2}}} \Big)\\
+%		\text{and set } u^{k+1} = u^k + \tilde{u},&\\
+%		\text{with } u^0 = q \text{ on } \partial\Tau^2.&
+%	\end{split}
+%\end{equation}
+%By choosing $u^0 = q$ on $\partial \Tau^2$, and setting $u^{k+1} = u^k + \tilde{u}$, we have an infinite-dimensional newton stepper for solving the Eikonal problem. To avoid the trivial solution $u\equiv 0$ when $q\equiv 0$, we can try this with $$u^0 = w^{(3/2,3/2,3/2)}(x,y) = xy(1-x-y),$$ and use the weighted basis for differentiation in coefficient space. We iterate until the relative step difference is within some tolerance, in the $L_2(\Tau^2, w)$ norm. I will give details on the weighted Laplace operator momentarily. 
+%\begin{algorithm}
+%\caption{Netwon updates for solving \eqref{eq:eikonal}}\label{alg:eikalg}
+%\begin{algorithmic}
+%\Require $\texttt{tol} < 1$
+%\State $u^k \gets xy(1-x-y)$
+%\State $\tilde{u} \gets 1$
+%\While{$\big(|\nablax u^k|^2 - (\frac{1}{f})^2 > 0\big)$ and $||\tilde{u}||_{L^2(\Tau^2,\tilde{w})} > \texttt{tol}$}
+%\State $\tilde{u} \gets$ solution to \eqref{eq:eiknewtonstrong}
+%\State $u^{k+1} \gets u^k + \tilde{u}$
+%\State $u^k \gets u^{k+1}$
+%\EndWhile
+%\end{algorithmic}
+%\end{algorithm}
+%\\
+%\noindent
+%Note, Algorithm \ref{alg:eikalg} as well as the preceding derivations of weak and strong forms all assume that $|\nablax u^k|^2 - (\frac{1}{f})^2 > 0$ for any $k$. To prevent the need for this check, we can consider the modified (though equivalent) functional
+%\begin{equation}\label{eq:eikLcheat}
+%	\mathcal{L}(u) = \int_{\Tau^2} [(|\nablax u|^2 - \frac{1}{f^2})^2]^{\frac{1}{4}}
+%\end{equation} 
+%Even though \eqref{eq:eikLcheat} is equivalent to \eqref{eq:eikL}, the latter does not necessarily ensure that the range of $\mathcal{L}$ is $\bb{R}^+$ without specifying the appropriate branch of $\sqrt{}$ to consider. The modified functional does this without us having to deal with absolute values or the $\text{sgn}$ function. Any arguments raised to the $\frac{1}{2}$ or  $\frac{3}{2}$ powers, as they are in \eqref{eq:eiknewtonstrong}, can simply be squared and square root-ed before exponentiation. That is, the numerical implementation will include such a transformation to those arguments (this might work? we'll see). Expressing \eqref{eq:eiknewtonstrong} in modal form is our next challenge.
+%\newpage
+%\section{The weighted Jacobi basis}
+%The weighted basis 
+%\begin{equation}\label{eq:wbasis}
+%	\tilde{\bs{P}}^{(a,b,c)}(x,y) = x^{a-\frac{1}{2}}y^{b-\frac{1}{2}}(1-x-y)^{c-\frac{1}{2}}\bs{P}^{(a,b,c)}
+%\end{equation}
+%will prove useful for incorporating boundary conditions to the discrete operator, while preserving its sparsity. Note, we are simply multiplying the original basis by the weight function $W^{(a,b,c)}(\bs{x})$ which forms the measure under which they are orthogonal. We need the following weighted ladder operators for differentiation in the weighted basis:
+%\begin{align}
+%	-(2k+b+c+1)h_{k,n}^{(a,b,c)}\partial_x\tilde{P}_{k,n}^{(a,b,c)} &=  (k+c)(n-k+1)h_{k,n+1}^{(a-1,b,c-1)}\tilde{P}_{k,n+1}^{(a-1,b,c-1)} \nonumber \\&+ (k+1)(n-k+a)h_{k+1,n+1}^{(a-1,b,c-1)}\tilde{P}_{k+1,n+1}^{(a-1,b,c-1)}\\
+%	h_{k,n}^{(a,b,c)}\partial_y\tilde{P}_{k,n}^{(a,b,c)} &= -(k+1)h_{k+1,n+1}^{(a,b-1,c-1)}\tilde{P}_{k+1,n+1}^{(a,b-1,c-1)}.
+%\end{align}
+%If $\bs{f}$ are the coefficients of $f$ under the $(a,b,c)$  basis, then we have sparse banded matrices $\mathcal{W}_{x,(a,b,c)}^{(a-1,b,c-1)},\mathcal{W}_{y,(a,b,c)}^{(a,b-1,c-1)}$ such that
+%\begin{align}
+%	\partial_x [x^{a-\frac{1}{2}}y^{b-\frac{1}{2}}(1-x-y)^{c-\frac{1}{2}}f(x,y)] &= \partial_x (\tilde{\bs{P}}^{(a,b,c)}(x,y)^T\bs{f}) \\&= \tilde{\bs{P}}^{(a-1,b,c-1)}(x,y)^T \mathcal{W}_{x,(a,b,c)}^{(a-1,b,c-1)}\bs{f}, \nonumber\\
+%	\partial_y [x^{a-\frac{1}{2}}y^{b-\frac{1}{2}}(1-x-y)^{c-\frac{1}{2}}f(x,y)] &= \partial_y (\tilde{\bs{P}}^{(a,b,c)}(x,y)^T\bs{f}) \\ &= \tilde{\bs{P}}^{(a,b-1,c-1)}(x,y)^T \mathcal{W}_{y,(a,b,c)}^{(a,b-1,c-1)}\bs{f} \nonumber
+%\end{align}
+%\subsubsection{Lowering operators}{}
+%Additionally, we have lowering operators which relate $xP_{k,n}^{(a,b,c)}$ to $P_{k,n}^{(a-1,b,c)}$ and $yP_{k,n}^{(a,b,c)}$ to $P_{k,n}^{(a,b-1,c)}$. These are given by the following recurrences:
+%\begin{align}
+%	(2n+a+b+c+2)h_{k,n}^{(a,b,c)}xP_{k,n}^{(a,b,c)} &= (n-k+a)h_{k,n}^{(a-1,b,c)}P_{k,n}^{(a-1,b,c)} \\ &+ (n-k+1)h_{k,n+1}^{(a-1,b,c)}P_{k,n+1}^{(a-1,b,c)},\\
+%	(2k+b+c+1)(2n+a+b+c+2)h_{k,n}^{(a,b,c)}yP_{k,n}^{(a,b,c)} &= (k+b)(n+k+b+c+1)h_{k,n}^{(a,b-1,c)}P_{k,n}^{(a,b-1,c)} \nonumber \\
+%	&-(k+1)(n-k+a)h_{k+1,n}^{(a,b-1,c)}P_{k+1,n}^{(a,b-1,c)} \nonumber \\
+%	&-(k+b)(n-k+1)h_{k,n+1}^{(a,b-1,c)}P_{k,n+1}^{(a,b-1,c)} \nonumber \\
+%	&+(k+1)(n+k+a+b+c+2)h_{k+1,n+1}^{(a,b-1,c)}P_{k+1,n+1}^{(a,b-1,c)}.
+%\end{align}
+%So, there are sparse banded matrices $\mathcal{L}_{(a,b,c)}^{(a-1,b,c)}$ and $\mathcal{L}_{(a,b,c)}^{(a,b-1,c)}$ corresponding to multiplication by $x$ and $y$, respectively, such that
+%\begin{align}
+%	xf(x,y) &= x\bs{P}^{(a,b,c)}(x,y)^T\bs{f} = \bs{P}^{(a-1,b,c)}(x,y)^T\mathcal{L}_{(a,b,c)}^{(a-1,b,c)}\bs{f},\\
+%	yf(x,y) &= y\bs{P}^{(a,b,c)}(x,y)^T\bs{f} = \bs{P}^{(a,b-1,c)}(x,y)^T\mathcal{L}_{(a,b,c)}^{(a,b-1,c)}\bs{f}.
+%\end{align}
+%\subsubsection{Discrete differential operators}\label{sec:weightedop}
+%We will construct the modal Eikonal operator which operates on coefficients under the basis $\tilde{\bs{P}}^{(3/2,3/2,3/2)}$ and produces coefficients under $\bs{P}^{(3/2,3/2,3/2)}$. Note, \emph{the conversion from the weighted to regular Jacobi basis depends on our choice of parameters $a=b=c=3/2$}. With $\bs{f}$ the coefficients of $f(x,y)$ in the $(a,b,c)$ basis, 
+%\begin{align*}
+%	&\partial_x[W^{(a,b,c)}(x,y)f(x,y)] =  \tilde{\bs{P}}^{(a-1,b,c-1)}(x,y)^T \mathcal{W}_{x,(a,b,c)}^{(a-1,b,c-1)}\bs{f} \\
+%	& = x^{a-\frac{3}{2}}y^{b-\frac{3}{2}}(1-x-y)^{c-\frac{3}{2}}\big(y\bs{P}^{(a-1,b,c-1)}(x,y)\big)^T(\mathcal{W}_{x,(a,b,c)}^{(a-1,b,c-1)}\bs{f})\\
+%	&= x^{a-\frac{3}{2}}y^{b-\frac{3}{2}}(1-x-y)^{c-\frac{3}{2}}\bs{P}^{(a-1,b-1,c-1)}(x,y)^T(\mathcal{L}_{(a-1,b,c-1)}^{(a-1,b-1,c-1)}\mathcal{W}_{x,(a,b,c)}^{(a-1,b,c-1)}\bs{f}),\\
+%	&\partial_y[W^{(a,b,c)}(x,y) f(x,y)] = \tilde{\bs{P}}^{(a,b-1,c-1)}(x,y)^T \mathcal{W}_{y,(a,b,c)}^{(a,b-1,c-1)}\bs{f} \\
+%	&= x^{a-\frac{3}{2}}y^{b-\frac{3}{2}}(1-x-y)^{c-\frac{3}{2}}\big(x\bs{P}^{(a,b-1,c-1)}(x,y)\big)^T(\mathcal{W}_{y,(a,b,c)}^{(a,b-1,c-1)}\bs{f})\\
+%	&=x^{a-\frac{3}{2}}y^{b-\frac{3}{2}}(1-x-y)^{c-\frac{3}{2}}\bs{P}^{(a-1,b-1,c-1)}(x,y)^T(\mathcal{L}_{(a,b-1,c-1)}^{(a-1,b-1,c-1)}\mathcal{W}_{y,(a,b,c)}^{(a,b-1,c-1)}\bs{f})
+%\end{align*}
+%When $a=b=c=3/2$, we have 
+%\begin{align*}
+%	\partial_x[W^{(a,b,c)}(x,y) f(x,y)] &=  \bs{P}^{(a-1,b-1,c-1)}(x,y)^T(\mathcal{L}_{(a-1,b,c-1)}^{(a-1,b-1,c-1)}\mathcal{W}_{x,(a,b,c)}^{(a-1,b,c-1)}\bs{f}),\\
+%	\partial_y[W^{(a,b,c)}(x,y) f(x,y)] &= \bs{P}^{(a-1,b-1,c-1)}(x,y)^T(\mathcal{L}_{(a,b-1,c-1)}^{(a-1,b-1,c-1)}\mathcal{W}_{y,(a,b,c)}^{(a,b-1,c-1)}\bs{f}),
+%\end{align*}
+%
+%We need to see what auxiliary problems we must solve, as the nonlinearity of \eqref{eq:eikonal} leads to cross-terms that must cancel if we hope that a solution to the weighted problem also solves the unweighted problem. In the bulk, we have
+%
+%\begin{align*}
+%	[\partial_x (W u)]^2 + [\partial_y (Wu)]^2 &= W^2[u_x^2 + u_y^2] + u^2(W_x + W_y) + 2uW(W_x u_x + W_y u_y), \\
+%\end{align*}
+%and we need the second two terms in the equation to cancel.
+%\color{blue}There's something here we can do by integrating, and finding the additional conditions $u$ must satisfy. I think it would become a solution for the initial guess of $u$. Essentially, we know $W^2[u_x^2+u_y^2] = W^2/f^2$, since we assume that $u$ solve \eqref{eq:eikonal}. Then, we can enforce that $$\int_{\Tau^2} u^2(W_x + W_y) + 2uW(W_xu_x + W_y u_y) = 0.$$ There may be some simplification that occurs if we plug in the Jacobi expansion of $u$ .. idk \color{black}
 %\subsection{Numerical solution to the Eikonal equation}
 %The process for solving \eqref{eq:eikonal} with zero Dirichlet conditions $q\equiv 0$ is as follows:
 %\begin{itemize}
@@ -480,25 +616,25 @@ and we need the second two terms in the equation to cancel.
 %	and solve for the coefficients $\bs{u}$ of $u(x,y)$ in the basis $(3/2,3/2,3/2)$ via \eqref{eq:eikonalqp}.
 %	\item Evaluate the approximation $\hat{u}(x,y)$ using the weighted polynomials as $$\hat{u}(\bs{x},\bs{y}) = \tilde{\bs{P}}^{(\frac{3}{2},\frac{3}{2},\frac{3}{2})}(x,y)^T\bs{u},$$ for any $(x,y)\in\Tau^2$
 %\end{itemize}
-\\
-In the weighted basis, second partials acting on function modes can be constructed with the promotion and unweighted ladder operator as done in Section \ref{sec:weightedop}. 
-\begin{align}
-	\partial_{xx}f(x,y) &= \bs{P}^{(a,b,c)}(x,y)^T\Big( \mathcal{K}_{(a,b-1,c)}^{(a,b,c)}\mathcal{D}_{x,(a-1,b-1,c-1)}^{(a,b-1,c)}\mathcal{L}_{(a-1,b,c-1)}^{(a-1,b-1,c-1)}\mathcal{W}_{x,(a,b,c)}^{(a-1,b,c-1)}\bs{f}\Big),\\
-	\partial_{yy}f(x,y) &= \bs{P}^{(a,b,c)}(x,y)^T\Big( \mathcal{K}_{(a-1,b,c)}^{(a,b,c)}\mathcal{D}_{y,(a-1,b-1,c-1)}^{(a-1,b,c)}\mathcal{L}_{(a,b-1,c-1)}^{(a-1,b-1,c-1)}\mathcal{W}_{y,(a,b,c)}^{(a,b-1,c-1)}\bs{f}\Big),\\
-	\partial_{xy}f(x,y) &= \bs{P}^{(a,b,c)}(x,y)^T\Big(\mathcal{K}_{(a,b-1,c)}^{(a,b,c)}\mathcal{D}_{x,(a-1,b-1,c-1)}^{(a,b-1,c)}\mathcal{L}_{(a,b-1,c-1)}^{(a-1,b-1,c-1)}\mathcal{W}_{y,(a,b,c)}^{(a,b-1,c-1)}\bs{f}\Big)
-\end{align}
-
-
-$\Delta_W$, the weighted Laplace operator, is then given by
-\begin{equation}\label{eq:laptriweight}
-	\begin{split}
-		\Delta_W	&= \mathcal{K}_{(a,b-1,c)}^{(a,b,c)}\mathcal{D}_{x,(a-1,b-1,c-1)}^{(a,b-1,c)}\mathcal{L}_{(a-1,b,c-1)}^{(a-1,b-1,c-1)}\mathcal{W}_{x,(a,b,c)}^{(a-1,b,c-1)} \\
-		&+\mathcal{K}_{(a-1,b,c)}^{(a,b,c)}\mathcal{D}_{y,(a-1,b-1,c-1)}^{(a-1,b,c)}\mathcal{L}_{(a,b-1,c-1)}^{(a-1,b-1,c-1)}\mathcal{W}_{y,(a,b,c)}^{(a,b-1,c-1)}.
-	\end{split}
-\end{equation}
-The cross partial terms are needed only when we include affine transformations from general triangles to the standard reference triangle, as they appear when chaining out derivatives of the parametrization.
-\newpage
-\section{Quadrature generation for Jacobi polynomials on the Simplex}
+%\\
+%In the weighted basis, second partials acting on function modes can be constructed with the promotion and unweighted ladder operator as done in Section \ref{sec:weightedop}. 
+%\begin{align}
+%	\partial_{xx}f(x,y) &= \bs{P}^{(a,b,c)}(x,y)^T\Big( \mathcal{K}_{(a,b-1,c)}^{(a,b,c)}\mathcal{D}_{x,(a-1,b-1,c-1)}^{(a,b-1,c)}\mathcal{L}_{(a-1,b,c-1)}^{(a-1,b-1,c-1)}\mathcal{W}_{x,(a,b,c)}^{(a-1,b,c-1)}\bs{f}\Big),\\
+%	\partial_{yy}f(x,y) &= \bs{P}^{(a,b,c)}(x,y)^T\Big( \mathcal{K}_{(a-1,b,c)}^{(a,b,c)}\mathcal{D}_{y,(a-1,b-1,c-1)}^{(a-1,b,c)}\mathcal{L}_{(a,b-1,c-1)}^{(a-1,b-1,c-1)}\mathcal{W}_{y,(a,b,c)}^{(a,b-1,c-1)}\bs{f}\Big),\\
+%	\partial_{xy}f(x,y) &= \bs{P}^{(a,b,c)}(x,y)^T\Big(\mathcal{K}_{(a,b-1,c)}^{(a,b,c)}\mathcal{D}_{x,(a-1,b-1,c-1)}^{(a,b-1,c)}\mathcal{L}_{(a,b-1,c-1)}^{(a-1,b-1,c-1)}\mathcal{W}_{y,(a,b,c)}^{(a,b-1,c-1)}\bs{f}\Big)
+%\end{align}
+%
+%
+%$\Delta_W$, the weighted Laplace operator, is then given by
+%\begin{equation}\label{eq:laptriweight}
+%	\begin{split}
+%		\Delta_W	&= \mathcal{K}_{(a,b-1,c)}^{(a,b,c)}\mathcal{D}_{x,(a-1,b-1,c-1)}^{(a,b-1,c)}\mathcal{L}_{(a-1,b,c-1)}^{(a-1,b-1,c-1)}\mathcal{W}_{x,(a,b,c)}^{(a-1,b,c-1)} \\
+%		&+\mathcal{K}_{(a-1,b,c)}^{(a,b,c)}\mathcal{D}_{y,(a-1,b-1,c-1)}^{(a-1,b,c)}\mathcal{L}_{(a,b-1,c-1)}^{(a-1,b-1,c-1)}\mathcal{W}_{y,(a,b,c)}^{(a,b-1,c-1)}.
+%	\end{split}
+%\end{equation}
+%The cross partial terms are needed only when we include affine transformations from general triangles to the standard reference triangle, as they appear when chaining out derivatives of the parametrization.
+%\newpage
+\section{Quadrature generation for Jacobi polynomials on the Simplex}\label{sec:jquad}
 Here, we detail the procedure for generating quadrature rules on the simplex. That is, given $f:\Tau^d \to \bb{R}$, we seek a set of $N$ (d+1)-tuples $(\bs{X_1},\cdots,\bs{X_d},\bs{W})$ such that 
 \begin{equation}\label{eq:quaddef}
 	\begin{split}
@@ -585,7 +721,7 @@ to find roots of \eqref{eq:newtobj}, where $\alpha \in (0,1)$. As we show in Sec
 \begin{equation}\label{eq:newtsysvec}
 	\bs{z}^{k+1} = \bs{z}^k - \alpha [\mathcal{D}^2(\bs{F}(\bs{z^k}))]^{-1}\nabla(\bs{F}(\bs{z}^k)).
 \end{equation}
-\color{red} This iteration does not work well, as the Hessian for each component of the objective is not well conditioned, i.e. near singular. Using the convex problem is a better approach. \color{blue} However, the Gauss-Newton iteration gives rapid convergence towards the solution, albeit with violation of the constraints. It might be wise to use Gauss-Newton to further initialize the guess for the solution, before passing it to iteration \eqref{eq:newtsys}. \color{black} We also consider the Newton iteration for the equivalent problem of finding roots of the function $f:\bb{R}^{N\times (d+1)}\to \bb{R}$ defined by
+\color{red} This iteration does not work well, as the Hessian for each component of the objective is not well conditioned, i.e. near singular. Using the convex problem is a better approach. \color{blue} However, the Gauss-Newton iteration gives rapid convergence towards the solution, albeit with violation of the constraints. It might be wise to use Gauss-Newton to further initialize the guess for the solution, before passing it to iteration \eqref{eq:newtsys}. \color{black} We also consider the Newton iteration for the equivalent problem of finding roots of the function $f:\bb{R}^{N\times (d+1)}\to \bb{R}$ defined by 
 \begin{equation}\label{eq:newtobjscalar}
 	f(\bs{z}) := \frac{1}{2}||\bs{F}(\bs{z})||_2^2,
 \end{equation}	
