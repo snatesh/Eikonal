@@ -388,7 +388,10 @@ So far, this method is the fastest, and most accurate in terms of converging to 
 \end{figure}
 I would like to work-out the ETDRK2 method for this problem. It is specifically designed to allow larger time steps for stiff problems with a non-linear part, and exhibits second-order accuracy in time.
 \subsubsection{Pseudo-time relaxation with the ETDRK2 method}{}%
-We start by describing \texttt{ETDRK2} on a scalar semi-linear equation. Consider $$\frac{du}{dt} = Lu + Nu$$ with $u(\tau^n) = u^n$, L a scalar, and $N$ a nonlinear scalar valued function of $u$. The update proceeds in two stages, delineated below, where the time step size is $d\tau$.\\
+We start by describing \texttt{ETDRK2} on a scalar semi-linear equation. Consider 
+\begin{equation}\label{eq:eikreg_etdrk2_scalar}
+	\frac{du}{d\tau} = Lu + Nu
+\end{equation}with $u(\tau^n) = u^n$, L a scalar, and $N$ a nonlinear scalar valued function of $u$. The update proceeds in two stages, delineated below, where the time step size is $d\tau$.\\
 \begin{itemize}
 	\item[(i)] Compute the exponential step $$\phi_1 = e^{d\tau L}u^n$$
 	\item[(ii)] Evaluate the nonlinearity $$N_1 = N(u^n)$$
@@ -402,6 +405,45 @@ Above, $\varphi_1,\varphi_2$ are entire functions defined by
 	\varphi_1(z) &= \frac{e^z-1}{z} \label{eq:etdrk2_phi1_scalar}\\
 	\varphi_2(z) &= \frac{e^z-1-z}{z^2}\label{eq:etdrk2_phi2_scalar}.
 \end{align}
+Now, when we move to the DAE system \eqref{eq:eikreg_trel}, several issues arise. To examine these issues, let's express the system in the form of \eqref{eq:eikreg_etdrk2_scalar};
+\begin{equation}\label{eq:eikreg_etdrk2_vector}
+	\begin{split}
+	\frac{d\bs{U}}{d\tau} &= L\bs{U} + \tilde{\bs{N}}(\bs{U}), \quad L = -\xi\mathcal{K},\s \tilde{\bs{N}}(\bs{U}) = \bs{F}-\bs{N}(\bs{U})\\
+	B_{\text id} \bs U &= \bs{G}_{\text{bc}}.
+	\end{split}
+\end{equation}
+Above, we have simply absorbed the negative signs and load function. If $L$ were invertible, then \eqref{eq:etdrk2_phi1_scalar}-\eqref{eq:etdrk2_phi2_scalar} have clear generalization for matrix-valued input, involving the inverse of $L$. However, we know that $\mathcal{K}$ is always rank degenerate in our formulation. The derivative of the constant polynomial is 0, so the first row and column of $\mathcal{K}$ is 0. Hence, we must turn to the power-series definition of matrix valued functions. For $\varphi_1,\varphi_2$, this is
+\begin{align*}
+\varphi_1(z) &= \sum_{k=1}^\infty \frac{z^k}{(k+1)!} \Rightarrow \varphi_1(d\tau L) = \sum_{k=1}^\infty \frac{(d\tau L)^k}{(k+1)!},\\
+\varphi_2(z) &= \sum_{k=1}^\infty \frac{z^k}{(k+2)!} \Rightarrow \varphi_2(d\tau L) = \sum_{k=1}^\infty \frac{(d\tau L)^k}{(k+2)!}.
+\end{align*}
+The convergence of these matrix-valued series is guaranteed if $||d\tau L|| < 1$. For a fixed, $\xi$, this gives us a condition for selecting the timestep:
+\begin{equation}\label{eq:etdrk2_tstep_sel}
+	d\tau < \frac{1}{\xi ||\mathcal{K}||}
+\end{equation}
+In practice, we only compute the action of $\varphi_j(d\tau L)$ on vectors, as in steps (iii) and (iv) of the \texttt{ETRDK2} method, and sum these mat-vecs term by term in the series. Another issue which arises concerns constraint enforcement at each step. The exponential matrix-valued functions will not, in general, preserve constraint enforcement. Hence, we must project the intermediate solutions at each stage onto the nullspace of the constraint matrix $B_{\text{id}}$. To construct an orthogonal projector onto $\text{Null}(B_{\text{id}})$, we begin with a few definitions. An orthogonal projector $P \in \bb{R}^{n\times n}$ satisfies 
+\begin{align}
+	\text{(idempotence) } P^2 &= P\\
+	\text{(symmetry) } P^T &= P.
+\end{align} 
+Suppose $P_V$ is an orthogonal projector onto subspace $V$. Let  $V^\perp = \{x \in \bb{R}^n | x \perp y \s \forall y \in V\}$ be the orthogonal complement of $V$. Then, $\forall x \in \bb{R}^n$, and any $y\in V$ observe that 
+\begin{align*}
+	\langle y, (I- P_V)x\rangle  &= \langle y,x \rangle  - \langle y,P_Vx\rangle  \\ 
+	&= \langle y,x \rangle - \langle P_V y, x \rangle \\
+	&= \langle y,x \rangle - \langle y, x\rangle\\
+	&= 0.
+\end{align*}
+Thus, $(I-P_V)x \in V^\perp$. Moreover, 
+\begin{align*}
+(I-P_V)(I-P_V) &= I - 2P_V + P_V^2 = I - P_V, \\
+(I-P_V)^T &= (I-P_V^T) = I-P_V,
+\end{align*}
+implies that $(I-P_V)$ is an orthogonal projector onto $V^\perp$. We also consider one of the results from the fundamental theorem of linear algebra. Suppose $x \in \text{Null}(B)$. Then $Bx = 0$. Consider $y \in \text{Row}(B)$. Then $y = B^T z$ for some $z \in \bb{R}^n$. We see that $$\langle x,y\rangle = \langle x,B^T z \rangle = \langle Bx, z \rangle = 0,$$ which implies $x \in (\text{Row}(B))^\perp$. Now, let $x \in (\text{row}(B))^\perp$. For any $y \in \bb{R}^n$,
+\begin{align*}
+0 &= \langle x, B^T y \rangle = \langle Bx,y\rangle.
+\end{align*}
+If $Bx$ is orthogonal to every $y \in \bb{R}^n$, then, $Bx = 0$, and $x \in \text{Null}(B)$. Overall, we have $$ \text{Null}(B) = (\text{Row}(B))^\perp.$$
+So, for our case, we want an orthogonal projector $P_V$ onto $V = \text{Null}(B_\text{id})$. We can construct such a projector by first building $P_W$, which projects orthogonally onto $W = \text{Row}(B_{\text{id}})$. Then, $P_V = I - P_W$, since $W^\perp = \text{Null}(B_{\text{id}})$. We derive the first projector, for completeness sake, by considering $$\min_{x \in \bb{R}^{n_\lambda}} ||B_{\text{id}}^T x - y||^2$$ for arbitrary $y \in \bb{R}^{MN_T}$. This is a standard quadratic minimization problem, and since $B_{\text{id}}$ has full row-rank $n_\lambda$, the necessary condition for a minimizer reads $$\frac{d}{dx} ||y - B_{\text{id}}^T x||^2 = -2B_{\text{id}}(y - B_{\text{id}}^T x) = 0 \Rightarrow x = (B_{\text{id}}B_{\text{id}}^T)^{-1} B y.$$ So, the projector of $y$ orthogonally onto $\text{Row}(B_{\text{id}})$ is $$P_W = B_{\text{id}}^T (B_{\text{id}}B_{\text{id}})^{-1}B$$
 \newpage
 %\subsection{A variational approach (NEW)}
 %Let's try framing the problem from the perspective of infinite dimensional optimization. Thus far, my efforts have fallen under the discretize-then-optimize approach for solving non-linear PDEs. So, let's flip that and consider the optimize-then-discretize approach. The first order conditions for optimality of the functional may serve as a way to initialize the problem for the discretized non-linear optimization call. We want to solve
