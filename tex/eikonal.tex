@@ -359,8 +359,8 @@ Then, a newton iteration which respects the boundary and inter-element continuit
 	\item[(v)] Repeat from step (iii) until the residual norm is less than \texttt{tol}.
 \end{itemize}
 This approach works for viscosity parameter $\xi\sim \mathcal{O}(1e2)$, but is rather unstable for smaller $\xi$. This holds true even if we use homotopic continuation methods, where we have a loop wrapping around the Newton method which starts with $\xi = 0.1$, decreases $\xi$ when the residual tolerance is met, and repeats with the solution for the previous $\xi$ as the initial guess for the Newton iteration. I found that as $\xi \to 0$, the magnitude of solution modes across the spectrum ``lifts" up. This means that $\xi \nabla^2 u$ serves as a smoothing operator on high frequency solution components, and decreasing $\xi$ too much results in a degenerate weak form. The Newton step will have many null components in modal directions that don't affect the residual, and the new direction drifts into moving the higher-energy non-physical directions (higher degree modes). This takes us away from the correct viscosity limit. 
-\subsubsection{Pseudo-time relaxation}
-The second approach is one in which we reduce the residual by casting the problem as a system of ordinary differential algebraic equations with a fictitious time parameter $\tau$. We write
+\subsubsection{Pseudo-time relaxation with an IMEX method}
+The second approach is one in which we reduce the residual by casting the problem as a system of first-order ordinary differential algebraic equations with a fictitious time parameter $\tau$. We write
 \begin{equation}\label{eq:eikreg_trel}
 	\partial_\tau\bs{U} = -\bs{R}(\bs{U},\bs{\Lambda}),
 \end{equation}
@@ -387,6 +387,21 @@ So far, this method is the fastest, and most accurate in terms of converging to 
 	\caption{Solution to \eqref{eq:eikreg} after 100 timesteps, with $\Delta\tau = 0.01$, $\xi = 0.01$ on the unit square $[0,1]^2$ discretized with two triangles.}
 \end{figure}
 I would like to work-out the ETDRK2 method for this problem. It is specifically designed to allow larger time steps for stiff problems with a non-linear part, and exhibits second-order accuracy in time.
+\subsubsection{Pseudo-time relaxation with the ETDRK2 method}{}%
+We start by describing \texttt{ETDRK2} on a scalar semi-linear equation. Consider $$\frac{du}{dt} = Lu + Nu$$ with $u(\tau^n) = u^n$, L a scalar, and $N$ a nonlinear scalar valued function of $u$. The update proceeds in two stages, delineated below, where the time step size is $d\tau$.\\
+\begin{itemize}
+	\item[(i)] Compute the exponential step $$\phi_1 = e^{d\tau L}u^n$$
+	\item[(ii)] Evaluate the nonlinearity $$N_1 = N(u^n)$$
+	\item[(iii)] Midpoint update $$\Phi_2 = \phi_1 + d\tau \varphi(d\tau L)N_1$$
+	\item[(iv)] Evaluate nonlinearity at midpoint $$N_2 = N(\Phi_2)$$
+	\item[(v)] Final update
+	$$u^{n+1} = \phi_1 + d\tau \varphi_1(d\tau L)N_1 + d\tau \varphi_2(d\tau L)(N_2-N_1)$$
+\end{itemize}
+Above, $\varphi_1,\varphi_2$ are entire functions defined by
+\begin{align}
+	\varphi_1(z) &= \frac{e^z-1}{z} \label{eq:etdrk2_phi1_scalar}\\
+	\varphi_2(z) &= \frac{e^z-1-z}{z^2}\label{eq:etdrk2_phi2_scalar}.
+\end{align}
 \newpage
 %\subsection{A variational approach (NEW)}
 %Let's try framing the problem from the perspective of infinite dimensional optimization. Thus far, my efforts have fallen under the discretize-then-optimize approach for solving non-linear PDEs. So, let's flip that and consider the optimize-then-discretize approach. The first order conditions for optimality of the functional may serve as a way to initialize the problem for the discretized non-linear optimization call. We want to solve

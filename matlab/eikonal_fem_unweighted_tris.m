@@ -6,12 +6,12 @@ R = importdata("../bin/xtri_N496_n30_M1378_m51.txt");
 S = importdata("../bin/ytri_N496_n30_M1378_m51.txt");
 W = importdata("../bin/wtri_N496_n30_M1378_m51.txt");
 
-%DT = delaunayTriangulation([0 0; 1 0; 1 1; 0 1; 0.5 0.25; 0.5 0.75]);
+DT = delaunayTriangulation([0 0; 1 0; 1 1; 0 1; 0.5 0.25; 0.5 0.75]);
 %DT = delaunayTriangulation([0 0; 1 0; 0 1; 0.5 0.25; 0.5 0.75]);
 
 %DT = delaunayTriangulation([0 0; 1 0; 0 1]);
 %DT = delaunayTriangulation([0 0; 1 0; 1 1]);
-DT = delaunayTriangulation([0 0; 1 0; 1 1; 0 1]);
+%DT = delaunayTriangulation([0 0; 1 0; 1 1; 0 1]);
 %DT = delaunay_unit_square(3);
 %DT = annulus();
 %DT = delaunay_disk(20,3);
@@ -21,7 +21,7 @@ nTri = size(meshT,1);
 
 
 % there are M total polys
-m = 16; n = m+1; M = n*(n+1)/2;
+m = 10; n = m+1; M = n*(n+1)/2;
 speed = 1;
 % manufactured sol and corresponding dirchlet data/rhs
 udirch = @(x,y) zeros(size(x));
@@ -77,8 +77,13 @@ cu = Amat \ Fvec;
             scatter3(X,Y,u_sol,'.'); hold on;
         end
 %% ETDRK2
-
-
+dt = 0.1;
+xi = 0.001;
+u = cu;
+[N_glb, ~] = assemble_eik_nonlin_unweighted(u, M, W, xi, ...
+                                            V_abc, dPdP, ...
+                                            meshT, meshP, K_glb);
+[Vm, Hm] = arnoldi_iteration(dt*xi*K_glb, N_glb, 1e-3);
 
 %% IMEX 
 xi = 0.01;
