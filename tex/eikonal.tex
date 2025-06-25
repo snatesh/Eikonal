@@ -386,12 +386,12 @@ So far, this method is the fastest, and most accurate in terms of converging to 
 	\includegraphics[width=0.75\linewidth]{./square_sol1.png}
 	\caption{Solution to \eqref{eq:eikreg} after 100 timesteps, with $\Delta\tau = 0.01$, $\xi = 0.01$ on the unit square $[0,1]^2$ discretized with two triangles.}
 \end{figure}
-I would like to work-out the ETDRK2 method for this problem. It is specifically designed to allow larger time steps for stiff problems with a non-linear part, and exhibits second-order accuracy in time.
+
 \subsubsection{Pseudo-time relaxation with the ETDRK2 method}{}%
-We start by describing \texttt{ETDRK2} on a scalar semi-linear equation. Consider 
+We start by describing \texttt{ETDRK2} on a scalar semi-linear equation;
 \begin{equation}\label{eq:eikreg_etdrk2_scalar}
-	\frac{du}{d\tau} = Lu + Nu
-\end{equation}with $u(\tau^n) = u^n$, L a scalar, and $N$ a nonlinear scalar valued function of $u$. The update proceeds in two stages, delineated below, where the time step size is $d\tau$.\\
+	\frac{du}{d\tau} = Lu + Nu,
+\end{equation}with $u(\tau^n) = u^n$, L a scalar, and $N$ a nonlinear scalar valued function of $u$. The \texttt{ETDRK2} temporal integrator is specifically designed to allow larger time steps for stiff problems with a non-linear part, and exhibits second-order accuracy in time. The update proceeds in two stages, delineated below, where the time step size is $d\tau$.\\
 \begin{itemize}
 	\item[(i)] Compute the exponential step $$\phi_1 = e^{d\tau L}u^n$$
 	\item[(ii)] Evaluate the nonlinearity $$N_1 = N(u^n)$$
@@ -461,11 +461,11 @@ At this point, we have all the pieces in place to fully specify an ETRDK2 integr
 	\item[(iv)] Evaluate nonlinearity at midpoint $$\bs{N}_2 = \tilde{\bs{N}}(\Phi_2)$$
 	\item[(v)] Final update and projection 
 	\begin{align*}
-	\bs{U}^{n+1} &= P_V\Bigg(\bs{\Phi}_1 + d\tau \varphi_1(d\tau L)\bs{N}_1 + d\tau \varphi_2(d\tau L)(\bs{N}_2-\bs{N}_1)\Bigg)\\
-	&\approx P_V \Bigg(\bs{\Phi}_1 + d\tau \sum_{k=0}^{N_{\text{tay}}} \frac{(d\tau L)^k\bs{N}_1}{(k+1)!} + d\tau \sum_{k=0}^{N_{\text{tay}}} \frac{(d\tau L)^k (\bs{N}_2-\bs{N}_1)}{(k+2)!}\Bigg)
+	\bs{U}^{n+1} &= \bs{\Phi}_2 + P_V\Bigg(d\tau \varphi_2(d\tau L)(\bs{N}_2-\bs{N}_1)\Bigg)\\
+	&\approx \bs{\Phi}_2 + P_V \Bigg(d\tau \sum_{k=0}^{N_{\text{tay}}} \frac{(d\tau L)^k (\bs{N}_2-\bs{N}_1)}{(k+2)!}\Bigg)
 	\end{align*}
 \end{itemize}
-At stages (i),(iii), and (v) of the method, we truncate the infinte-series expansion for the matrix exponential functions to $N_{\text{tay}}$ terms, which will be determined numerically by terminating the sum when the next term is within some tolerance.
+At stages (i),(iii), and (v) of the method, we truncate the infinte-series expansion for the matrix exponential functions to $N_{\text{tay}}$ terms, which is determined numerically by terminating the sum when the next term is within some tolerance.
 \newpage
 %\subsection{A variational approach (NEW)}
 %Let's try framing the problem from the perspective of infinite dimensional optimization. Thus far, my efforts have fallen under the discretize-then-optimize approach for solving non-linear PDEs. So, let's flip that and consider the optimize-then-discretize approach. The first order conditions for optimality of the functional may serve as a way to initialize the problem for the discretized non-linear optimization call. We want to solve

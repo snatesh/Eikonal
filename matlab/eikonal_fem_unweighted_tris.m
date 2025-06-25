@@ -6,22 +6,22 @@ R = importdata("../bin/xtri_N496_n30_M1378_m51.txt");
 S = importdata("../bin/ytri_N496_n30_M1378_m51.txt");
 W = importdata("../bin/wtri_N496_n30_M1378_m51.txt");
 
-DT = delaunayTriangulation([0 0; 1 0; 1 1; 0 1; 0.5 0.25; 0.5 0.75]);
+%DT = delaunayTriangulation([0 0; 1 0; 1 1; 0 1; 0.5 0.25; 0.5 0.75]);
 %DT = delaunayTriangulation([0 0; 1 0; 0 1; 0.5 0.25; 0.5 0.75]);
 
 %DT = delaunayTriangulation([0 0; 1 0; 0 1]);
 %DT = delaunayTriangulation([0 0; 1 0; 1 1]);
 %DT = delaunayTriangulation([0 0; 1 0; 1 1; 0 1]);
-%DT = delaunay_unit_square(3);
+%DT = delaunay_unit_square(2);
 %DT = annulus();
-%DT = delaunay_disk(20,3);
+DT = delaunay_disk(10,3);
 meshT = DT.ConnectivityList;
 meshP = DT.Points';
 nTri = size(meshT,1);
 
 
 % there are M total polys
-m = 10; n = m+1; M = n*(n+1)/2;
+m = 8; n = m+1; M = n*(n+1)/2;
 speed = 1;
 % manufactured sol and corresponding dirchlet data/rhs
 udirch = @(x,y) zeros(size(x));
@@ -64,6 +64,98 @@ Gbc = Gbc(II(1:nLambda));
 Fvec = [F_glb;Gbc];
 % solve for solution modes on each tri
 cu = Amat \ Fvec;
+for iTri = 1:nTri
+    Pts_Ti = meshP(:,meshT(iTri,:));
+    Ixe = IncidenceMatrix(Pts_Ti);
+    detJ = det(Ixe);
+    XYe = (Ixe * [R,S]' + Pts_Ti(:,1))';
+    X = XYe(:,1);
+    Y = XYe(:,2);
+    %T = delaunay(X,Y);
+    cu_abc = cu((iTri-1)*M+1:M*iTri);
+    u_sol = V_abc*cu_abc;
+    scatter3(X,Y,u_sol,'.'); hold on;
+end
+
+%% ETDRK2
+
+% sim params
+xi = 0.01; dtfac = 0.8;
+dt = dtfac/(xi*norm(K_glb));
+dt_max = 10000;
+% DAE system
+Netd = @(F,N) F-N;
+Letd = sparse(dt*(-xi*K_glb)); % use block sparse storage
+% num taylor terms and tol for matrix exp, etdrk2 loop
+Ntay_max = 30; 
+tay_tol = 1e-15; 
+step_tol = 1e-6;
+res_tol = 1e-10;
+cnstr_tol = 1e-13;
+% constraint projector
+Pv = eye(M*nTri) - BB_id'*((BB_id*BB_id')\BB_id);
+
+% etdrk2 loop
+sol_history = zeros(M*nTri,dt_max+1);
+res_history = zeros(dt_max+1,1);
+u = cu(1:M*nTri); sol_history(:,1) = u;
+% initial residual
+[Nu, ~] = assemble_eik_nonlin_unweighted(u, M, W, xi, ...
+                                         V_abc, dPdP, ...
+                                         meshT, meshP, K_glb);
+R_u = Netd(F_glb,Nu) + (1/dt)*Letd*u;
+% solve for lagrange multipliers in least-squares
+% to reconstruct the correct residual
+Lambda = -(BB_id*BB_id')\(BB_id * R_u);
+res_norm = norm(R_u + BB_id'*Lambda);
+res_history(1) = res_norm;
+
+for tstep = 1:dt_max
+    % (i) exp step and projection
+    phi0 = phij_etd(0,Letd,u(1:M*nTri),tay_tol,Ntay_max);
+    Phi1 = Pv*phi0;
+    % (ii) evaluate nonlinearity
+    [N_glb1, ~] = assemble_eik_nonlin_unweighted(u, M, W, xi, ...
+                                            V_abc, dPdP, ...
+                                            meshT, meshP, K_glb);
+    N1 = Netd(F_glb,N_glb1);
+    % (iii) midpoint update and projection
+    phi2 = Phi1 + dt*phij_etd(1,Letd,N1,tay_tol,Ntay_max);
+    Phi2 = Pv*phi2;
+    % (iv) evaluate nonlinearity at midpoint
+    [N_glb2, ~] = assemble_eik_nonlin_unweighted(Phi2, M, W, xi, ...
+                                            V_abc, dPdP, ...
+                                            meshT, meshP, K_glb);    
+    N2 = Netd(F_glb,N_glb2);
+    % (v) final update end projection
+    u = Phi2 + Pv*(dt*phij_etd(2,Letd,N2-N1,tay_tol,Ntay_max));
+    sol_history(:,tstep+1) = u;
+    step_delta = norm(sol_history(:,tstep)-sol_history(:,tstep+1))/norm(sol_history(:,tstep));
+    [Nu, ~] = assemble_eik_nonlin_unweighted(u, M, W, xi, ...
+                                             V_abc, dPdP, ...
+                                             meshT, meshP, K_glb);
+    R_u = Netd(F_glb,Nu) + (1/dt)*Letd*u;
+    % solve for lagrange multipliers in least-squares
+    % to reconstruct the correct residual
+    Lambda = -(BB_id*BB_id')\(BB_id * R_u);
+    res_norm = norm(R_u + BB_id'*Lambda);
+    res_history(tstep+1) = res_norm;
+    if res_history(tstep+1) > res_history(tstep)
+        fprintf(" global residual increase. terminating.\n")
+        u = sol_history(:,tstep);
+        break;
+    end
+    cnstr_res = BB_id * u;
+    cnstr_norm = norm(cnstr_res);
+    fprintf("  Relative Δu: %.2e, Residual: %.2e, Constraint: %.2e\n", ...
+            step_delta, res_norm, cnstr_norm);    
+    % Check convergence
+    if (step_delta < step_tol || res_norm < res_tol) && cnstr_norm < cnstr_tol
+        fprintf(">>> Converged at step %d.\n", tstep);
+        break;
+    end
+
+    if ~rem(tstep,10)
         for iTri = 1:nTri
             Pts_Ti = meshP(:,meshT(iTri,:));
             Ixe = IncidenceMatrix(Pts_Ti);
@@ -72,29 +164,28 @@ cu = Amat \ Fvec;
             X = XYe(:,1);
             Y = XYe(:,2);
             %T = delaunay(X,Y);
-            cu_abc = cu((iTri-1)*M+1:M*iTri);
+            cu_abc = u((iTri-1)*M+1:M*iTri);
             u_sol = V_abc*cu_abc;
-            scatter3(X,Y,u_sol,'.'); hold on;
+            %trisurf(T,X,Y,u_sol); hold on;
+            scatter3(X,Y,u_sol); hold on;
         end
-%% ETDRK2
-dt = 0.1;
-xi = 0.001;
-u = cu;
-[N_glb, ~] = assemble_eik_nonlin_unweighted(u, M, W, xi, ...
-                                            V_abc, dPdP, ...
-                                            meshT, meshP, K_glb);
-[Vm, Hm] = arnoldi_iteration(dt*xi*K_glb, N_glb, 1e-3);
+        drawnow;
+        hold off;
+    end
+end
+
+
 
 %% IMEX 
-xi = 0.01;
-dt = 0.01;
-dt_factor = 2;
+%dt = 0.01;
+%dt_factor = 2;
 max_tstep = 100;
 tol = 1e-7;
 LHS = [eye(M*nTri) + dt*xi*K_glb BB_id';...
     BB_id zeros(nLambda)];
 % get current residual
-u = cu;
+%u = cu;
+u = [u; zeros(nLambda,1)];
 [N_glb, ~] = assemble_eik_nonlin_unweighted(u, M, W, xi, ...
                                             V_abc, dPdP, ...
                                             meshT, meshP, K_glb);
@@ -122,38 +213,30 @@ for tstep = 1:max_tstep
     if norm(u - sol) / max(norm(u), 1e-14) < tol
         break;
     end
-
-    %if res_new < res_curr
-        fprintf('accept step\n');
-        u = sol;
+    if res_new < res_curr
         res_curr = res_new;
-        for iTri = 1:nTri
-            Pts_Ti = meshP(:,meshT(iTri,:));
-            Ixe = IncidenceMatrix(Pts_Ti);
-            detJ = det(Ixe);
-            XYe = (Ixe * [R,S]' + Pts_Ti(:,1))';
-            X = XYe(:,1);
-            Y = XYe(:,2);
-            %T = delaunay(X,Y);
-            cu_abc = u((iTri-1)*M+1:M*iTri);
-            u_sol = V_abc*cu_abc;
-            scatter3(X,Y,u_sol); hold on;
-        end
-        drawnow;
-        hold off;
-    % else
-    %     fprintf('step rejected. (res_new-res_old)=%.3e\n',abs(res_new-res_curr)')
-    %     break;
-    %     %dt = dt*dt_factor;
-    %     %if (dt < 1e-8)
-    %     %    fprintf('dt no longer reducible. (res_new-res_old)=%.3e\n',abs(res_new-res_curr));
-    %     %    break;
-    %     %end
-    %     % reassemble sys mat with new dt
-    %     %LHS = [eye(M*nTri) + dt*xi*K_glb BB_id';...
-    %     %       BB_id zeros(nLambda)];
-    % 
-    % end
+        u = sol;
+    else
+        fprintf('increase in global residual. terminating\n')
+        break;
+    end
+    for iTri = 1:nTri
+        Pts_Ti = meshP(:,meshT(iTri,:));
+        Ixe = IncidenceMatrix(Pts_Ti);
+        detJ = det(Ixe);
+        XYe = (Ixe * [R,S]' + Pts_Ti(:,1))';
+        X = XYe(:,1);
+        Y = XYe(:,2);
+        %T = delaunay(X,Y);
+        cu_abc = u((iTri-1)*M+1:M*iTri);
+        u_sol = V_abc*cu_abc;
+        %trisurf(T,X,Y,u_sol); hold on;
+        scatter3(X,Y,u_sol); hold on;
+    end
+    drawnow;
+    hold off;
+    
+
 end
 
 %% Backward euler (with newton inner loop for implicit solve)
@@ -335,6 +418,7 @@ end
 
 
 %% straight forward newton iteration
+cu = [u; zeros(nLambda,1)];
 [N_glb,H_glb] = assemble_eik_nonlin_unweighted(cu,M,W,xi,...
                                        V_abc, dPdP,...
                                        meshT,meshP,K_glb);
@@ -441,7 +525,7 @@ function DT_annulus = annulus()
 % Parameters
 r_inner = 0.5;
 r_outer = 1.0;
-numPoints = 50;
+numPoints = 100;
 
 % Generate points uniformly in the annulus
 points = [];
