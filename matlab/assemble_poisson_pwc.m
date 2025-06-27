@@ -10,14 +10,15 @@ function [K_glb,Bint_glb,Bdirch_glb,...
                                           Rh_flip,Sh_flip,wleg,...
                                           V_abc,dxP,dyP,Vl,Vb,Vh,...
                                           Vl_flip,Vb_flip,Vh_flip,...
-                                          rhs,udirch,DT)
+                                          rhs,udirch,DT, mode, varargin)
 
 
 % get mesh points, connectivity list
 % as well as interior/bndry edges
 % and map taking shared edge to the two triangles which share it
 [meshP,meshT,intEdges,bndEdges,sharedEdge_tri_map,bndEdge_tri_map] = process_mesh(DT);
-
+% jacobi poly params
+a = 1/2; b = a; c = a;
 % number of triangles in mesh
 nTri = size(meshT,1);
 % total number of polynomials
@@ -93,71 +94,108 @@ end
 % now we loop over boundary edges
 % to assemble dirichlet bc matrix
 % handling one boundary edge at a time
-for ibndedge = 1:nbndEdge
-  iTri = bndEdge_tri_map(ibndedge);
+if mode == 0
+  for ibndedge = 1:nbndEdge
+    iTri = bndEdge_tri_map(ibndedge);
+    Pts_Ti = meshP(:,meshT(iTri,:));
+    J = IncidenceMatrix(Pts_Ti);
+    % boundary quadrature points mapped to physical tri
+    XYl = (J * [Rl,Sl]' + Pts_Ti(:,1))';
+    XYb = (J * [Rb,Sb]' + Pts_Ti(:,1))';
+    XYh = (J * [Rh,Sh]' + Pts_Ti(:,1))';
+    XYl_flip = (J * [Rl_flip,Sl_flip]' + Pts_Ti(:,1))';
+    XYb_flip = (J * [Rb_flip,Sb_flip]' + Pts_Ti(:,1))';
+    XYh_flip = (J * [Rh_flip,Sh_flip]' + Pts_Ti(:,1))';
+    % get edges of triangle, sorted to match bndry/int Edge lookup
+    edgesT = sort([meshT(iTri, [1,2]);...
+                   meshT(iTri, [2,3]);...
+                   meshT(iTri, [3,1])],2);
+    tol = 1e-13;
+    V = 0; g = 0; % dirichlet values on bndry
+    for iedge = 1:3
+      if all(edgesT(iedge,:) == bndEdges(ibndedge,:))
+        % get endpts
+        ve = meshP(:,edgesT(iedge,:));
+        % get parametric coords of endpt
+        rve = J\(ve-Pts_Ti(:,1));
+        % bottom and flip
+        if (norm(rve(:,1) - [0;0]) < tol && norm(rve(:,2) - [1;0]) < tol)
+            g = udirch(XYb(:,1),XYb(:,2));
+            V = Vb;
+        elseif (norm(rve(:,1) - [1;0]) < tol && norm(rve(:,2) - [0;0]) < tol)
+            g = udirch(XYb_flip(:,1),XYb_flip(:,2));
+            V = Vb_flip;
+        % hyp and flip
+        elseif (norm(rve(:,1) - [1;0]) < tol && norm(rve(:,2) - [0;1]) < tol)
+            flips = false;
+            hyp = true;
+            g = udirch(XYh(:,1),XYh(:,2));
+            V = Vh;
+        elseif (all(rve(:,1) - [0;1]) < tol && norm(rve(:,2) - [1;0]) < tol)
+            flips = true;
+            hyp = true;
+            g = udirch(XYh_flip(:,1),XYh_flip(:,2));
+            V = Vh_flip;
+        % left and flip
+        elseif (norm(rve(:,1) - [0;1]) < tol && norm(rve(:,2) - [0;0]) < tol)
+            flips = false;
+            left = true;
+            g = udirch(XYl(:,1),XYl(:,2));
+            V = Vl;
+        elseif (norm(rve(:,1) - [0;0]) < tol && norm(rve(:,2) - [0;1]) < tol)
+            flips = true;
+            left = true;
+            g = udirch(XYl_flip(:,1),XYl_flip(:,2));
+            V = Vl_flip;
+        end
+        break;
+      else
+        continue;
+      end
+    end
+    % now save to global dirichlet matrix
+    Bdirch_glb((ibndedge-1)*nleg+1:ibndedge*nleg,(iTri-1)*M+1:M*iTri) = V;
+    % save dirichlet condition to global Gdirch
+    G_glb((ibndedge-1)*nleg+1:ibndedge*nleg) = g;
+  
+  end
+elseif mode == 1 %single goal point
+  % get the goal point
+  goal = varargin{1};
+  % strucutre factors
+  H_abc = varargin{2};
+  % global dirichlet
+  Bdirch_glb = zeros(1,M*nTri);
+  % global dirichlet load
+  G_glb = zeros(1,1);
+  % find triangle containing goal
+  iTri = pointLocation(DT, goal);  
+  if isnan(iTri)
+      error('Goal point is outside the mesh.');
+  end
   Pts_Ti = meshP(:,meshT(iTri,:));
   J = IncidenceMatrix(Pts_Ti);
-  % boundary quadrature points mapped to physical tri
-  XYl = (J * [Rl,Sl]' + Pts_Ti(:,1))';
-  XYb = (J * [Rb,Sb]' + Pts_Ti(:,1))';
-  XYh = (J * [Rh,Sh]' + Pts_Ti(:,1))';
-  XYl_flip = (J * [Rl_flip,Sl_flip]' + Pts_Ti(:,1))';
-  XYb_flip = (J * [Rb_flip,Sb_flip]' + Pts_Ti(:,1))';
-  XYh_flip = (J * [Rh_flip,Sh_flip]' + Pts_Ti(:,1))';
-  % get edges of triangle, sorted to match bndry/int Edge lookup
-  edgesT = sort([meshT(iTri, [1,2]);...
-                 meshT(iTri, [2,3]);...
-                 meshT(iTri, [3,1])],2);
+  % get parametric coords of goal
+  rsgoal = J\(goal'-Pts_Ti(:,1));
   tol = 1e-13;
-  V = 0; g = 0; % dirichlet values on bndry
-  for iedge = 1:3
-    if all(edgesT(iedge,:) == bndEdges(ibndedge,:))
-      % get endpts
-      ve = meshP(:,edgesT(iedge,:));
-      % get parametric coords of endpt
-      rve = J\(ve-Pts_Ti(:,1));
-      % bottom and flip
-      if (norm(rve(:,1) - [0;0]) < tol && norm(rve(:,2) - [1;0]) < tol)
-          g = udirch(XYb(:,1),XYb(:,2));
-          V = Vb;
-      elseif (norm(rve(:,1) - [1;0]) < tol && norm(rve(:,2) - [0;0]) < tol)
-          g = udirch(XYb_flip(:,1),XYb_flip(:,2));
-          V = Vb_flip;
-      % hyp and flip
-      elseif (norm(rve(:,1) - [1;0]) < tol && norm(rve(:,2) - [0;1]) < tol)
-          flips = false;
-          hyp = true;
-          g = udirch(XYh(:,1),XYh(:,2));
-          V = Vh;
-      elseif (all(rve(:,1) - [0;1]) < tol && norm(rve(:,2) - [1;0]) < tol)
-          flips = true;
-          hyp = true;
-          g = udirch(XYh_flip(:,1),XYh_flip(:,2));
-          V = Vh_flip;
-      % left and flip
-      elseif (norm(rve(:,1) - [0;1]) < tol && norm(rve(:,2) - [0;0]) < tol)
-          flips = false;
-          left = true;
-          g = udirch(XYl(:,1),XYl(:,2));
-          V = Vl;
-      elseif (norm(rve(:,1) - [0;0]) < tol && norm(rve(:,2) - [0;1]) < tol)
-          flips = true;
-          left = true;
-          g = udirch(XYl_flip(:,1),XYl_flip(:,2));
-          V = Vl_flip;
-      end
-      break;
-    else
-      continue;
-    end
+  if abs(rsgoal(2)) < tol && rsgoal(1) >= 0 && rsgoal(1) <= 1
+    edge_id = 1;  % bottom edge
+    Rg = rsgoal(1); Sg = 0;
+  elseif abs(rsgoal(1) + rsgoal(2) - 1) < tol && all(rsgoal >= 0)
+    edge_id = 2;  % hypotenuse
+    Rg = rsgoal(1); Sg = rsgoal(2);
+  elseif abs(rsgoal(1)) < tol && rsgoal(2) >= 0 && rsgoal(2) <= 1
+    edge_id = 3;  % left edge
+    Rg = 0; Sg = rsgoal(2);
+  else
+      error('Goal point does not lie on any reference edge of this triangle.');
   end
-  % now save to global dirichlet matrix
-  Bdirch_glb((ibndedge-1)*nleg+1:ibndedge*nleg,(iTri-1)*M+1:M*iTri) = V;
-  % save dirichlet condition to global Gdirch
-  G_glb((ibndedge-1)*nleg+1:ibndedge*nleg) = g;
-
+  % evaluate basis at goal point 
+  V = jPoly_tri(Rg,Sg,H_abc,n-1,a,b,c);
+  g = udirch(goal(1),goal(2));
+  Bdirch_glb(1,(iTri-1)*M+1:M*iTri) = V;
+  G_glb = g;
 end
-
 
 
 % now we loop over shared edges 

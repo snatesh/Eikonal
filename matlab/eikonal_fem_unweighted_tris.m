@@ -14,12 +14,73 @@ W = importdata("../bin/wtri_N496_n30_M1378_m51.txt");
 %DT = delaunayTriangulation([0 0; 1 0; 1 1; 0 1]);
 %DT = delaunay_unit_square(2);
 %DT = annulus();
-DT = delaunay_disk(10,3);
+%DT = delaunay_disk(10,3);
+DT = delaunay_square_with_hole();
+
 meshT = DT.ConnectivityList;
 meshP = DT.Points';
 nTri = size(meshT,1);
+triplot(DT);
 
+m = 8; n = m+1; M = n*(n+1)/2; nquad = length(W);
+goal = [-1,-0.4];
 
+% normalization under (a,b,c), (a+1,b,c) etc.
+H_abc = structure_factors_tri(n+1,a,b,c);
+% vandermonde under (a,b,c), (a+1,b,c+1), (a,b+1,c+1)
+V_abc = jPoly_tri(R,S,H_abc,n-1,a,b,c);
+[u0,cu0] = euclidean_dist2_goal(goal,meshT,meshP,V_abc,R,S,W);
+for iTri = 1:nTri
+    Pts_Ti = meshP(:,meshT(iTri,:));
+    Ixe = IncidenceMatrix(Pts_Ti);
+    detJ = det(Ixe);
+    XYe = (Ixe * [R,S]' + Pts_Ti(:,1))';
+    X = XYe(:,1);
+    Y = XYe(:,2);
+    u0_T = u0((iTri-1)*nquad+1:(iTri)*nquad);
+    cu0_T = cu0((iTri-1)*M+1:M*iTri);
+    scatter3(X,Y,u0_T,'.'); hold on;
+    scatter3(X,Y,V_abc*cu0_T,'o');
+    errs(iTri) = (W'/2)*(V_abc*cu0_T-u0_T);
+end
+
+speed = 1;
+% manufactured sol and corresponding dirchlet data/rhs
+udirch = @(x,y) zeros(size(x));
+rhs = @(x,y) RHS(x,y,speed);
+% finite element discretization for poisson
+% on triangulated domain
+[V_abc,dxP,dyP,Vl,Vb,Vh,...
+    Vl_flip,Vb_flip,Vh_flip,...
+    Rl,Sl,Rb,Sb,Rh,Sh,...
+    Rl_flip,Sl_flip,Rb_flip,Sb_flip,...
+    Rh_flip,Sh_flip,wleg,...
+    intVlVl,intVbVb,intVhVh,...
+    intVlVl_flip,intVbVb_flip,intVhVh_flip] = preAssemble_poisson1(n,R,S);
+nleg = size(wleg,1);
+
+[K_glb,Bint_glb,Bdirch_glb,...
+    F_glb,G_glb,meshP,meshT,...
+    sharedEdge_tri_map,...
+    nintEdge,nbndEdge,...
+    bndEdge_tri_map,dPdP] = assemble_poisson_pwc(n,R,S,W,...
+                                            Rl,Sl,Rb,Sb,Rh,Sh,...
+                                            Rl_flip,Sl_flip, ...
+                                            Rb_flip,Sb_flip, ...
+                                            Rh_flip,Sh_flip,wleg, ...
+                                            V_abc,dxP,dyP,Vl,Vb,Vh,...
+                                            Vl_flip,Vb_flip,Vh_flip,...
+                                            rhs,udirch,DT,1,goal,H_abc);
+
+% stack the boundary and inter-element continuity constraints
+BB = [Bint_glb;Bdirch_glb];
+% identify the nLambda independent rows of BB
+[~,~,II] = qr(BB','vector');
+nLambda = rank(BB);
+BB_id = BB(II(1:nLambda),:);
+Gbc = [zeros(nleg*nintEdge,1);G_glb];
+Gbc = Gbc(II(1:nLambda));
+%%
 % there are M total polys
 m = 8; n = m+1; M = n*(n+1)/2;
 speed = 1;
@@ -55,7 +116,7 @@ BB = [Bint_glb;Bdirch_glb];
 [~,~,II] = qr(BB','vector');
 nLambda = rank(BB);
 BB_id = BB(II(1:nLambda),:);
-Amat = zeros(M*nTri+nLambda);
+Amat = sparse(zeros(M*nTri+nLambda));
 Amat(1:M*nTri,1:M*nTri) = K_glb;
 Amat(1:M*nTri,M*nTri+1:end) = BB_id';
 Amat(M*nTri+1:end,1:M*nTri) = BB_id;
@@ -78,7 +139,7 @@ for iTri = 1:nTri
 end
 
 %% ETDRK2
-
+cu = cu0;
 % sim params
 xi = 0.01; dtfac = 0.8;
 dt = dtfac/(xi*norm(K_glb));
@@ -594,4 +655,92 @@ function DT = delaunay_disk(N_boundary, N_radial)
     p = dt.Points;
 
     DT = delaunayTriangulation(p);
+end
+
+function DT = delaunay_square_with_hole()
+% Parameters
+r_hole = 0.3;
+domain = [-1, 1];
+n_circle = 16;      % Points around the hole
+n_outer = 28;       % Outer points along square
+n_radial = 2;       % Radial rings between hole and square
+
+% --- 1. Points on circular hole boundary ---
+theta = linspace(0, 2*pi, n_circle+1)';
+theta(end) = [];  % Remove duplicate
+x_hole = r_hole * cos(theta);
+y_hole = r_hole * sin(theta);
+
+% --- 2. Points on square boundary ---
+x_square = [];
+y_square = [];
+
+% Bottom edge
+x_square = [x_square; linspace(-1, 1, n_outer)'];
+y_square = [y_square; -ones(n_outer,1)];
+
+% Right edge
+x_square = [x_square; ones(n_outer,1)];
+y_square = [y_square; linspace(-1, 1, n_outer)'];
+
+% Top edge
+x_square = [x_square; linspace(1, -1, n_outer)'];
+y_square = [y_square; ones(n_outer,1)];
+
+% Left edge
+x_square = [x_square; -ones(n_outer,1)];
+y_square = [y_square; linspace(1, -1, n_outer)'];
+
+% --- 3. Radial rings between hole and square ---
+radial_pts = [];
+for j = 1:n_radial
+    r = r_hole + (1 - r_hole) * j / (n_radial + 1);
+    n_ring = round(n_circle * (1 + j/2));  % increase points in outer rings
+    t = linspace(0, 2*pi, n_ring + 1)';
+    t(end) = [];
+    radial_pts = [radial_pts; r * cos(t), r * sin(t)];
+end
+
+% --- 4. Combine all points ---
+pts = unique([ ...
+    [x_hole, y_hole]; ...
+    [x_square, y_square]; ...
+    radial_pts; ...
+], 'rows');
+
+% --- 5. Delaunay triangulation ---
+DT_raw = delaunayTriangulation(pts);
+
+% --- 6. Remove triangles inside the hole ---
+tri_centers = incenter(DT_raw);
+tri_mask = vecnorm(tri_centers, 2, 2) >= r_hole;
+DT = triangulation(DT_raw.ConnectivityList(tri_mask, :), DT_raw.Points);
+
+
+end
+
+
+function [u0,cu0] = euclidean_dist2_goal(goal,meshT,meshP,V_abc,R,S,W)
+
+nquad = length(W); 
+M = size(V_abc,2); 
+nTri = size(meshT,1);
+
+u0 = zeros(nTri*nquad,1);
+cu0 = zeros(M*nTri,1);
+dist2_goal = @(X,Y,goal) sqrt((X-goal(1)).^2 + (X-goal(2)).^2);
+
+
+
+for iTri = 1:nTri
+    Pts_Ti = meshP(:,meshT(iTri,:));
+    Ixe = IncidenceMatrix(Pts_Ti);
+    XYe = (Ixe * [R,S]' + Pts_Ti(:,1))';
+    X = XYe(:,1);
+    Y = XYe(:,2);
+    u0_T = dist2_goal(X,Y,goal);
+    u0((iTri-1)*nquad+1:iTri*nquad) = u0_T;
+    cu0((iTri-1)*M+1:M*iTri) = V_abc(:,1:M)'*(u0_T.*W);
+end
+
 end
