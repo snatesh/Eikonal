@@ -71,7 +71,7 @@ nleg = size(wleg,1);
                                             V_abc,dxP,dyP,Vl,Vb,Vh,...
                                             Vl_flip,Vb_flip,Vh_flip,...
                                             rhs,udirch,DT,1,goal,H_abc);
-
+%%
 % stack the boundary and inter-element continuity constraints
 BB = [Bint_glb;Bdirch_glb];
 % identify the nLambda independent rows of BB
@@ -141,7 +141,7 @@ end
 %% ETDRK2
 cu = cu0;
 % sim params
-xi = 0.01; dtfac = 0.8;
+xi = 0.01; dtfac = 0.9;
 dt = dtfac/(xi*norm(K_glb));
 dt_max = 10000;
 % DAE system
@@ -150,7 +150,7 @@ Letd = sparse(dt*(-xi*K_glb)); % use block sparse storage
 % num taylor terms and tol for matrix exp, etdrk2 loop
 Ntay_max = 30; 
 tay_tol = 1e-15; 
-step_tol = 1e-6;
+step_tol = 1e-8;
 res_tol = 1e-10;
 cnstr_tol = 1e-13;
 % constraint projector
@@ -201,11 +201,11 @@ for tstep = 1:dt_max
     Lambda = -(BB_id*BB_id')\(BB_id * R_u);
     res_norm = norm(R_u + BB_id'*Lambda);
     res_history(tstep+1) = res_norm;
-    if res_history(tstep+1) > res_history(tstep)
-        fprintf(" global residual increase. terminating.\n")
-        u = sol_history(:,tstep);
-        break;
-    end
+    %if res_history(tstep+1) > res_history(tstep)
+    %    fprintf(" global residual increase. terminating.\n")
+    %    u = sol_history(:,tstep);
+    %    break;
+    %end
     cnstr_res = BB_id * u;
     cnstr_norm = norm(cnstr_res);
     fprintf("  Relative Δu: %.2e, Residual: %.2e, Constraint: %.2e\n", ...
@@ -661,8 +661,8 @@ function DT = delaunay_square_with_hole()
 % Parameters
 r_hole = 0.3;
 domain = [-1, 1];
-n_circle = 16;      % Points around the hole
-n_outer = 28;       % Outer points along square
+n_circle = 10;      % Points around the hole
+n_outer = 20;       % Outer points along square
 n_radial = 2;       % Radial rings between hole and square
 
 % --- 1. Points on circular hole boundary ---

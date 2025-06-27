@@ -192,6 +192,7 @@ elseif mode == 1 %single goal point
   end
   % evaluate basis at goal point 
   V = jPoly_tri(Rg,Sg,H_abc,n-1,a,b,c);
+  disp(size(V));
   g = udirch(goal(1),goal(2));
   Bdirch_glb(1,(iTri-1)*M+1:M*iTri) = V;
   G_glb = g;
