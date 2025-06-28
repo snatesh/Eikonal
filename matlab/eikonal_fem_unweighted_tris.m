@@ -11,18 +11,31 @@ W = importdata("../bin/wtri_N496_n30_M1378_m51.txt");
 
 %DT = delaunayTriangulation([0 0; 1 0; 0 1]);
 %DT = delaunayTriangulation([0 0; 1 0; 1 1]);
-%DT = delaunayTriangulation([0 0; 1 0; 1 1; 0 1]);
-%DT = delaunay_unit_square(2);
+DT = delaunayTriangulation([-1 -1; 1 -1; 1 1; -1 1]);
+%DT = delaunay_unit_square(4);
 %DT = annulus();
 %DT = delaunay_disk(10,3);
-DT = delaunay_square_with_hole();
+%DT = delaunay_square_with_hole();
 
 meshT = DT.ConnectivityList;
 meshP = DT.Points';
 nTri = size(meshT,1);
 triplot(DT);
 
-m = 8; n = m+1; M = n*(n+1)/2; nquad = length(W);
+% Parameters
+c_hole = [0, 0];       % obstacle center
+r0 = 0.3;         % radius
+delta = 1e-2;     % transition width
+eps_obst = 1e-3;  % minimum speed inside obstacle
+
+% Fixed: smooth dip for obstacle
+f = @(x,y) eps_obst + (1 - eps_obst) * 0.5 * (1 + tanh((sqrt((x - c_hole(1)).^2 + (y - c_hole(2)).^2) - r0) / delta));
+[xg, yg] = meshgrid(linspace(-1,1,200));
+fg = f(xg, yg);
+surfl(xg, yg, fg); 
+
+%%
+m = 10; n = m+1; M = n*(n+1)/2; nquad = length(W);
 goal = [-1,-0.4];
 
 % normalization under (a,b,c), (a+1,b,c) etc.
@@ -43,11 +56,16 @@ for iTri = 1:nTri
     scatter3(X,Y,V_abc*cu0_T,'o');
     errs(iTri) = (W'/2)*(V_abc*cu0_T-u0_T);
 end
-
-speed = 1;
+%%
+%speed = 1;
+m = 10; n = m+1; M = n*(n+1)/2; nquad = length(W);
+goal = [-1,0];
+% normalization under (a,b,c), (a+1,b,c) etc.
+H_abc = structure_factors_tri(n+1,a,b,c);
 % manufactured sol and corresponding dirchlet data/rhs
 udirch = @(x,y) zeros(size(x));
-rhs = @(x,y) RHS(x,y,speed);
+%rhs = @(x,y) RHS(x,y,speed);
+rhs = @(x,y) 1./f(x,y);
 % finite element discretization for poisson
 % on triangulated domain
 [V_abc,dxP,dyP,Vl,Vb,Vh,...
@@ -80,6 +98,28 @@ nLambda = rank(BB);
 BB_id = BB(II(1:nLambda),:);
 Gbc = [zeros(nleg*nintEdge,1);G_glb];
 Gbc = Gbc(II(1:nLambda));
+Amat = sparse(zeros(M*nTri+nLambda));
+Amat(1:M*nTri,1:M*nTri) = K_glb;
+Amat(1:M*nTri,M*nTri+1:end) = BB_id';
+Amat(M*nTri+1:end,1:M*nTri) = BB_id;
+Gbc = [zeros(nleg*nintEdge,1);G_glb];
+Gbc = Gbc(II(1:nLambda));
+Fvec = [F_glb;Gbc];
+% solve for solution modes on each tri
+cu = Amat \ Fvec;
+for iTri = 1:nTri
+    Pts_Ti = meshP(:,meshT(iTri,:));
+    Ixe = IncidenceMatrix(Pts_Ti);
+    detJ = det(Ixe);
+    XYe = (Ixe * [R,S]' + Pts_Ti(:,1))';
+    X = XYe(:,1);
+    Y = XYe(:,2);
+    %T = delaunay(X,Y);
+    cu_abc = cu((iTri-1)*M+1:M*iTri);
+    u_sol = V_abc*cu_abc;
+    scatter3(X,Y,u_sol,'.'); hold on;
+end
+cu0 = cu;
 %%
 % there are M total polys
 m = 8; n = m+1; M = n*(n+1)/2;
@@ -141,7 +181,7 @@ end
 %% ETDRK2
 cu = cu0;
 % sim params
-xi = 0.01; dtfac = 0.9;
+xi = 0.1; dtfac = 0.5;
 dt = dtfac/(xi*norm(K_glb));
 dt_max = 10000;
 % DAE system
@@ -238,15 +278,15 @@ end
 
 
 %% IMEX 
-%dt = 0.01;
+dt = 0.001; xi = 0.1;
 %dt_factor = 2;
 max_tstep = 100;
 tol = 1e-7;
 LHS = [eye(M*nTri) + dt*xi*K_glb BB_id';...
     BB_id zeros(nLambda)];
 % get current residual
-%u = cu;
-u = [u; zeros(nLambda,1)];
+u = cu0;
+%u = [u; zeros(nLambda,1)];
 [N_glb, ~] = assemble_eik_nonlin_unweighted(u, M, W, xi, ...
                                             V_abc, dPdP, ...
                                             meshT, meshP, K_glb);
@@ -389,17 +429,18 @@ hold on;
 scatter3(XX(:),YY(:),distanceToUnitSquareBoundary(XX(:),YY(:)));
 
 %% newton + homotopic continuation
-xi0 = 0.1;          % Initial penalty
+xi0 = 0.5;          % Initial penalty
 xi_min = 1e-3;      % Do not let xi drop below this
 xi = xi0;
 xi_decay = 0.5;     % Reduce xi by this factor
+cu = cu0;
 [N_glb, H_glb] = assemble_eik_nonlin_unweighted(cu, M, W, xi, ...
                                        V_abc, dPdP, ...
                                        meshT, meshP, K_glb);
 H_glb = H_glb';
 
 
-max_iter = 5000;
+max_iter = 10000;
 rtol = 1e-8;
 tol = norm(N_glb + xi*K_glb*cu(1:M*nTri) - BB_id'*cu(M*nTri+1:end) - F_glb) * rtol;
 
@@ -410,7 +451,7 @@ fprintf("It \t (g,du) \t\t ||g|| \t\t xi\t\t cond(H)\n");
 figure(3);
 for it = 1:max_iter
 
-    alph = 0.25;
+    alph = 0.01;
     % Assemble global system
     HHmat = zeros(M*nTri + nLambda);
     HHmat(1:M*nTri, 1:M*nTri) = H_glb;
@@ -465,13 +506,13 @@ for it = 1:max_iter
         Y = XYe(:,2);
         %T = delaunay(X,Y);
         cu_abc = cu((iTri-1)*M+1:M*iTri);
-        semilogy(abs(cu_abc)); hold on;
-        %u = V_abc*cu_abc;
+        %semilogy(abs(cu_abc)); hold on;
+        u = V_abc*cu_abc;
         %trisurf(T,X,Y,u); hold on;
-        %scatter3(X,Y,u,'.'); hold on; 
+        scatter3(X,Y,u,'.'); hold on; 
     end
     drawnow;
-    %hold off;
+    hold off;
 
 
 end
@@ -557,7 +598,7 @@ end
 
 function dt = delaunay_unit_square(N)
     % Generate N x N grid in [0,1]^2 with (N+1)^2 points
-    x = linspace(0, 1, N+1);
+    x = linspace(-1, 1, N+1);
     [X, Y] = meshgrid(x, x);
     p = [X(:), Y(:)];
 
