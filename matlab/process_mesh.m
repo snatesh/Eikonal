@@ -1,4 +1,4 @@
-function [meshP,meshT,intEdges,bndEdges,sharedEdge_tri_map,bndEdge_tri_map] = process_mesh(DT)
+function [meshP,meshT,intEdges,bndEdges,sharedEdge_tri_map,bndEdge_tri_map,normals] = process_mesh(DT)
 
 meshT = DT.ConnectivityList;
 meshP = DT.Points';
@@ -41,5 +41,7 @@ end
 % sort it to match vertex index ordering in intEdges
 sharedEdge_tri_map = sort(sharedEdge_tri_map,2);
 
+% get boundary normals
+normals = compute_outward_normals(DT, bndEdges, bndEdge_tri_map);
 
 end

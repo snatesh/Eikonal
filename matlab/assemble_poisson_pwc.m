@@ -3,20 +3,20 @@ function [K_glb,Bint_glb,Bdirch_glb,...
           meshP, meshT,...
           sharedEdge_tri_map,...
           nintEdge,nbndEdge,...
-          bndEdge_tri_map,varargout] = assemble_poisson_pwc(n,R,S,W,...
-                                          Rl,Sl,Rb,Sb,Rh,Sh, ...
-                                          Rl_flip,Sl_flip,...
-                                          Rb_flip,Sb_flip,...
-                                          Rh_flip,Sh_flip,wleg,...
-                                          V_abc,dxP,dyP,Vl,Vb,Vh,...
-                                          Vl_flip,Vb_flip,Vh_flip,...
-                                          rhs,udirch,DT, mode, varargin)
+          bndEdge_tri_map,bndEdges,normals,varargout] = assemble_poisson_pwc(n,R,S,W,...
+                                                                             Rl,Sl,Rb,Sb,Rh,Sh, ...
+                                                                             Rl_flip,Sl_flip,...
+                                                                             Rb_flip,Sb_flip,...
+                                                                             Rh_flip,Sh_flip,wleg,...
+                                                                             V_abc,dxP,dyP,Vl,Vb,Vh,...
+                                                                             Vl_flip,Vb_flip,Vh_flip,...
+                                                                             rhs,udirch,DT, mode, varargin)
 
 
 % get mesh points, connectivity list
 % as well as interior/bndry edges
 % and map taking shared edge to the two triangles which share it
-[meshP,meshT,intEdges,bndEdges,sharedEdge_tri_map,bndEdge_tri_map] = process_mesh(DT);
+[meshP,meshT,intEdges,bndEdges,sharedEdge_tri_map,bndEdge_tri_map,normals] = process_mesh(DT);
 % jacobi poly params
 a = 1/2; b = a; c = a;
 % number of triangles in mesh
@@ -52,7 +52,7 @@ for iTri = 1:nTri
     J = IncidenceMatrix(Pts_Ti);
     detJ = det(J);
     invJ = inv(J);
-    % quadrature points mapped to phyiscal tri
+    % quadrature points mapped to physical tri
     XY = (J * [R,S]' + Pts_Ti(:,1))';
     X = XY(:,1);
     Y = XY(:,2);
@@ -127,23 +127,19 @@ if mode == 0
             V = Vb_flip;
         % hyp and flip
         elseif (norm(rve(:,1) - [1;0]) < tol && norm(rve(:,2) - [0;1]) < tol)
-            flips = false;
             hyp = true;
             g = udirch(XYh(:,1),XYh(:,2));
             V = Vh;
         elseif (all(rve(:,1) - [0;1]) < tol && norm(rve(:,2) - [1;0]) < tol)
-            flips = true;
             hyp = true;
             g = udirch(XYh_flip(:,1),XYh_flip(:,2));
             V = Vh_flip;
         % left and flip
         elseif (norm(rve(:,1) - [0;1]) < tol && norm(rve(:,2) - [0;0]) < tol)
-            flips = false;
             left = true;
             g = udirch(XYl(:,1),XYl(:,2));
             V = Vl;
         elseif (norm(rve(:,1) - [0;0]) < tol && norm(rve(:,2) - [0;1]) < tol)
-            flips = true;
             left = true;
             g = udirch(XYl_flip(:,1),XYl_flip(:,2));
             V = Vl_flip;
@@ -271,7 +267,7 @@ for iedge = 1:nintEdge
 
 end
 
-  if nargout == 12
+  if nargout == 14
     varargout{1} = dPdP;
   end
 
