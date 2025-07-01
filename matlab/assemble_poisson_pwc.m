@@ -178,18 +178,7 @@ elseif mode == 1 %single goal point
   % get parametric coords of goal
   rsgoal = J\(goal'-Pts_Ti(:,1));
   tol = 1e-13;
-  if abs(rsgoal(2)) < tol && rsgoal(1) >= 0 && rsgoal(1) <= 1
-    edge_id = 1;  % bottom edge
-    Rg = rsgoal(1); Sg = 0;
-  elseif abs(rsgoal(1) + rsgoal(2) - 1) < tol && all(rsgoal >= 0)
-    edge_id = 2;  % hypotenuse
-    Rg = rsgoal(1); Sg = rsgoal(2);
-  elseif abs(rsgoal(1)) < tol && rsgoal(2) >= 0 && rsgoal(2) <= 1
-    edge_id = 3;  % left edge
-    Rg = 0; Sg = rsgoal(2);
-  else
-      error('Goal point does not lie on any reference edge of this triangle.');
-  end
+  Rg = rsgoal(1); Sg = rsgoal(2);
   % evaluate basis at goal point 
   V = jPoly_tri(Rg,Sg,H_abc,n-1,a,b,c);
   disp(size(V));

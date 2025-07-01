@@ -11,8 +11,8 @@ W = importdata("../bin/wtri_N496_n30_M1378_m51.txt");
 
 %DT = delaunayTriangulation([0 0; 1 0; 0 1]);
 %DT = delaunayTriangulation([0 0; 1 0; 1 1]);
-DT = delaunayTriangulation([-1 -1; 1 -1; 1 1; -1 1]);
-%DT = delaunay_unit_square(4);
+%DT = delaunayTriangulation([-1 -1; 1 -1; 1 1; -1 1]);
+DT = delaunay_unit_square(2);
 %DT = annulus();
 %DT = delaunay_disk(10,3);
 %DT = delaunay_square_with_hole();
@@ -23,39 +23,26 @@ nTri = size(meshT,1);
 triplot(DT);
 
 % Parameters
-c_hole = [0, 0];       % obstacle center
-r0 = 0.3;         % radius
-delta = 1e-2;     % transition width
-eps_obst = 1e-3;  % minimum speed inside obstacle
+%c_hole = [0, 0];       % obstacle center
+%r0 = 0.3;         % radius
+
+centers = [0 0.5 -0.5; 0 0.7 -0.7];
+r0s = [0.1 0.2 0.2];
+
+%[centers,r0s] = generate_random_circles(20,[-1 1 -1 1], [0.05 0.1]);
+
+%delta = 0.05;     % transition width
+eps_obst = 1e-6;  % minimum speed inside obstacle
 
 % Fixed: smooth dip for obstacle
-f = @(x,y) eps_obst + (1 - eps_obst) * 0.5 * (1 + tanh((sqrt((x - c_hole(1)).^2 + (y - c_hole(2)).^2) - r0) / delta));
+%f = @(x,y) eps_obst + (1 - eps_obst) * 0.5 * (1 + tanh((sqrt((x - c_hole(1)).^2 + (y - c_hole(2)).^2) - r0) / delta));
+%f = @(x,y) obstacle_speed(x,y,r0,eps_obst);
+f = @(x,y) multi_obstacle_speed_varying_radii(x,y,centers,r0s,eps_obst);
 [xg, yg] = meshgrid(linspace(-1,1,200));
 fg = f(xg, yg);
 surfl(xg, yg, fg); 
 
-%%
-m = 10; n = m+1; M = n*(n+1)/2; nquad = length(W);
-goal = [-1,-0.4];
 
-% normalization under (a,b,c), (a+1,b,c) etc.
-H_abc = structure_factors_tri(n+1,a,b,c);
-% vandermonde under (a,b,c), (a+1,b,c+1), (a,b+1,c+1)
-V_abc = jPoly_tri(R,S,H_abc,n-1,a,b,c);
-[u0,cu0] = euclidean_dist2_goal(goal,meshT,meshP,V_abc,R,S,W);
-for iTri = 1:nTri
-    Pts_Ti = meshP(:,meshT(iTri,:));
-    Ixe = IncidenceMatrix(Pts_Ti);
-    detJ = det(Ixe);
-    XYe = (Ixe * [R,S]' + Pts_Ti(:,1))';
-    X = XYe(:,1);
-    Y = XYe(:,2);
-    u0_T = u0((iTri-1)*nquad+1:(iTri)*nquad);
-    cu0_T = cu0((iTri-1)*M+1:M*iTri);
-    scatter3(X,Y,u0_T,'.'); hold on;
-    scatter3(X,Y,V_abc*cu0_T,'o');
-    errs(iTri) = (W'/2)*(V_abc*cu0_T-u0_T);
-end
 %%
 %speed = 1;
 m = 10; n = m+1; M = n*(n+1)/2; nquad = length(W);
@@ -89,15 +76,13 @@ nleg = size(wleg,1);
                                             V_abc,dxP,dyP,Vl,Vb,Vh,...
                                             Vl_flip,Vb_flip,Vh_flip,...
                                             rhs,udirch,DT,1,goal,H_abc);
-%%
+
 % stack the boundary and inter-element continuity constraints
 BB = [Bint_glb;Bdirch_glb];
 % identify the nLambda independent rows of BB
 [~,~,II] = qr(BB','vector');
 nLambda = rank(BB);
 BB_id = BB(II(1:nLambda),:);
-Gbc = [zeros(nleg*nintEdge,1);G_glb];
-Gbc = Gbc(II(1:nLambda));
 Amat = sparse(zeros(M*nTri+nLambda));
 Amat(1:M*nTri,1:M*nTri) = K_glb;
 Amat(1:M*nTri,M*nTri+1:end) = BB_id';
@@ -118,70 +103,29 @@ for iTri = 1:nTri
     cu_abc = cu((iTri-1)*M+1:M*iTri);
     u_sol = V_abc*cu_abc;
     scatter3(X,Y,u_sol,'.'); hold on;
+end
+xi0 = 0.3;
+poiss_scale = scale_poisson(cu,rhs,xi0,M,R,S,W,dxP,dyP,meshT,meshP);
+cu = cu * poiss_scale;
+for iTri = 1:nTri
+    Pts_Ti = meshP(:,meshT(iTri,:));
+    Ixe = IncidenceMatrix(Pts_Ti);
+    detJ = det(Ixe);
+    XYe = (Ixe * [R,S]' + Pts_Ti(:,1))';
+    X = XYe(:,1);
+    Y = XYe(:,2);
+    %T = delaunay(X,Y);
+    cu_abc = cu((iTri-1)*M+1:M*iTri);
+    u_sol = V_abc*cu_abc;
+    scatter3(X,Y,u_sol,'o'); hold on;
 end
 cu0 = cu;
-%%
-% there are M total polys
-m = 8; n = m+1; M = n*(n+1)/2;
-speed = 1;
-% manufactured sol and corresponding dirchlet data/rhs
-udirch = @(x,y) zeros(size(x));
-rhs = @(x,y) RHS(x,y,speed);
-% finite element discretization for poisson
-% on triangulated domain
-[V_abc,dxP,dyP,Vl,Vb,Vh,...
-    Vl_flip,Vb_flip,Vh_flip,...
-    Rl,Sl,Rb,Sb,Rh,Sh,...
-    Rl_flip,Sl_flip,Rb_flip,Sb_flip,...
-    Rh_flip,Sh_flip,wleg,...
-    intVlVl,intVbVb,intVhVh,...
-    intVlVl_flip,intVbVb_flip,intVhVh_flip] = preAssemble_poisson1(n,R,S);
-nleg = size(wleg,1);
 
-[K_glb,Bint_glb,Bdirch_glb,...
-    F_glb,G_glb,meshP,meshT,...
-    sharedEdge_tri_map,...
-    nintEdge,nbndEdge,...
-    bndEdge_tri_map,dPdP] = assemble_poisson_pwc(n,R,S,W,...
-                                            Rl,Sl,Rb,Sb,Rh,Sh,...
-                                            Rl_flip,Sl_flip, ...
-                                            Rb_flip,Sb_flip, ...
-                                            Rh_flip,Sh_flip,wleg, ...
-                                            V_abc,dxP,dyP,Vl,Vb,Vh,...
-                                            Vl_flip,Vb_flip,Vh_flip,...
-                                            rhs,udirch,DT);
-% stack the boundary and inter-element continuity constraints
-BB = [Bint_glb;Bdirch_glb];
-% identify the nLambda independent rows of BB
-[~,~,II] = qr(BB','vector');
-nLambda = rank(BB);
-BB_id = BB(II(1:nLambda),:);
-Amat = sparse(zeros(M*nTri+nLambda));
-Amat(1:M*nTri,1:M*nTri) = K_glb;
-Amat(1:M*nTri,M*nTri+1:end) = BB_id';
-Amat(M*nTri+1:end,1:M*nTri) = BB_id;
-Gbc = [zeros(nleg*nintEdge,1);G_glb];
-Gbc = Gbc(II(1:nLambda));
-Fvec = [F_glb;Gbc];
-% solve for solution modes on each tri
-cu = Amat \ Fvec;
-for iTri = 1:nTri
-    Pts_Ti = meshP(:,meshT(iTri,:));
-    Ixe = IncidenceMatrix(Pts_Ti);
-    detJ = det(Ixe);
-    XYe = (Ixe * [R,S]' + Pts_Ti(:,1))';
-    X = XYe(:,1);
-    Y = XYe(:,2);
-    %T = delaunay(X,Y);
-    cu_abc = cu((iTri-1)*M+1:M*iTri);
-    u_sol = V_abc*cu_abc;
-    scatter3(X,Y,u_sol,'.'); hold on;
-end
 
 %% ETDRK2
 cu = cu0;
 % sim params
-xi = 0.1; dtfac = 0.5;
+xi = xi0; dtfac = 0.5;
 dt = dtfac/(xi*norm(K_glb));
 dt_max = 10000;
 % DAE system
@@ -278,9 +222,9 @@ end
 
 
 %% IMEX 
-dt = 0.001; xi = 0.1;
+dt = 0.001; xi = xi0;
 %dt_factor = 2;
-max_tstep = 100;
+max_tstep = 1000;
 tol = 1e-7;
 LHS = [eye(M*nTri) + dt*xi*K_glb BB_id';...
     BB_id zeros(nLambda)];
@@ -314,6 +258,8 @@ for tstep = 1:max_tstep
     if norm(u - sol) / max(norm(u), 1e-14) < tol
         break;
     end
+    %res_curr = res_new;
+    %u = sol;
     if res_new < res_curr
         res_curr = res_new;
         u = sol;
@@ -429,11 +375,14 @@ hold on;
 scatter3(XX(:),YY(:),distanceToUnitSquareBoundary(XX(:),YY(:)));
 
 %% newton + homotopic continuation
-xi0 = 0.5;          % Initial penalty
-xi_min = 1e-3;      % Do not let xi drop below this
+%xi0 = 0.5;          % Initial penalty
+xi_min = 1e-2;      % Do not let xi drop below this
 xi = xi0;
-xi_decay = 0.5;     % Reduce xi by this factor
+xi_decay = 0.9;     % Reduce xi by this factor
+% from init
 cu = cu0;
+% from imex
+%cu = u;
 [N_glb, H_glb] = assemble_eik_nonlin_unweighted(cu, M, W, xi, ...
                                        V_abc, dPdP, ...
                                        meshT, meshP, K_glb);
@@ -441,19 +390,19 @@ H_glb = H_glb';
 
 
 max_iter = 10000;
-rtol = 1e-8;
+rtol = 1e-14;
 tol = norm(N_glb + xi*K_glb*cu(1:M*nTri) - BB_id'*cu(M*nTri+1:end) - F_glb) * rtol;
 
 xi_trigger = 10*rtol;  % When residual norm drops below this, reduce xi
 
 
-fprintf("It \t (g,du) \t\t ||g|| \t\t xi\t\t cond(H)\n");
+fprintf("It \t (g,du) \t\t ||g|| \t\t xi\n");
 figure(3);
+alph = 0.1;
+HHmat = zeros(M*nTri + nLambda);
 for it = 1:max_iter
 
-    alph = 0.01;
     % Assemble global system
-    HHmat = zeros(M*nTri + nLambda);
     HHmat(1:M*nTri, 1:M*nTri) = H_glb;
     HHmat(1:M*nTri, M*nTri+1:end) = BB_id';
     HHmat(M*nTri+1:end, 1:M*nTri) = BB_id;
@@ -470,6 +419,7 @@ for it = 1:max_iter
     end
 
     % Newton update (no line search)
+    cu_old = cu;
     du = -HHmat \ brhs;
     cu = cu + alph*du;
 
@@ -493,8 +443,7 @@ for it = 1:max_iter
         H_glb = H_glb';
     end
 
-    fprintf("%d \t %.4e \t %.4e \t %.3e\t %.4e\n", it, -brhs'*du, norm_g, xi, cond(HHmat));
-
+    fprintf("%d \t %.4e \t %.4e \t %.3e\n", it, -brhs'*du, norm_g, xi);
 
     for iTri = 1:nTri
 
@@ -516,7 +465,103 @@ for it = 1:max_iter
 
 
 end
+%%
 
+    for iTri = 1:nTri
+
+        Pts_Ti = meshP(:,meshT(iTri,:));
+        J = IncidenceMatrix(Pts_Ti);
+        detJ = det(J);
+        XYe = (J * [R,S]' + Pts_Ti(:,1))';
+        X = XYe(:,1);
+        Y = XYe(:,2);
+        %T = delaunay(X,Y);
+        cu_abc = cu((iTri-1)*M+1:M*iTri);
+        %semilogy(abs(cu_abc)); hold on;
+        u = V_abc*cu_abc;
+        %trisurf(T,X,Y,u); hold on;
+        scatter3(X,Y,u,'.'); hold on; 
+    end
+    drawnow;
+
+%%
+x0 = [0.78,0.77];
+tol = 1e-3;
+step_size = 0.01;
+max_steps = 1000000;
+triplot(DT); hold on;
+%eik_path = eikonal_extract_path(n,cu,x0,goal,DT,tol);
+
+
+
+
+H_abc = structure_factors_tri(n+1,a,b,c);
+H_a1bc1 = structure_factors_tri(n+1,a+1,b,c+1);
+H_ab1c1 = structure_factors_tri(n+1,a,b+1,c+1);
+
+% derivative matrices
+Dx_a1bc1 = D1_tri(a,b,c,H_abc,H_a1bc1,0);
+Dy_ab1c1 = D1_tri(a,b,c,H_abc,H_ab1c1,1);
+eik_path = trace_path_greedy(x0, goal, cu, meshT, meshP, DT, ...
+                         Dx_a1bc1, Dy_ab1c1, H_a1bc1, H_ab1c1, n, ...
+                         step_size, tol, max_steps);
+[gradU,iTri] = evaluate_grad_u(eik_path(end,:)',cu,meshT,meshP,DT,Dx_a1bc1,Dy_ab1c1,H_a1bc1,H_ab1c1,n);
+
+%%
+XX = []; YY = []; UU = [];
+for iTri = 1:nTri
+
+    Pts_Ti = meshP(:,meshT(iTri,:));
+    J = IncidenceMatrix(Pts_Ti);
+    detJ = det(J);
+    XYe = (J * [R,S]' + Pts_Ti(:,1))';
+    X = XYe(:,1);
+    Y = XYe(:,2);
+    XX = [XX;X];
+    YY = [YY;Y];
+    %T = delaunay(X,Y);
+    cu_abc = cu((iTri-1)*M+1:M*iTri);
+    %semilogy(abs(cu_abc)); hold on;
+    u = V_abc*cu_abc;
+    UU = [UU;u];
+    %trisurf(T,X,Y,u); hold on;
+    %scatter3(X,Y,u,'.'); hold on;
+end
+
+
+
+% Plot contour of U over scattered points
+figure; hold on;
+
+% Create triangulation for the (scattered) point data
+T = delaunay(XX, YY);
+
+% Contour plot
+% trisurf(T, XX, YY, UU, 'EdgeColor', 'none','FaceAlpha', 0.6); 
+% view(2); axis equal tight;
+% shading interp;
+% colormap(turbo); colorbar;
+% title('Time-to-goal surface with overlaid path');
+% xlabel('x'); ylabel('y');
+[Xg, Yg] = meshgrid(linspace(-1, 1, 500));
+
+fgrid = f(Xg,Yg);
+contourf(Xg, Yg, fgrid, 30, 'LineColor', 'none','FaceAlpha',0.6);  % background: f(x,y)
+colormap(turbo); colorbar;
+caxis([tol 1]);  % to emphasize obstacle contrast
+title('Time-to-goal surface with obstacles and path');
+axis equal tight;
+
+
+% Overlay contour lines
+contourData = scatteredInterpolant(XX, YY, UU, 'natural', 'none');
+Zg = contourData(Xg, Yg);
+contour(Xg, Yg, Zg, 20, 'k');
+
+z_offset = max(UU) + 1e-3;  % slight lift above the max surface
+plot3(eik_path(:,1), eik_path(:,2), z_offset * ones(size(eik_path,1),1), 'r-', 'LineWidth', 2);
+plot3(eik_path(1,1), eik_path(1,2), z_offset, 'ko', 'MarkerFaceColor', 'k');  % start
+plot3(eik_path(end,1), eik_path(end,2), z_offset, 'ko', 'MarkerFaceColor', 'k');  % goal
 
 
 %% straight forward newton iteration
@@ -785,3 +830,92 @@ for iTri = 1:nTri
 end
 
 end
+
+
+function fvals = obstacle_speed(X, Y, r0, tol)
+% obstacle_speed evaluates the speed function f(x,y) for a circular obstacle.
+% X, Y are the coordinates (can be scalars, vectors, or matrices).
+% r0 is the radius of the circular obstacle.
+% tol is the speed inside the obstacle (e.g., 1e-3).
+
+    R2 = X.^2 + Y.^2;        % squared radial distance from center (0,0)
+    fvals = ones(size(R2));  % default speed = 1
+    fvals(R2 < r0^2) = tol;  % inside the circle, slow speed
+
+end
+
+function fvals = multi_obstacle_speed_varying_radii(X, Y, centers, r0s, tol)
+% Speed function with k circular obstacles of varying radii.
+%
+% Inputs:
+%   X, Y     : evaluation grid (matrices of same size)
+%   centers : 2-by-k matrix of circle centers
+%   r0s     : 1-by-k vector of radii for each obstacle
+%   tol     : scalar speed inside any obstacle
+%
+% Output:
+%   fvals   : speed values of same size as X and Y
+
+    [rows, cols] = size(X);
+    fvals = ones(rows, cols);  % default speed = 1
+
+    k = size(centers, 2);
+    for j = 1:k
+        cx = centers(1, j);
+        cy = centers(2, j);
+        r2 = r0s(j)^2;
+
+        % Mask for points inside this obstacle
+        inside = (X - cx).^2 + (Y - cy).^2 < r2;
+        fvals(inside) = tol;
+    end
+end
+
+function [centers, r0s] = generate_random_circles(N, domain, r_range)
+% Generate N random circular obstacle centers and radii
+%
+% Inputs:
+%   N        : number of circles
+%   domain   : [xmin xmax ymin ymax], e.g., [-1 1 -1 1]
+%   r_range  : [rmin rmax], range of radii
+%
+% Outputs:
+%   centers  : 2 x N matrix of circle centers
+%   r0s      : 1 x N vector of radii
+
+    % Unpack domain
+    xmin = domain(1); xmax = domain(2);
+    ymin = domain(3); ymax = domain(4);
+
+    % Random centers in domain
+    cx = xmin + (xmax - xmin) * rand(1, N);
+    cy = ymin + (ymax - ymin) * rand(1, N);
+    centers = [cx; cy];
+
+    % Random radii
+    rmin = r_range(1); rmax = r_range(2);
+    r0s = rmin + (rmax - rmin) * rand(1, N);
+end
+
+%%
+% m = 12; n = m+1; M = n*(n+1)/2; nquad = length(W);
+% goal = [-1,-0.4];
+% 
+% % normalization under (a,b,c), (a+1,b,c) etc.
+% H_abc = structure_factors_tri(n+1,a,b,c);
+% % vandermonde under (a,b,c), (a+1,b,c+1), (a,b+1,c+1)
+% V_abc = jPoly_tri(R,S,H_abc,n-1,a,b,c);
+% [u0,cu0] = euclidean_dist2_goal(goal,meshT,meshP,V_abc,R,S,W);
+% for iTri = 1:nTri
+%     Pts_Ti = meshP(:,meshT(iTri,:));
+%     Ixe = IncidenceMatrix(Pts_Ti);
+%     detJ = det(Ixe);
+%     XYe = (Ixe * [R,S]' + Pts_Ti(:,1))';
+%     X = XYe(:,1);
+%     Y = XYe(:,2);
+%     u0_T = u0((iTri-1)*nquad+1:(iTri)*nquad);
+%     cu0_T = cu0((iTri-1)*M+1:M*iTri);
+%     scatter3(X,Y,u0_T,'.'); hold on;
+%     scatter3(X,Y,V_abc*cu0_T,'o');
+%     errs(iTri) = (W'/2)*(V_abc*cu0_T-u0_T);
+% end
