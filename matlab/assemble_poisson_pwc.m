@@ -180,9 +180,10 @@ elseif mode == 1 %single goal point
   Bdirch_glb(1,(iTri-1)*M+1:M*iTri) = V;
   G_glb = g;
 
+  %% weak neumann 
   % now handle Neumann enforcement
-  Bneum_glb = zeros(nleg*nbndEdge,M*nTri);
-  Gneumm_glb = zeros(nleg*nbndEdge,1);
+  Bneum_glb = zeros(M*nbndEdge,M*nTri);
+  Gneumm_glb = zeros(M*nbndEdge,1);
   % get deriv ops on edges
   dxPl = varargin{3};
   dyPl = varargin{4};
@@ -197,50 +198,37 @@ elseif mode == 1 %single goal point
   dxPh_flip = varargin{13};
   dyPh_flip = varargin{14};
   uneumm = varargin{15};
-  gradPl_ne = zeros(nleg,M);
-  gradPl_ne_flip = zeros(nleg,M);
-  gradPb_ne = zeros(nleg,M);
-  gradPb_ne_flip = zeros(nleg,M);
-  gradPh_ne = zeros(nleg,M);
-  gradPh_ne_flip = zeros(nleg,M);
+  intgradPl_Pl = zeros(M,M);
+  intgradPb_Pb = zeros(M,M);
+  intgradPh_Ph = zeros(M,M);
   for ibndedge = 1:nbndEdge
     iTri = bndEdge_tri_map(ibndedge);
     Pts_Ti = meshP(:,meshT(iTri,:));
     J = IncidenceMatrix(Pts_Ti);
     ne = normals(:,ibndedge);
-    % compute gradient of each basis function
-    % on regular and flipped edges
+    % compute \int_e \nabla \phi_i \cdot n \phi_j ds
+    % without edge jacobian or parameterization sign (flip/unflipped)
     for i = 1:M
 
         dxPl_i = dxPl(:,i);
         dyPl_i = dyPl(:,i);
         gradPl_i = invJ'*[dxPl_i';dyPl_i'];
-        gradPl_ne(:,i) = gradPl_i' * ne;
-        
-        dxPl_flip_i = dxPl_flip(:,i);
-        dyPl_flip_i = dyPl_flip(:,i);
-        gradPl_flip_i = invJ'*[dxPl_flip_i';dyPl_flip_i'];
-        gradPl_ne_flip(:,i) = gradPl_flip_i' * ne;
+        gradPl_i_ne = gradPl_i' * ne;
         
         dxPb_i = dxPb(:,i);
         dyPb_i = dyPb(:,i);
         gradPb_i = invJ'*[dxPb_i';dyPb_i'];
-        gradPb_ne(:,i) = gradPb_i' * ne;
-        
-        dxPb_flip_i = dxPb_flip(:,i);
-        dyPb_flip_i = dyPb_flip(:,i);
-        gradPb_flip_i = invJ'*[dxPb_flip_i';dyPb_flip_i'];
-        gradPb_ne_flip(:,i) = gradPb_flip_i' * ne;
+        gradPb_i_ne = gradPb_i' * ne;
         
         dxPh_i = dxPh(:,i);
         dyPh_i = dyPh(:,i);
         gradPh_i = invJ'*[dxPh_i';dyPh_i'];
-        gradPh_ne(:,i) = gradPh_i' * ne;
-        
-        dxPh_flip_i = dxPh_flip(:,i);
-        dyPh_flip_i = dyPh_flip(:,i);
-        gradPh_flip_i = invJ'*[dxPh_flip_i';dyPh_flip_i'];
-        gradPh_ne_flip(:,i) = gradPh_flip_i' * ne;
+        gradPh_i_ne = gradPh_i' * ne;
+      for j = 1:M
+        intgradPl_Pl(i,j) = wleg'*(gradPl_i_ne .* Vl(:,j));
+        intgradPb_Pb(i,j) = wleg'*(gradPb_i_ne .* Vb(:,j));
+        intgradPh_Ph(i,j) = wleg'*(gradPh_i_ne .* Vh(:,j));
+      end
 
     end 
 
@@ -249,42 +237,40 @@ elseif mode == 1 %single goal point
     XYl = (J * [Rl,Sl]' + Pts_Ti(:,1))';
     XYb = (J * [Rb,Sb]' + Pts_Ti(:,1))';
     XYh = (J * [Rh,Sh]' + Pts_Ti(:,1))';
-    XYl_flip = (J * [Rl_flip,Sl_flip]' + Pts_Ti(:,1))';
-    XYb_flip = (J * [Rb_flip,Sb_flip]' + Pts_Ti(:,1))';
-    XYh_flip = (J * [Rh_flip,Sh_flip]' + Pts_Ti(:,1))';
     % get edges of triangle, sorted to match bndry/int Edge lookup
     edgesT = sort([meshT(iTri, [1,2]);...
                    meshT(iTri, [2,3]);...
                    meshT(iTri, [3,1])],2);
     tol = 1e-13;
-    V = 0; g = 0; % dirichlet values on bndry
+    intgradVV = 0; intgV = 0; % integral of grad basis * basis and weak neumann values on bndry
     for iedge = 1:3
       if all(edgesT(iedge,:) == bndEdges(ibndedge,:))
         % get endpts
         ve = meshP(:,edgesT(iedge,:));
+        lenE = norm(ve(:,2)-ve(:,1));
         % get parametric coords of endpt
         rve = J\(ve-Pts_Ti(:,1));
         % bottom and flip
         if (norm(rve(:,1) - [0;0]) < tol && norm(rve(:,2) - [1;0]) < tol)
-            g = uneumm(XYb(:,1),XYb(:,2)) * normals(:,ibndedge);
-            V = gradPb_ne;
+            intgV = (wleg'*(uneumm(XYb(:,1),XYb(:,2)) .* Vb))' * lenE;
+            intgradVV = intgradPb_Pb * lenE;
         elseif (norm(rve(:,1) - [1;0]) < tol && norm(rve(:,2) - [0;0]) < tol)
-            g = uneumm(XYb_flip(:,1),XYb_flip(:,2)) * normals(:,ibndedge);
-            V = gradPb_ne_flip;
+            intgV = -(wleg'*(uneumm(XYb(:,1),XYb(:,2)) .* Vb))' * lenE;
+            intgradVV = -intgradPb_Pb * lenE;
         % hyp and flip
         elseif (norm(rve(:,1) - [1;0]) < tol && norm(rve(:,2) - [0;1]) < tol)
-            g = uneumm(XYh(:,1),XYh(:,2)) * normals(:,ibndedge);
-            V = gradPh_ne;
+            intgV = (wleg'*(uneumm(XYh(:,1),XYh(:,2)) .* Vh))' * lenE;
+            intgradVV = intgradPh_Ph * lenE;
         elseif (all(rve(:,1) - [0;1]) < tol && norm(rve(:,2) - [1;0]) < tol)
-            g = uneumm(XYh_flip(:,1),XYh_flip(:,2)) * normals(:,ibndedge);
-            V = gradPh_ne_flip;
+            intgV = -(wleg'*(uneumm(XYh(:,1),XYh(:,2)) .* Vh))' * lenE;
+            intgradVV = -intgradPh_Ph * lenE;
         % left and flip
         elseif (norm(rve(:,1) - [0;1]) < tol && norm(rve(:,2) - [0;0]) < tol)
-            g = uneumm(XYl(:,1),XYl(:,2)) * normals(:,ibndedge);
-            V = gradPl_ne;
+            intgV = (wleg'*(uneumm(XYl(:,1),XYl(:,2)) .* Vl))' * lenE;
+            intgradVV = intgradPl_Pl * lenE;
         elseif (norm(rve(:,1) - [0;0]) < tol && norm(rve(:,2) - [0;1]) < tol)
-            g = uneumm(XYl_flip(:,1),XYl_flip(:,2)) * normals(:,ibndedge);
-            V = gradPl_ne_flip;
+            intgV = -(wleg'*(uneumm(XYl(:,1),XYl(:,2)) .* Vl))' * lenE;
+            intgradVV = -intgradPl_Pl * lenE;
         end
         break;
       else
@@ -292,11 +278,130 @@ elseif mode == 1 %single goal point
       end
     end
     % now save to global dirichlet matrix
-    Bneumm_glb((ibndedge-1)*nleg+1:ibndedge*nleg,(iTri-1)*M+1:M*iTri) = V;
+    Bneumm_glb((ibndedge-1)*M+1:ibndedge*M,(iTri-1)*M+1:M*iTri) = intgradVV';
     % save dirichlet condition to global Gdirch
-    Gneumm_glb((ibndedge-1)*nleg+1:ibndedge*nleg) = g;
+    Gneumm_glb((ibndedge-1)*M+1:ibndedge*M) = intgV;
   
   end
+
+  %% pointwise neumann 
+  % now handle Neumann enforcement
+  %Bneum_glb = zeros(nleg*nbndEdge,M*nTri);
+  %Gneumm_glb = zeros(nleg*nbndEdge,1);
+  %% get deriv ops on edges
+  %dxPl = varargin{3};
+  %dyPl = varargin{4};
+  %dxPb = varargin{5};
+  %dyPb = varargin{6};
+  %dxPh = varargin{7};
+  %dyPh = varargin{8};
+  %dxPl_flip = varargin{9};
+  %dyPl_flip = varargin{10};
+  %dxPb_flip = varargin{11};
+  %dyPb_flip = varargin{12};
+  %dxPh_flip = varargin{13};
+  %dyPh_flip = varargin{14};
+  %uneumm = varargin{15};
+  %gradPl_ne = zeros(nleg,M);
+  %gradPl_ne_flip = zeros(nleg,M);
+  %gradPb_ne = zeros(nleg,M);
+  %gradPb_ne_flip = zeros(nleg,M);
+  %gradPh_ne = zeros(nleg,M);
+  %gradPh_ne_flip = zeros(nleg,M);
+  %for ibndedge = 1:nbndEdge
+  %  iTri = bndEdge_tri_map(ibndedge);
+  %  Pts_Ti = meshP(:,meshT(iTri,:));
+  %  J = IncidenceMatrix(Pts_Ti);
+  %  ne = normals(:,ibndedge);
+  %  % compute gradient of each basis function
+  %  % on regular and flipped edges
+  %  for i = 1:M
+
+  %      dxPl_i = dxPl(:,i);
+  %      dyPl_i = dyPl(:,i);
+  %      gradPl_i = invJ'*[dxPl_i';dyPl_i'];
+  %      gradPl_ne(:,i) = gradPl_i' * ne;
+  %      
+  %      dxPl_flip_i = dxPl_flip(:,i);
+  %      dyPl_flip_i = dyPl_flip(:,i);
+  %      gradPl_flip_i = invJ'*[dxPl_flip_i';dyPl_flip_i'];
+  %      gradPl_ne_flip(:,i) = gradPl_flip_i' * ne;
+  %      
+  %      dxPb_i = dxPb(:,i);
+  %      dyPb_i = dyPb(:,i);
+  %      gradPb_i = invJ'*[dxPb_i';dyPb_i'];
+  %      gradPb_ne(:,i) = gradPb_i' * ne;
+  %      
+  %      dxPb_flip_i = dxPb_flip(:,i);
+  %      dyPb_flip_i = dyPb_flip(:,i);
+  %      gradPb_flip_i = invJ'*[dxPb_flip_i';dyPb_flip_i'];
+  %      gradPb_ne_flip(:,i) = gradPb_flip_i' * ne;
+  %      
+  %      dxPh_i = dxPh(:,i);
+  %      dyPh_i = dyPh(:,i);
+  %      gradPh_i = invJ'*[dxPh_i';dyPh_i'];
+  %      gradPh_ne(:,i) = gradPh_i' * ne;
+  %      
+  %      dxPh_flip_i = dxPh_flip(:,i);
+  %      dyPh_flip_i = dyPh_flip(:,i);
+  %      gradPh_flip_i = invJ'*[dxPh_flip_i';dyPh_flip_i'];
+  %      gradPh_ne_flip(:,i) = gradPh_flip_i' * ne;
+
+  %  end 
+
+
+  %  % boundary quadrature points mapped to physical tri
+  %  XYl = (J * [Rl,Sl]' + Pts_Ti(:,1))';
+  %  XYb = (J * [Rb,Sb]' + Pts_Ti(:,1))';
+  %  XYh = (J * [Rh,Sh]' + Pts_Ti(:,1))';
+  %  XYl_flip = (J * [Rl_flip,Sl_flip]' + Pts_Ti(:,1))';
+  %  XYb_flip = (J * [Rb_flip,Sb_flip]' + Pts_Ti(:,1))';
+  %  XYh_flip = (J * [Rh_flip,Sh_flip]' + Pts_Ti(:,1))';
+  %  % get edges of triangle, sorted to match bndry/int Edge lookup
+  %  edgesT = sort([meshT(iTri, [1,2]);...
+  %                 meshT(iTri, [2,3]);...
+  %                 meshT(iTri, [3,1])],2);
+  %  tol = 1e-13;
+  %  V = 0; g = 0; % grad basis and neumann values on bndry
+  %  for iedge = 1:3
+  %    if all(edgesT(iedge,:) == bndEdges(ibndedge,:))
+  %      % get endpts
+  %      ve = meshP(:,edgesT(iedge,:));
+  %      % get parametric coords of endpt
+  %      rve = J\(ve-Pts_Ti(:,1));
+  %      % bottom and flip
+  %      if (norm(rve(:,1) - [0;0]) < tol && norm(rve(:,2) - [1;0]) < tol)
+  %          g = uneumm(XYb(:,1),XYb(:,2)) * normals(:,ibndedge);
+  %          V = gradPb_ne;
+  %      elseif (norm(rve(:,1) - [1;0]) < tol && norm(rve(:,2) - [0;0]) < tol)
+  %          g = uneumm(XYb_flip(:,1),XYb_flip(:,2)) * normals(:,ibndedge);
+  %          V = gradPb_ne_flip;
+  %      % hyp and flip
+  %      elseif (norm(rve(:,1) - [1;0]) < tol && norm(rve(:,2) - [0;1]) < tol)
+  %          g = uneumm(XYh(:,1),XYh(:,2)) * normals(:,ibndedge);
+  %          V = gradPh_ne;
+  %      elseif (all(rve(:,1) - [0;1]) < tol && norm(rve(:,2) - [1;0]) < tol)
+  %          g = uneumm(XYh_flip(:,1),XYh_flip(:,2)) * normals(:,ibndedge);
+  %          V = gradPh_ne_flip;
+  %      % left and flip
+  %      elseif (norm(rve(:,1) - [0;1]) < tol && norm(rve(:,2) - [0;0]) < tol)
+  %          g = uneumm(XYl(:,1),XYl(:,2)) * normals(:,ibndedge);
+  %          V = gradPl_ne;
+  %      elseif (norm(rve(:,1) - [0;0]) < tol && norm(rve(:,2) - [0;1]) < tol)
+  %          g = uneumm(XYl_flip(:,1),XYl_flip(:,2)) * normals(:,ibndedge);
+  %          V = gradPl_ne_flip;
+  %      end
+  %      break;
+  %    else
+  %      continue;
+  %    end
+  %  end
+  %  % now save to global dirichlet matrix
+  %  Bneumm_glb((ibndedge-1)*nleg+1:ibndedge*nleg,(iTri-1)*M+1:M*iTri) = V;
+  %  % save dirichlet condition to global Gdirch
+  %  Gneumm_glb((ibndedge-1)*nleg+1:ibndedge*nleg) = g;
+  %
+  %end
 
 
 end

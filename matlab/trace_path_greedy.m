@@ -1,6 +1,6 @@
 function path = trace_path_greedy(x0, goal, cu_glb, meshT, meshP, DT, ...
                                    Dx_a1bc1, Dy_ab1c1, H_a1bc1, H_ab1c1, n, ...
-                                   step_size, tol, max_steps)
+                                   step_size, tol, max_steps, varargin)
 
     x = x0(:);               % current point
     goal = goal(:);          % ensure column vector
@@ -9,10 +9,12 @@ function path = trace_path_greedy(x0, goal, cu_glb, meshT, meshP, DT, ...
 
     for step = 1:max_steps
         % Evaluate ∇u at current point
-        [g,iTri] = evaluate_grad_u(x, cu_glb, meshT, meshP, DT, ...
-                            Dx_a1bc1, Dy_ab1c1, H_a1bc1, H_ab1c1, n);
-        disp(norm(g))
+        [g,iTri,tx] = evaluate_grad_u(x, cu_glb, meshT, meshP, DT, ...
+                            Dx_a1bc1, Dy_ab1c1, H_a1bc1, H_ab1c1, n, varargin{1});
 
+        if tx < tol
+            break;
+        end
         % Check if ∇u is invalid or degenerate
         if any(~isfinite(g)) || norm(g) < 1e-10
             warning("Step %d: using goal direction fallback at x = [%f, %f]", ...
@@ -41,7 +43,6 @@ function path = trace_path_greedy(x0, goal, cu_glb, meshT, meshP, DT, ...
 
         % Clip to domain bounding box
         x_new = min(1, max(-1, x_new));
-        disp(x_new)
 
         % Save to path
         path(end+1, :) = x_new';

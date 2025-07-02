@@ -1,4 +1,4 @@
-function [g,iTri] = evaluate_grad_u(x, cu_glb, meshT, meshP, DT, Dx, Dy, Hx, Hy, n)
+function [g,iTri,tx] = evaluate_grad_u(x, cu_glb, meshT, meshP, DT, Dx, Dy, Hx, Hy, n, varargin)
 
 plot(x(1),x(2),'r.'); hold on; drawnow;
 if any(~isfinite(x))
@@ -38,6 +38,9 @@ if r < -0.01 || s < -0.01 || r + s > 1.01
     warning('Bad reference coords: r = %.4f, s = %.4f', r, s);
 end
 
+V = jPoly_tri(r, s, varargin{1}, n-1, a, b, c);
+fprintf("time = %.3e\n", V*cu_T);
+tx = V*cu_T;
 Vx = jPoly_tri(r, s, Hx, n-1, a+1, b, c+1); 
 Vy = jPoly_tri(r, s, Hy, n-1, a, b+1, c+1); 
 ur = Vx * (Dx * cu_T);

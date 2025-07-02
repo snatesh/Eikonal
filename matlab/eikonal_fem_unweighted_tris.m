@@ -29,14 +29,14 @@ triplot(DT);
 % centers = [0 0.5 -0.5; 0 0.7 -0.7];
 % r0s = [0.1 0.2 0.2];
 
-centers = [0;0];
-r0s = [0.1];
+centers = [0 0;0 0.5];
+r0s = [0.05 0.05];
 
 
 %[centers,r0s] = generate_random_circles(20,[-1 1 -1 1], [0.05 0.1]);
 
 %delta = 0.05;     % transition width
-eps_obst = 1e-6;  % minimum speed inside obstacle
+eps_obst = 1e-2;  % minimum speed inside obstacle
 
 % Fixed: smooth dip for obstacle
 %f = @(x,y) eps_obst + (1 - eps_obst) * 0.5 * (1 + tanh((sqrt((x - c_hole(1)).^2 + (y - c_hole(2)).^2) - r0) / delta));
@@ -49,14 +49,16 @@ surfl(xg, yg, fg);
 
 %%
 %speed = 1;
-m = 12; n = m+1; M = n*(n+1)/2; nquad = length(W);
-goal = [-1,0];
+m = 14; n = m+1; M = n*(n+1)/2; nquad = length(W);
+goal = [-0.6,0.01];
 % normalization under (a,b,c), (a+1,b,c) etc.
 H_abc = structure_factors_tri(n+1,a,b,c);
 % dirchlet and neumann data/rhs
 udirch = @(x,y) zeros(size(x));
 %uneumm = @(x,y) -10*([x,y]-goal);
-uneumm = @(x,y) zeros(length(x),2);
+%uneumm = @(x,y) zeros(length(x),2);
+uneumm = @(x,y) zeros(size(x));
+
 %rhs = @(x,y) RHS(x,y,speed);
 rhs = @(x,y) 1./f(x,y);
 % finite element discretization for poisson
@@ -96,8 +98,8 @@ plot_normals(DT,bndEdges,normals);
 
 %%
 % stack the boundary and inter-element continuity constraints
-%BB = [Bint_glb;Bdirch_glb;Bneumm_glb];
-BB = [Bint_glb;Bdirch_glb];
+BB = [Bint_glb;Bdirch_glb;Bneumm_glb];
+%BB = [Bint_glb;Bdirch_glb];
 
 % identify the nLambda independent rows of BB
 [~,~,II] = qr(BB','vector');
@@ -107,8 +109,8 @@ Amat = sparse(zeros(M*nTri+nLambda));
 Amat(1:M*nTri,1:M*nTri) = K_glb;
 Amat(1:M*nTri,M*nTri+1:end) = BB_id';
 Amat(M*nTri+1:end,1:M*nTri) = BB_id;
-%Gbc = [zeros(nleg*nintEdge,1);G_glb;Gneumm_glb];
-Gbc = [zeros(nleg*nintEdge,1);G_glb];
+Gbc = [zeros(nleg*nintEdge,1);G_glb;Gneumm_glb];
+%Gbc = [zeros(nleg*nintEdge,1);G_glb];
 Gbc = Gbc(II(1:nLambda));
 Fvec = [F_glb;Gbc];
 % solve for solution modes on each tri
@@ -128,7 +130,7 @@ for iTri = 1:nTri
 end
 
 %%
-xi0 = 0.5;
+xi0 = 0.1;
 poiss_scale = scale_poisson(cu,rhs,xi0,M,R,S,W,dxP,dyP,meshT,meshP);
 cu = cu * poiss_scale;
 figure()
@@ -415,7 +417,7 @@ H_glb = H_glb';
 
 
 max_iter = 10000;
-rtol = 1e-14;
+rtol = 1e-10;
 tol = norm(N_glb + xi*K_glb*cu(1:M*nTri) - BB_id'*cu(M*nTri+1:end) - F_glb) * rtol;
 
 xi_trigger = 10*rtol;  % When residual norm drops below this, reduce xi
@@ -423,7 +425,7 @@ xi_trigger = 10*rtol;  % When residual norm drops below this, reduce xi
 
 fprintf("It \t (g,du) \t\t ||g|| \t\t xi\n");
 figure(3);
-alph = 0.1;
+alph = 0.5;
 HHmat = zeros(M*nTri + nLambda);
 for it = 1:max_iter
 
@@ -491,7 +493,7 @@ for it = 1:max_iter
 
 end
 %%
-
+figure()
     for iTri = 1:nTri
 
         Pts_Ti = meshP(:,meshT(iTri,:));
@@ -510,9 +512,10 @@ end
     drawnow;
 
 %%
-x0 = [0.8,0.8];
-tol = 1e-3;
-step_size = 0.001;
+%x0 = [0.8,0.9];
+x0 = [0.2,0.5];
+tol = 1e-1;
+step_size = 0.1;
 max_steps = 1000000;
 triplot(DT); hold on;
 %eik_path = eikonal_extract_path(n,cu,x0,goal,DT,tol);
@@ -521,6 +524,7 @@ triplot(DT); hold on;
 
 
 H_abc = structure_factors_tri(n+1,a,b,c);
+
 H_a1bc1 = structure_factors_tri(n+1,a+1,b,c+1);
 H_ab1c1 = structure_factors_tri(n+1,a,b+1,c+1);
 
@@ -529,8 +533,8 @@ Dx_a1bc1 = D1_tri(a,b,c,H_abc,H_a1bc1,0);
 Dy_ab1c1 = D1_tri(a,b,c,H_abc,H_ab1c1,1);
 eik_path = trace_path_greedy(x0, goal, cu, meshT, meshP, DT, ...
                          Dx_a1bc1, Dy_ab1c1, H_a1bc1, H_ab1c1, n, ...
-                         step_size, tol, max_steps);
-[gradU,iTri] = evaluate_grad_u(eik_path(end,:)',cu,meshT,meshP,DT,Dx_a1bc1,Dy_ab1c1,H_a1bc1,H_ab1c1,n);
+                         step_size, tol, max_steps, H_abc);
+[gradU,iTri] = evaluate_grad_u(eik_path(end,:)',cu,meshT,meshP,DT,Dx_a1bc1,Dy_ab1c1,H_a1bc1,H_ab1c1,n,H_abc);
 
 %%
 XX = []; YY = []; UU = [];
@@ -552,7 +556,12 @@ for iTri = 1:nTri
     %trisurf(T,X,Y,u); hold on;
     %scatter3(X,Y,u,'.'); hold on;
 end
+%%
+x0 = [0.8,0.8];
+r_search = 0.04; tol = 1e-3; max_steps = 1000;
+eik_path = trace_path_greedy_quad([XX YY], UU, x0, goal, r_search, tol, max_steps);
 
+%%
 
 
 % Plot contour of U over scattered points
