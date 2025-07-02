@@ -42,7 +42,7 @@ G_glb = zeros(nleg*nbndEdge,1);
 % now we loop over triangles 
 % and assemble the stiffness matrix
 hasdpdp = false; dPdP = 0;
-if nargout == 12
+if nargout >= 14
   dPdP = zeros(M,M,length(R));
 end
 for iTri = 1:nTri
@@ -73,7 +73,7 @@ for iTri = 1:nTri
             dyP_j = gradP_j(2,:)';
             dPidPj = dxP_i.*dxP_j + dyP_i.*dyP_j;
             K(i,j) = (W/2)'*dPidPj*detJ;
-            if nargout == 12 && ~hasdpdp
+            if nargout >= 14 && ~hasdpdp
               dPdP(i,j,:) = dPidPj;
             end 
         end
@@ -127,11 +127,9 @@ if mode == 0
             V = Vb_flip;
         % hyp and flip
         elseif (norm(rve(:,1) - [1;0]) < tol && norm(rve(:,2) - [0;1]) < tol)
-            hyp = true;
             g = udirch(XYh(:,1),XYh(:,2));
             V = Vh;
         elseif (all(rve(:,1) - [0;1]) < tol && norm(rve(:,2) - [1;0]) < tol)
-            hyp = true;
             g = udirch(XYh_flip(:,1),XYh_flip(:,2));
             V = Vh_flip;
         % left and flip
@@ -158,7 +156,7 @@ if mode == 0
 elseif mode == 1 %single goal point
   % get the goal point
   goal = varargin{1};
-  % strucutre factors
+  % structure factors
   H_abc = varargin{2};
   % global dirichlet
   Bdirch_glb = zeros(1,M*nTri);
@@ -181,6 +179,126 @@ elseif mode == 1 %single goal point
   g = udirch(goal(1),goal(2));
   Bdirch_glb(1,(iTri-1)*M+1:M*iTri) = V;
   G_glb = g;
+
+  % now handle Neumann enforcement
+  Bneum_glb = zeros(nleg*nbndEdge,M*nTri);
+  Gneumm_glb = zeros(nleg*nbndEdge,1);
+  % get deriv ops on edges
+  dxPl = varargin{3};
+  dyPl = varargin{4};
+  dxPb = varargin{5};
+  dyPb = varargin{6};
+  dxPh = varargin{7};
+  dyPh = varargin{8};
+  dxPl_flip = varargin{9};
+  dyPl_flip = varargin{10};
+  dxPb_flip = varargin{11};
+  dyPb_flip = varargin{12};
+  dxPh_flip = varargin{13};
+  dyPh_flip = varargin{14};
+  uneumm = varargin{15};
+  gradPl_ne = zeros(nleg,M);
+  gradPl_ne_flip = zeros(nleg,M);
+  gradPb_ne = zeros(nleg,M);
+  gradPb_ne_flip = zeros(nleg,M);
+  gradPh_ne = zeros(nleg,M);
+  gradPh_ne_flip = zeros(nleg,M);
+  for ibndedge = 1:nbndEdge
+    iTri = bndEdge_tri_map(ibndedge);
+    Pts_Ti = meshP(:,meshT(iTri,:));
+    J = IncidenceMatrix(Pts_Ti);
+    ne = normals(:,ibndedge);
+    % compute gradient of each basis function
+    % on regular and flipped edges
+    for i = 1:M
+
+        dxPl_i = dxPl(:,i);
+        dyPl_i = dyPl(:,i);
+        gradPl_i = invJ'*[dxPl_i';dyPl_i'];
+        gradPl_ne(:,i) = gradPl_i' * ne;
+        
+        dxPl_flip_i = dxPl_flip(:,i);
+        dyPl_flip_i = dyPl_flip(:,i);
+        gradPl_flip_i = invJ'*[dxPl_flip_i';dyPl_flip_i'];
+        gradPl_ne_flip(:,i) = gradPl_flip_i' * ne;
+        
+        dxPb_i = dxPb(:,i);
+        dyPb_i = dyPb(:,i);
+        gradPb_i = invJ'*[dxPb_i';dyPb_i'];
+        gradPb_ne(:,i) = gradPb_i' * ne;
+        
+        dxPb_flip_i = dxPb_flip(:,i);
+        dyPb_flip_i = dyPb_flip(:,i);
+        gradPb_flip_i = invJ'*[dxPb_flip_i';dyPb_flip_i'];
+        gradPb_ne_flip(:,i) = gradPb_flip_i' * ne;
+        
+        dxPh_i = dxPh(:,i);
+        dyPh_i = dyPh(:,i);
+        gradPh_i = invJ'*[dxPh_i';dyPh_i'];
+        gradPh_ne(:,i) = gradPh_i' * ne;
+        
+        dxPh_flip_i = dxPh_flip(:,i);
+        dyPh_flip_i = dyPh_flip(:,i);
+        gradPh_flip_i = invJ'*[dxPh_flip_i';dyPh_flip_i'];
+        gradPh_ne_flip(:,i) = gradPh_flip_i' * ne;
+
+    end 
+
+
+    % boundary quadrature points mapped to physical tri
+    XYl = (J * [Rl,Sl]' + Pts_Ti(:,1))';
+    XYb = (J * [Rb,Sb]' + Pts_Ti(:,1))';
+    XYh = (J * [Rh,Sh]' + Pts_Ti(:,1))';
+    XYl_flip = (J * [Rl_flip,Sl_flip]' + Pts_Ti(:,1))';
+    XYb_flip = (J * [Rb_flip,Sb_flip]' + Pts_Ti(:,1))';
+    XYh_flip = (J * [Rh_flip,Sh_flip]' + Pts_Ti(:,1))';
+    % get edges of triangle, sorted to match bndry/int Edge lookup
+    edgesT = sort([meshT(iTri, [1,2]);...
+                   meshT(iTri, [2,3]);...
+                   meshT(iTri, [3,1])],2);
+    tol = 1e-13;
+    V = 0; g = 0; % dirichlet values on bndry
+    for iedge = 1:3
+      if all(edgesT(iedge,:) == bndEdges(ibndedge,:))
+        % get endpts
+        ve = meshP(:,edgesT(iedge,:));
+        % get parametric coords of endpt
+        rve = J\(ve-Pts_Ti(:,1));
+        % bottom and flip
+        if (norm(rve(:,1) - [0;0]) < tol && norm(rve(:,2) - [1;0]) < tol)
+            g = uneumm(XYb(:,1),XYb(:,2)) * normals(:,ibndedge);
+            V = gradPb_ne;
+        elseif (norm(rve(:,1) - [1;0]) < tol && norm(rve(:,2) - [0;0]) < tol)
+            g = uneumm(XYb_flip(:,1),XYb_flip(:,2)) * normals(:,ibndedge);
+            V = gradPb_ne_flip;
+        % hyp and flip
+        elseif (norm(rve(:,1) - [1;0]) < tol && norm(rve(:,2) - [0;1]) < tol)
+            g = uneumm(XYh(:,1),XYh(:,2)) * normals(:,ibndedge);
+            V = gradPh_ne;
+        elseif (all(rve(:,1) - [0;1]) < tol && norm(rve(:,2) - [1;0]) < tol)
+            g = uneumm(XYh_flip(:,1),XYh_flip(:,2)) * normals(:,ibndedge);
+            V = gradPh_ne_flip;
+        % left and flip
+        elseif (norm(rve(:,1) - [0;1]) < tol && norm(rve(:,2) - [0;0]) < tol)
+            g = uneumm(XYl(:,1),XYl(:,2)) * normals(:,ibndedge);
+            V = gradPl_ne;
+        elseif (norm(rve(:,1) - [0;0]) < tol && norm(rve(:,2) - [0;1]) < tol)
+            g = uneumm(XYl_flip(:,1),XYl_flip(:,2)) * normals(:,ibndedge);
+            V = gradPl_ne_flip;
+        end
+        break;
+      else
+        continue;
+      end
+    end
+    % now save to global dirichlet matrix
+    Bneumm_glb((ibndedge-1)*nleg+1:ibndedge*nleg,(iTri-1)*M+1:M*iTri) = V;
+    % save dirichlet condition to global Gdirch
+    Gneumm_glb((ibndedge-1)*nleg+1:ibndedge*nleg) = g;
+  
+  end
+
+
 end
 
 
@@ -253,22 +371,14 @@ for iedge = 1:nintEdge
     % now save to global inter-element continuity matrix
     Bint_glb((iedge-1)*nleg+1:nleg*iedge,(tri1-1)*M+1:M*tri1) = V1a; 
     Bint_glb((iedge-1)*nleg+1:nleg*iedge,(tri2-1)*M+1:M*tri2) = -V2a; 
-
-
-    %xy1 = edgePhysicalPoints(Pts_T1, edge1, Sl);
-    %xy2 = edgePhysicalPoints(Pts_T2, edge2, Sl);
-    %if (norm(xy1-xy2) > 1e-13)
-    %  xy2 = edgePhysicalPoints(Pts_T2,edge2,1-Sl);
-    %  disp(norm(xy1 - xy2))
-    %else
-    %  disp(norm(xy1-xy2))
-    %end
-    
-
 end
 
-  if nargout == 14
+  if nargout >= 14
     varargout{1} = dPdP;
+  end
+  if nargout == 16
+    varargout{2} = Bneumm_glb;
+    varargout{3} = Gneumm_glb;
   end
 
 end

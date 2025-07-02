@@ -27,12 +27,12 @@ Dy_ab1c1 = D1_tri(a,b,c,H_abc,H_ab1c1,1);
 Nrs = length(R);
 
 % interior basis derivatives at abscissa
-dxP = zeros(Nrs,M);
-dyP = zeros(Nrs,M);
-for i = 1:M
-    dxP(:,i) = V_a1bc1 * Dx_a1bc1(:,i);
-    dyP(:,i) = V_ab1c1 * Dy_ab1c1(:,i);
-end
+dxP = V_a1bc1 * Dx_a1bc1;
+dyP = V_ab1c1 * Dy_ab1c1;
+%for i = 1:M
+%    dxP(:,i) = V_a1bc1 * Dx_a1bc1(:,i);
+%    dyP(:,i) = V_ab1c1 * Dy_ab1c1(:,i);
+%end
 
 nleg = 50;
 [xleg,wleg,~] = gjQuad(nleg,0,0);
@@ -93,6 +93,52 @@ for i = 1:M
         intVbVb_flip(i,j) = wleg' * VbVbij_flip;
         intVhVh_flip(i,j) = wleg' * VhVhij_flip;
     end
+end
+
+% if using neumann conditions
+if nargout == 40
+
+Vl_a1bc1 = jPoly_tri(Rl,Sl,H_a1bc1,n-1,a+1,b,c+1);
+Vl_ab1c1 = jPoly_tri(Rl,Sl,H_ab1c1,n-1,a,b+1,c+1);
+Vl_a1bc1_flip = jPoly_tri(Rl_flip,Sl_flip,H_a1bc1,n-1,a+1,b,c+1);
+Vl_ab1c1_flip = jPoly_tri(Rl_flip,Sl_flip,H_ab1c1,n-1,a,b+1,c+1);
+Vb_a1bc1 = jPoly_tri(Rb,Sb,H_a1bc1,n-1,a+1,b,c+1);
+Vb_ab1c1 = jPoly_tri(Rb,Sb,H_ab1c1,n-1,a,b+1,c+1);
+Vb_a1bc1_flip = jPoly_tri(Rb_flip,Sb_flip,H_a1bc1,n-1,a+1,b,c+1);
+Vb_ab1c1_flip = jPoly_tri(Rb_flip,Sb_flip,H_ab1c1,n-1,a,b+1,c+1);
+Vh_a1bc1 = jPoly_tri(Rh,Sh,H_a1bc1,n-1,a+1,b,c+1);
+Vh_ab1c1 = jPoly_tri(Rh,Sh,H_ab1c1,n-1,a,b+1,c+1);
+Vh_a1bc1_flip = jPoly_tri(Rh_flip,Sh_flip,H_a1bc1,n-1,a+1,b,c+1);
+Vh_ab1c1_flip = jPoly_tri(Rh_flip,Sh_flip,H_ab1c1,n-1,a,b+1,c+1);
+
+
+dxPl = Vl_a1bc1 * Dx_a1bc1; 
+dyPl = Vl_ab1c1 * Dy_ab1c1; 
+dxPb = Vb_a1bc1 * Dx_a1bc1; 
+dyPb = Vb_ab1c1 * Dy_ab1c1; 
+dxPh = Vh_a1bc1 * Dx_a1bc1; 
+dyPh = Vh_ab1c1 * Dy_ab1c1; 
+
+dxPl_flip = Vl_a1bc1_flip * Dx_a1bc1; 
+dyPl_flip = Vl_ab1c1_flip * Dy_ab1c1; 
+dxPb_flip = Vb_a1bc1_flip * Dx_a1bc1; 
+dyPb_flip = Vb_ab1c1_flip * Dy_ab1c1; 
+dxPh_flip = Vh_a1bc1_flip * Dx_a1bc1; 
+dyPh_flip = Vh_ab1c1_flip * Dy_ab1c1; 
+
+varargout{1} = dxPl;
+varargout{2} = dyPl;
+varargout{3} = dxPb;
+varargout{4} = dyPb;
+varargout{5} = dxPh;
+varargout{6} = dyPh;
+varargout{7} = dxPl_flip;
+varargout{8} = dyPl_flip;
+varargout{9} = dxPb_flip;
+varargout{10} = dyPb_flip;
+varargout{11} = dxPh_flip;
+varargout{12} = dyPh_flip;
+
 end
 
 end

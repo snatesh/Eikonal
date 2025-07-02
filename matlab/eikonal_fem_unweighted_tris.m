@@ -26,8 +26,12 @@ triplot(DT);
 %c_hole = [0, 0];       % obstacle center
 %r0 = 0.3;         % radius
 
-centers = [0 0.5 -0.5; 0 0.7 -0.7];
-r0s = [0.1 0.2 0.2];
+% centers = [0 0.5 -0.5; 0 0.7 -0.7];
+% r0s = [0.1 0.2 0.2];
+
+centers = [0;0];
+r0s = [0.1];
+
 
 %[centers,r0s] = generate_random_circles(20,[-1 1 -1 1], [0.05 0.1]);
 
@@ -45,12 +49,14 @@ surfl(xg, yg, fg);
 
 %%
 %speed = 1;
-m = 10; n = m+1; M = n*(n+1)/2; nquad = length(W);
+m = 12; n = m+1; M = n*(n+1)/2; nquad = length(W);
 goal = [-1,0];
 % normalization under (a,b,c), (a+1,b,c) etc.
 H_abc = structure_factors_tri(n+1,a,b,c);
-% manufactured sol and corresponding dirchlet data/rhs
+% dirchlet and neumann data/rhs
 udirch = @(x,y) zeros(size(x));
+%uneumm = @(x,y) -10*([x,y]-goal);
+uneumm = @(x,y) zeros(length(x),2);
 %rhs = @(x,y) RHS(x,y,speed);
 rhs = @(x,y) 1./f(x,y);
 % finite element discretization for poisson
@@ -61,28 +67,38 @@ rhs = @(x,y) 1./f(x,y);
     Rl_flip,Sl_flip,Rb_flip,Sb_flip,...
     Rh_flip,Sh_flip,wleg,...
     intVlVl,intVbVb,intVhVh,...
-    intVlVl_flip,intVbVb_flip,intVhVh_flip] = preAssemble_poisson1(n,R,S);
+    intVlVl_flip,intVbVb_flip,intVhVh_flip,...
+    dxPl,dyPl,dxPb,dyPb,dxPh,dyPh,...
+    dxPl_flip,dyPl_flip,dxPb_flip,dyPb_flip,...
+    dxPh_flip,dyPh_flip] = preAssemble_poisson1(n,R,S);
 nleg = size(wleg,1);
 
 [K_glb,Bint_glb,Bdirch_glb,...
     F_glb,G_glb,meshP,meshT,...
     sharedEdge_tri_map,...
     nintEdge,nbndEdge,...
-    bndEdge_tri_map,bndEdges,normals,dPdP] = assemble_poisson_pwc(n,R,S,W,...
+    bndEdge_tri_map,bndEdges,normals,dPdP,...
+    Bneumm_glb,Gneumm_glb] = assemble_poisson_pwc(n,R,S,W,...
                                             Rl,Sl,Rb,Sb,Rh,Sh,...
                                             Rl_flip,Sl_flip, ...
                                             Rb_flip,Sb_flip, ...
                                             Rh_flip,Sh_flip,wleg, ...
                                             V_abc,dxP,dyP,Vl,Vb,Vh,...
                                             Vl_flip,Vb_flip,Vh_flip,...
-                                            rhs,udirch,DT,1,goal,H_abc);
+                                            rhs,udirch,DT,1,goal,H_abc,...
+                                            dxPl,dyPl,dxPb,dyPb,dxPh,dyPh,...
+                                            dxPl_flip,dyPl_flip,...
+                                            dxPb_flip,dyPb_flip,...
+                                            dxPh_flip,dyPh_flip,uneumm);
 
 
 plot_normals(DT,bndEdges,normals);
 
 %%
 % stack the boundary and inter-element continuity constraints
+%BB = [Bint_glb;Bdirch_glb;Bneumm_glb];
 BB = [Bint_glb;Bdirch_glb];
+
 % identify the nLambda independent rows of BB
 [~,~,II] = qr(BB','vector');
 nLambda = rank(BB);
@@ -91,11 +107,13 @@ Amat = sparse(zeros(M*nTri+nLambda));
 Amat(1:M*nTri,1:M*nTri) = K_glb;
 Amat(1:M*nTri,M*nTri+1:end) = BB_id';
 Amat(M*nTri+1:end,1:M*nTri) = BB_id;
+%Gbc = [zeros(nleg*nintEdge,1);G_glb;Gneumm_glb];
 Gbc = [zeros(nleg*nintEdge,1);G_glb];
 Gbc = Gbc(II(1:nLambda));
 Fvec = [F_glb;Gbc];
 % solve for solution modes on each tri
 cu = Amat \ Fvec;
+figure()
 for iTri = 1:nTri
     Pts_Ti = meshP(:,meshT(iTri,:));
     Ixe = IncidenceMatrix(Pts_Ti);
@@ -108,9 +126,12 @@ for iTri = 1:nTri
     u_sol = V_abc*cu_abc;
     scatter3(X,Y,u_sol,'.'); hold on;
 end
-xi0 = 0.3;
+
+%%
+xi0 = 0.5;
 poiss_scale = scale_poisson(cu,rhs,xi0,M,R,S,W,dxP,dyP,meshT,meshP);
 cu = cu * poiss_scale;
+figure()
 for iTri = 1:nTri
     Pts_Ti = meshP(:,meshT(iTri,:));
     Ixe = IncidenceMatrix(Pts_Ti);
@@ -489,9 +510,9 @@ end
     drawnow;
 
 %%
-x0 = [0.78,0.77];
+x0 = [0.8,0.8];
 tol = 1e-3;
-step_size = 0.01;
+step_size = 0.001;
 max_steps = 1000000;
 triplot(DT); hold on;
 %eik_path = eikonal_extract_path(n,cu,x0,goal,DT,tol);
