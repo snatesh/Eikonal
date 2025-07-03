@@ -14,9 +14,9 @@ Dx_a1bc1 = D1_tri(a,b,c,H_abc,H_a1bc1,0);
 Dy_ab1c1 = D1_tri(a,b,c,H_abc,H_ab1c1,1);
 
 rhs = @(t,x) -normalize_grad(evaluate_grad_u(x(:), cu_glb, meshT, meshP, DT, ...
-                             Dx_a1bc1, Dy_ab1c1, H_a1bc1, H_ab1c1, n) );
+                             Dx_a1bc1, Dy_ab1c1, H_a1bc1, H_ab1c1, n, H_abc) );
 % ODE options
-opts = odeset('RelTol', 1e-3, 'AbsTol', 1e-6, 'MaxStep', 0.01);
+opts = odeset('RelTol', 1e-2, 'AbsTol', 1e-2, 'MaxStep', 0.01);
 
 % Integrate
 [t, X] = ode45(rhs, [0, 10], x0(:), opts);  % time horizon can be adjusted

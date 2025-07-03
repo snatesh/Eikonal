@@ -25,6 +25,7 @@ function path = trace_path_greedy(x0, goal, cu_glb, meshT, meshP, DT, ...
                 v = d_goal / norm(d_goal);  % unit vector toward goal
             else
                 v = [0; 0];  % already at goal
+                break;
             end
         else
             v = -g / norm(g);  % normalized descent direction
@@ -38,7 +39,7 @@ function path = trace_path_greedy(x0, goal, cu_glb, meshT, meshP, DT, ...
         
         % Nudge toward barycenter to avoid edge
         dir = xc - x_new;
-        x_new = x_new + 1e-4 * dir / norm(dir);
+        x_new = x_new + 1e-2 * dir / norm(dir);
 
 
         % Clip to domain bounding box

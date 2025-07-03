@@ -156,33 +156,56 @@ if mode == 0
 elseif mode == 1 %single goal point
   % get the goal point
   goal = varargin{1};
+  ngoal = 0
+  goal_pts = generate_goal_region(goal, 0.01, ngoal);
+
   % structure factors
   H_abc = varargin{2};
   % global dirichlet
-  Bdirch_glb = zeros(1,M*nTri);
+  %Bdirch_glb = zeros(1,M*nTri);
+  Bdirch_glb = zeros(ngoal+1,M*nTri);
   % global dirichlet load
-  G_glb = zeros(1,1);
+  %G_glb = zeros(1,1);
+  G_glb = zeros(ngoal+1,1);
   % find triangle containing goal
-  iTri = pointLocation(DT, goal);  
-  if isnan(iTri)
-      error('Goal point is outside the mesh.');
+  %iTri = pointLocation(DT, goal);  
+  %if isnan(iTri)
+  %    error('Goal point is outside the mesh.');
+  %end
+  % find triangles containing goal region
+  iTris = pointLocation(DT,goal_pts');
+  if any(isnan(iTris))
+    error('Goal region is outside the mesh.');
   end
-  Pts_Ti = meshP(:,meshT(iTri,:));
-  J = IncidenceMatrix(Pts_Ti);
-  % get parametric coords of goal
-  rsgoal = J\(goal'-Pts_Ti(:,1));
-  tol = 1e-13;
-  Rg = rsgoal(1); Sg = rsgoal(2);
-  % evaluate basis at goal point 
-  V = jPoly_tri(Rg,Sg,H_abc,n-1,a,b,c);
-  disp(size(V));
-  g = udirch(goal(1),goal(2));
-  Bdirch_glb(1,(iTri-1)*M+1:M*iTri) = V;
-  G_glb = g;
+  for igoal = 1:(ngoal+1) % goal_pts includes goal
+    iTri = iTris(igoal);
+    Pts_Ti = meshP(:,meshT(iTri,:));
+    J = IncidenceMatrix(Pts_Ti);
+    goalpt = goal_pts(:,igoal);
+    % get parametric coords of goal region
+    rsgoal = J\(goalpt-Pts_Ti(:,1));
+    Rg = rsgoal(1); Sg = rsgoal(2);
+    % evaluate basis at goal point 
+    V = jPoly_tri(Rg,Sg,H_abc,n-1,a,b,c);
+    g = udirch(goalpt(1),goalpt(2));
+    Bdirch_glb(igoal,(iTri-1)*M+1:M*iTri) = V;
+    G_glb(igoal) = g;
+  end
+
+  %Pts_Ti = meshP(:,meshT(iTri,:));
+  %J = IncidenceMatrix(Pts_Ti);
+  %% get parametric coords of goal region
+  %rsgoal = J\(goal'-Pts_Ti(:,1));
+  %Rg = rsgoal(1); Sg = rsgoal(2);
+  %% evaluate basis at goal point 
+  %V = jPoly_tri(Rg,Sg,H_abc,n-1,a,b,c);
+  %g = udirch(goal(1),goal(2));
+  %Bdirch_glb(1,(iTri-1)*M+1:M*iTri) = V;
+  %G_glb = g;
 
   %% weak neumann 
   % now handle Neumann enforcement
-  Bneum_glb = zeros(M*nbndEdge,M*nTri);
+  Bneumm_glb = zeros(M*nbndEdge,M*nTri);
   Gneumm_glb = zeros(M*nbndEdge,1);
   % get deriv ops on edges
   dxPl = varargin{3};
@@ -283,7 +306,6 @@ elseif mode == 1 %single goal point
     Gneumm_glb((ibndedge-1)*M+1:ibndedge*M) = intgV;
   
   end
-
   %% pointwise neumann 
   % now handle Neumann enforcement
   %Bneum_glb = zeros(nleg*nbndEdge,M*nTri);

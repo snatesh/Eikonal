@@ -39,12 +39,12 @@ if r < -0.01 || s < -0.01 || r + s > 1.01
 end
 
 V = jPoly_tri(r, s, varargin{1}, n-1, a, b, c);
-fprintf("time = %.3e\n", V*cu_T);
 tx = V*cu_T;
 Vx = jPoly_tri(r, s, Hx, n-1, a+1, b, c+1); 
 Vy = jPoly_tri(r, s, Hy, n-1, a, b+1, c+1); 
 ur = Vx * (Dx * cu_T);
 us = Vy * (Dy * cu_T);
 g = invJ' * [ur; us];
+fprintf("time = %.3e \t ||g|| = %.3e \n", V*cu_T, norm(g));
 
 end
