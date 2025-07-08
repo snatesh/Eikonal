@@ -17,6 +17,7 @@ function animate_causal_propagation(DT, x_anchor)
     seed_tris = edgeAttachments(DT, anchor_edge);
     frontier = seed_tris{1};
 
+    disp(seed_tris)
     figure; hold on;
     triplot(DT, 'Color', [0.8 0.8 0.8]);  % base mesh lines
     plot(x_anchor(1), x_anchor(2), 'ro', 'MarkerSize', 8, 'LineWidth', 2);  % anchor
