@@ -102,6 +102,10 @@ function eikonal_causal_propagation(DT, x_anchor, m, R, S, W, udirch, rhs)
   intu_seed = (W/2)'*u_sol;
   fprintf("integral of u on seed %.3e\n", intu_seed);
 
+  nTri = size(tris,1);
+
+  cu_glb = zeros(M*nTri,1);
+  cu_glb((iTri-1)*M+1:iTri*M) = cu_abc;
   
 
   
@@ -116,7 +120,7 @@ function eikonal_causal_propagation(DT, x_anchor, m, R, S, W, udirch, rhs)
   for it = 1:length(queue)
     t = queue(it);
     status(t) = "Known";
-    proxy(t) = intu_seed % ∫ u
+    proxy(t) = intu_seed; % ∫ u
   end
   
   % Frontier: list of triangles eligible to update (naive FIFO)
@@ -132,13 +136,80 @@ function eikonal_causal_propagation(DT, x_anchor, m, R, S, W, udirch, rhs)
     nbrs = neighbors(DT, T_cur);
     nbrs = nbrs(~isnan(nbrs));
     
+    %cu_known = cu_glb((T_cur-1)*M+1:T_cur*M);
+
     for inbr = 1:length(nbrs)
       t_nbr = nbrs(inbr);
       
       if status(t_nbr) == "Unknown"
+        % === (1) Identify all known neighbors of t_nbr ===
+        nbrs2 = neighbors(DT, t_nbr);
+        nbrs2 = nbrs2(~isnan(nbrs2));
+        known_nbrs = nbrs2(status(nbrs2) == "Known");
+
+        % === (2) For each known neighbor, compute shared edge and get cu_known ===
+        shared_edges = {};     % cell array of 1×2 integer row vectors
+        cu_known_list = {};    % cell array of M×1 modal vectors
+
+        for ikn = 1:length(known_nbrs)
+          t_known = known_nbrs(ikn);
+
+          verts_known = tris(t_known, :);
+          verts_nbr   = tris(t_nbr, :);
+
+          edges_known = sort([verts_known([1 2]); verts_known([2 3]); verts_known([3 1])], 2);
+          edges_nbr   = sort([verts_nbr([1 2]);   verts_nbr([2 3]);   verts_nbr([3 1])],   2);
+
+          shared_edge = intersect(edges_known, edges_nbr, 'rows');  % 1×2
+
+          shared_edges{end+1} = shared_edge;
+          cu_known_list{end+1} = cu_glb((t_known-1)*M + (1:M));  % M×1
+        end
+        disp(size(shared_edges,2));
+        known_tris = known_nbrs;
+        % % Vertex indices of each triangle
+        % verts_cur = tris(T_cur, :);
+        % verts_nbr = tris(t_nbr, :);
+        % 
+        % % All edges of each triangle (as sorted pairs)
+        % edges_cur = sort([verts_cur([1 2]); verts_cur([2 3]); verts_cur([3 1])], 2);
+        % edges_nbr = sort([verts_nbr([1 2]); verts_nbr([2 3]); verts_nbr([3 1])], 2);
+        % 
+        % % Find shared edge: intersection of edge lists
+        % shared_edge = intersect(edges_cur, edges_nbr, 'rows');
+        [K,B,F,G,meshP,meshT] = ...
+          assemble_poisson_causal_tri(t_nbr,DT,n,R,S,W,...
+                                      Rl,Sl,Rb,Sb,Rh,Sh, ...
+                                      Rl_flip,Sl_flip,...
+                                      Rb_flip,Sb_flip,...
+                                      Rh_flip,Sh_flip,wleg,...
+                                      V_abc,dxP,dyP,Vl,Vb,Vh,...
+                                      Vl_flip,Vb_flip,Vh_flip,...
+                                      rhs,cu_known_list,0,shared_edges,known_tris);
+
+        BB = B;
+        % identify the nLambda independent rows of BB
+        [~,~,II] = qr(BB','vector');
+        nLambda = rank(BB);
+        BB_id = BB(II(1:nLambda),:);
+        Amat = sparse(zeros(M+nLambda));
+        Amat(1:M,1:M) = K;
+        Amat(1:M,M+1:end) = BB_id';
+        Amat(M+1:end,1:M) = BB_id;
+        Gbc = G(II(1:nLambda));
+        Fvec = [F;Gbc];
+        cu0 = Amat \ Fvec;
+        cu_abc = cu0(1:M);
+        u_sol = V_abc*cu_abc;
+        cu_glb((t_nbr-1)*M+1:t_nbr*M) = cu_abc;
+
+        % compute integral of u on tri
+        intu_nbr = (W/2)'*u_sol;
+        
+        
         % Simulate causal update
         status(t_nbr) = "Known";
-        proxy(t_nbr) = proxy(T_cur) + rand();  % causally increasing
+        proxy(t_nbr) = proxy(T_cur) + intu_nbr;  % causally increasing
         parent(t_nbr) = T_cur;
         frontier(end+1) = t_nbr;
       end
@@ -146,6 +217,21 @@ function eikonal_causal_propagation(DT, x_anchor, m, R, S, W, udirch, rhs)
   end
   
   % === Visualization ===
+  figure();
+  for iTri = 1:nTri
+    Pts_Ti = meshP(:,meshT(iTri,:));
+    Ixe = IncidenceMatrix(Pts_Ti);
+    XYe = (Ixe * [R,S]' + Pts_Ti(:,1))';
+    X = XYe(:,1);
+    Y = XYe(:,2);
+    %T = delaunay(X,Y);
+    cu_abc = cu_glb((iTri-1)*M+1:M*iTri);
+    u_sol = V_abc*cu_abc;
+    scatter3(X,Y,u_sol,'.'); hold on;
+  end
+
+
+
   figure; hold on; axis equal;
   triplot(DT, 'Color', [0.8 0.8 0.8]);
   

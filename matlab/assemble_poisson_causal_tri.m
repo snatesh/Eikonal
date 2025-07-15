@@ -67,66 +67,81 @@ end
 
 % TODO: Entire mode=0 block needs adapaptation for
 %       causal/sequential assembly
-% now we loop over boundary edges
-% to assemble dirichlet bc matrix
-% handling one boundary edge at a time
 if mode == 0
-%  for ibndedge = 1:nbndEdge
-%    iTri = bndEdge_tri_map(ibndedge);
-%    Pts_Ti = meshP(:,meshT(iTri,:));
-%    J = IncidenceMatrix(Pts_Ti);
-%    % boundary quadrature points mapped to physical tri
-%    XYl = (J * [Rl,Sl]' + Pts_Ti(:,1))';
-%    XYb = (J * [Rb,Sb]' + Pts_Ti(:,1))';
-%    XYh = (J * [Rh,Sh]' + Pts_Ti(:,1))';
-%    XYl_flip = (J * [Rl_flip,Sl_flip]' + Pts_Ti(:,1))';
-%    XYb_flip = (J * [Rb_flip,Sb_flip]' + Pts_Ti(:,1))';
-%    XYh_flip = (J * [Rh_flip,Sh_flip]' + Pts_Ti(:,1))';
-%    % get edges of triangle, sorted to match bndry/int Edge lookup
-%    edgesT = sort([meshT(iTri, [1,2]);...
-%                   meshT(iTri, [2,3]);...
-%                   meshT(iTri, [3,1])],2);
-%    tol = 1e-13;
-%    V = 0; g = 0; % dirichlet values on bndry
-%    for iedge = 1:3
-%      if all(edgesT(iedge,:) == bndEdges(ibndedge,:))
-%        % get endpts
-%        ve = meshP(:,edgesT(iedge,:));
-%        % get parametric coords of endpt
-%        rve = J\(ve-Pts_Ti(:,1));
-%        % bottom and flip
-%        if (norm(rve(:,1) - [0;0]) < tol && norm(rve(:,2) - [1;0]) < tol)
-%            g = udirch(XYb(:,1),XYb(:,2));
-%            V = Vb;
-%        elseif (norm(rve(:,1) - [1;0]) < tol && norm(rve(:,2) - [0;0]) < tol)
-%            g = udirch(XYb_flip(:,1),XYb_flip(:,2));
-%            V = Vb_flip;
-%        % hyp and flip
-%        elseif (norm(rve(:,1) - [1;0]) < tol && norm(rve(:,2) - [0;1]) < tol)
-%            g = udirch(XYh(:,1),XYh(:,2));
-%            V = Vh;
-%        elseif (all(rve(:,1) - [0;1]) < tol && norm(rve(:,2) - [1;0]) < tol)
-%            g = udirch(XYh_flip(:,1),XYh_flip(:,2));
-%            V = Vh_flip;
-%        % left and flip
-%        elseif (norm(rve(:,1) - [0;1]) < tol && norm(rve(:,2) - [0;0]) < tol)
-%            g = udirch(XYl(:,1),XYl(:,2));
-%            V = Vl;
-%        elseif (norm(rve(:,1) - [0;0]) < tol && norm(rve(:,2) - [0;1]) < tol)
-%            g = udirch(XYl_flip(:,1),XYl_flip(:,2));
-%            V = Vl_flip;
-%        end
-%        break;
-%      else
-%        continue;
-%      end
-%    end
-%    % now save to global dirichlet matrix
-%    Bdirch_glb((ibndedge-1)*nleg+1:ibndedge*nleg,(iTri-1)*M+1:M*iTri) = V;
-%    % save dirichlet condition to global Gdirch
-%    G_glb((ibndedge-1)*nleg+1:ibndedge*nleg) = g;
-%  
-%  end
+  cu_known_list = udirch;
+  shared_edges = varargin{1};
+  known_tris = varargin{2};
+  %T_cur = varargin{2};
+  nshared = size(shared_edges,2);
+  B = zeros(nleg*nshared,M);
+  G = zeros(nleg*nshared,1);
+
+  for ishared = 1:nshared
+    shared_edge = shared_edges{ishared};
+    cu_known = cu_known_list{ishared};
+    T_cur = known_tris(ishared);
+    % get vertices of each tri
+    Pts_T1 = meshP(:,meshT(T_cur,:));
+    Pts_T2 = meshP(:,meshT(iTri,:));
+    % get parametric map for each tri
+    J1 = IncidenceMatrix(Pts_T1);
+    J2 = IncidenceMatrix(Pts_T2);
+    % get shared edge endpts
+    ve = meshP(:, shared_edge);    % 2×2
+    % get parametric coords of endpt on each tri
+    rve1 = J1\(ve-Pts_T1(:,1));
+    rve2 = J2\(ve-Pts_T2(:,1));
+    % get the correct precomputed basis functions corresponding
+    % to the parametric shared edge in each tri
+    tol = 1e-13;
+    edge1 = 0; edge2 = 0;
+    rleg1 = 0; sleg1 = 0;
+    rleg2 = 0; sleg2 = 0;
+    % bottom
+    if ((norm(rve1(:,1) - [0;0]) < tol) && (norm(rve1(:,2) - [1;0]) < tol)) || ...
+        ((norm(rve1(:,1) - [1;0]) < tol) && (norm(rve1(:,2) -[0;0]) < tol))
+      V1 = Vb;
+      edge1 = 2;
+      rleg1 = Rb; sleg1 = Sb;
+      % hyp
+    elseif ((norm(rve1(:,1) - [1;0]) < tol) && (norm(rve1(:,2) - [0;1]) < tol)) || ...
+        ((norm(rve1(:,1) - [0;1])< tol) && (norm(rve1(:,2) - [1;0]) < tol))
+      V1 = Vh;
+      edge1 = 3;
+      rleg1 = Rh; sleg1 = Sh;
+      % left
+    else
+      V1 = Vl;
+      edge1 = 1;
+      rleg1 = Rl; sleg1 = Sl;
+    end
+    % bottom
+    if ((norm(rve2(:,1) - [0;0]) < tol) && (norm(rve2(:,2) - [1;0]) < tol)) || ...
+        ((norm(rve2(:,1) - [1;0]) < tol) && (norm(rve2(:,2) - [0;0]) < tol))
+      V2 = Vb;
+      edge2 = 2;
+      rleg2 = Rb; sleg2 = Sb;
+      % hyp
+    elseif ((norm(rve2(:,1) - [1;0]) < tol) && (norm(rve2(:,2) - [0;1]) < tol)) || ...
+        ((norm(rve2(:,1) - [0;1]) < tol) && (norm(rve2(:,2) - [1;0]) < tol))
+      V2 = Vh;
+      edge2 = 3;
+      rleg2 = Rh; sleg2 = Sh;
+      % left
+    else
+      V2 = Vl;
+      edge2 = 1;
+      rleg2 = Rl; sleg2 = Sl;
+    end
+
+    % Align the bases
+    [Vknown, Vtarget] = getAlignedEdgeBases(V1, rleg1, sleg1, V2, rleg2, sleg2, Pts_T1, Pts_T2, edge1, edge2);
+    B((ishared-1)*nleg+1:ishared*nleg,:) = Vtarget;
+    G((ishared-1)*nleg+1:ishared*nleg) = Vknown * cu_known;
+
+  end
+
+
 elseif mode == 1 % seed triangle
   % get the goal point
   goal = varargin{1};
