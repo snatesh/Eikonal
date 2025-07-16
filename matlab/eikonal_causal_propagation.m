@@ -1,4 +1,4 @@
-function eikonal_causal_propagation(DT, x_anchor, m, R, S, W, udirch, rhs)
+function [cu_glb, V_abc, seed_tri] = eikonal_causal_propagation(DT, x_anchor, m, R, S, W, udirch, rhs)
 
   % TODO: For every instance of proxy simulation for u,
   %       we need to add a solve
@@ -72,13 +72,14 @@ function eikonal_causal_propagation(DT, x_anchor, m, R, S, W, udirch, rhs)
   midpoints = (pts(edges(:,1),:) + pts(edges(:,2),:)) / 2;
   [~, idx] = min(vecnorm(midpoints - x_anchor, 2, 2));
   anchor_edge = edges(idx, :);
-  
+  disp(x_anchor)
   % Find triangle(s) sharing this edge
   attached_tris = edgeAttachments(DT, anchor_edge);
   disp(attached_tris)
   queue = attached_tris{1};  % Initial "known" triangle(s)
   iTri = attached_tris{1}(1);
-  [K,B,F,G,meshP,meshT] = assemble_poisson_causal_tri(iTri,DT,n,R,S,W,...
+  seed_tri = iTri;
+  [K,B,F,G,meshP,meshT,dPdP] = assemble_poisson_causal_tri(iTri,DT,n,R,S,W,...
                                           Rl,Sl,Rb,Sb,Rh,Sh, ...
                                           Rl_flip,Sl_flip,...
                                           Rb_flip,Sb_flip,...
@@ -96,17 +97,93 @@ function eikonal_causal_propagation(DT, x_anchor, m, R, S, W, udirch, rhs)
   Fvec = [F;Gbc];
   % solve for solution modes on each tri
   cu0 = Amat \ Fvec;
-  cu_abc = cu0(1:M);
+  nTri = size(tris,1);
+  cu_glb = zeros(M*nTri,1);
+  cu_glb((iTri-1)*M+1:iTri*M) = cu0(1:M); 
+
+
+  
+  xi0 = 0.1;
+  alph = 1;
+  max_iter = 10000;
+  rtol = 1e-10;
+
+  % newton + homotopic continuation
+  xi_min = 7e-2;      % Do not let xi drop below this
+  xi = xi0;
+  xi_decay = 0.8;     % Reduce xi by this factor
+  % from init
+  cu = cu0;
+  [N, H] = assemble_eik_nonlin_unweighted_tri(iTri,cu_glb, M, W, xi, ...
+                                              V_abc, dPdP, ...
+                                              meshT, meshP, K);
+  H = H';
+
+
+  BB_id = B;
+  tol = norm(N + xi*K*cu(1:M) - BB_id'*cu(M+1:end) - F) * rtol;
+
+  xi_trigger = 10*tol;  % When residual norm drops below this, reduce xi
+
+
+  fprintf("It \t (g,du) \t\t ||g|| \t\t xi\n");
+  HHmat = zeros(M + nLambda);
+  for it = 1:max_iter
+
+    % Assemble global system
+    HHmat(1:M, 1:M) = H;
+    HHmat(1:M, M+1:end) = BB_id';
+    HHmat(M+1:end, 1:M) = BB_id;
+
+    % Compute residual
+    brhs = [N + xi*K*cu(1:M) + BB_id'*cu(M+1:end) - F;
+            BB_id*cu(1:M)];
+
+    norm_g = norm(brhs);
+
+    if norm_g < tol
+      fprintf("Converged in %d iterations\n", it);
+      break;
+    end
+
+    % Newton update (no line search)
+    du = -HHmat \ brhs;
+    cu = cu + alph*du;
+    cu_abc = cu(1:M);
+    cu_glb((iTri-1)*M+1:iTri*M) = cu_abc;
+    % Update residual and Jacobian
+    [N,H] = assemble_eik_nonlin_unweighted_tri(iTri,cu_glb, M, W, xi, ...
+                                               V_abc, dPdP, ...
+                                               meshT, meshP, K);
+
+    brhs = [N + xi*K*cu(1:M) + BB_id'*cu(M+1:end) - F;
+            BB_id*cu(1:M)];
+    norm_g = norm(brhs);
+
+    H = H';
+
+    fprintf("%d \t %.4e \t %.4e \t %.3e\n", it, -brhs'*du, norm_g, xi);
+
+    % Dynamically reduce xi if residual is small
+    if norm_g < xi_trigger && xi > xi_min
+      xi = max(xi * xi_decay, xi_min);
+      %alph = max(0.01,0.8*alph);
+      [N, H] = assemble_eik_nonlin_unweighted_tri(iTri,cu_glb, M, W, xi, ...
+                                              V_abc, dPdP, ...
+                                              meshT, meshP, K);
+      H = H';
+    end
+
+  end
+
+  cu_abc = cu(1:M);
   u_sol = V_abc*cu_abc;
   % compute integral of u on tri
   intu_seed = (W/2)'*u_sol;
   fprintf("integral of u on seed %.3e\n", intu_seed);
-
-  nTri = size(tris,1);
-
-  cu_glb = zeros(M*nTri,1);
   cu_glb((iTri-1)*M+1:iTri*M) = cu_abc;
   
+
 
   
   % Initialize sets
@@ -165,19 +242,8 @@ function eikonal_causal_propagation(DT, x_anchor, m, R, S, W, udirch, rhs)
           shared_edges{end+1} = shared_edge;
           cu_known_list{end+1} = cu_glb((t_known-1)*M + (1:M));  % M×1
         end
-        disp(size(shared_edges,2));
         known_tris = known_nbrs;
-        % % Vertex indices of each triangle
-        % verts_cur = tris(T_cur, :);
-        % verts_nbr = tris(t_nbr, :);
-        % 
-        % % All edges of each triangle (as sorted pairs)
-        % edges_cur = sort([verts_cur([1 2]); verts_cur([2 3]); verts_cur([3 1])], 2);
-        % edges_nbr = sort([verts_nbr([1 2]); verts_nbr([2 3]); verts_nbr([3 1])], 2);
-        % 
-        % % Find shared edge: intersection of edge lists
-        % shared_edge = intersect(edges_cur, edges_nbr, 'rows');
-        [K,B,F,G,meshP,meshT] = ...
+        [K,B,F,G,meshP,meshT,dPdP] = ...
           assemble_poisson_causal_tri(t_nbr,DT,n,R,S,W,...
                                       Rl,Sl,Rb,Sb,Rh,Sh, ...
                                       Rl_flip,Sl_flip,...
@@ -199,14 +265,91 @@ function eikonal_causal_propagation(DT, x_anchor, m, R, S, W, udirch, rhs)
         Gbc = G(II(1:nLambda));
         Fvec = [F;Gbc];
         cu0 = Amat \ Fvec;
-        cu_abc = cu0(1:M);
-        u_sol = V_abc*cu_abc;
-        cu_glb((t_nbr-1)*M+1:t_nbr*M) = cu_abc;
+        cu = cu0;
+        iTri = t_nbr;
+        % 
+        % cu_glb((iTri-1)*M+1:iTri*M) = cu0(1:M);
+        % 
+        % xi0 = 0.1;
+        % alph = 1;
+        % max_iter = 10000;
+        % rtol = 1e-10;
+        % 
+        % % newton + homotopic continuation
+        % xi_min = 7e-2;      % Do not let xi drop below this
+        % xi = xi0;
+        % xi_decay = 0.8;     % Reduce xi by this factor
+        % % from init
+        % cu = cu0;
+        % [N, H] = assemble_eik_nonlin_unweighted_tri(iTri,cu_glb, M, W, xi, ...
+        %                                             V_abc, dPdP, ...
+        %                                             meshT, meshP, K);
+        % H = H';
+        % 
+        % 
+        % tol = norm(N + xi*K*cu(1:M) - BB_id'*cu(M+1:end) - F) * rtol;
+        % 
+        % xi_trigger = 10*tol;  % When residual norm drops below this, reduce xi
+        % 
+        % 
+        % fprintf("It \t (g,du) \t\t ||g|| \t\t xi\n");
+        % HHmat = zeros(M + nLambda);
+        % for it = 1:max_iter
+        % 
+        %   % Assemble global system
+        %   HHmat(1:M, 1:M) = H;
+        %   HHmat(1:M, M+1:end) = BB_id';
+        %   HHmat(M+1:end, 1:M) = BB_id;
+        % 
+        %   % Compute residual
+        %   brhs = [N + xi*K*cu(1:M) + BB_id'*cu(M+1:end) - F;
+        %     BB_id*cu(1:M)];
+        % 
+        %   norm_g = norm(brhs);
+        % 
+        %   if norm_g < tol
+        %     fprintf("Converged in %d iterations\n", it);
+        %     break;
+        %   end
+        % 
+        %   % Newton update (no line search)
+        %   du = -HHmat \ brhs;
+        %   cu = cu + alph*du;
+        %   cu_abc = cu(1:M);
+        %   cu_glb((iTri-1)*M+1:iTri*M) = cu_abc;
+        %   % Update residual and Jacobian
+        %   [N,H] = assemble_eik_nonlin_unweighted_tri(iTri,cu_glb, M, W, xi, ...
+        %     V_abc, dPdP, ...
+        %     meshT, meshP, K);
+        % 
+        %   brhs = [N + xi*K*cu(1:M) + BB_id'*cu(M+1:end) - F;
+        %     BB_id*cu(1:M)];
+        %   norm_g = norm(brhs);
+        % 
+        %   H = H';
+        % 
+        %   fprintf("%d \t %.4e \t %.4e \t %.3e\n", it, -brhs'*du, norm_g, xi);
+        % 
+        %   % Dynamically reduce xi if residual is small
+        %   if norm_g < xi_trigger && xi > xi_min
+        %     xi = max(xi * xi_decay, xi_min);
+        %     %alph = max(0.01,0.8*alph);
+        %     [N, H] = assemble_eik_nonlin_unweighted_tri(iTri,cu_glb, M, W, xi, ...
+        %       V_abc, dPdP, ...
+        %       meshT, meshP, K);
+        %     H = H';
+        %   end
+        % 
+        % end
 
+        cu_abc = cu(1:M);
+        u_sol = V_abc*cu_abc;
         % compute integral of u on tri
         intu_nbr = (W/2)'*u_sol;
-        
-        
+        fprintf("integral of u on nbr %.3e\n", intu_nbr);
+        cu_glb((iTri-1)*M+1:iTri*M) = cu_abc;
+
+               
         % Simulate causal update
         status(t_nbr) = "Known";
         proxy(t_nbr) = proxy(T_cur) + intu_nbr;  % causally increasing

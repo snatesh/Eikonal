@@ -31,4 +31,33 @@ H_abc = structure_factors_tri(n+1,a,b,c);
 udirch = @(x,y) zeros(size(x));
 rhs = @(x,y) 1./f(x,y);
 goal = [1;0];
-eikonal_causal_propagation(DT, goal', m, R, S, W, udirch, rhs)
+[cu_glb,V_abc,seed_tri] = eikonal_causal_propagation(DT, goal', m, R, S, W, udirch, rhs);
+
+% get quad grid and sol
+Nrs = length(W);
+XX = zeros(Nrs*nTri,1);
+YY = zeros(Nrs*nTri,1);
+UU = zeros(Nrs*nTri,1);
+[Xg, Yg] = meshgrid(linspace(-1, 1, 500));
+for iTri = 1:nTri
+    Pts_Ti = meshP(:,meshT(iTri,:));
+    J = IncidenceMatrix(Pts_Ti);
+    detJ = det(J);
+    XYe = (J * [R,S]' + Pts_Ti(:,1))';
+    X = XYe(:,1);
+    Y = XYe(:,2);
+    XX((iTri-1)*Nrs+1:Nrs*iTri) = X;
+    YY((iTri-1)*Nrs+1:Nrs*iTri) = Y;
+    cu_abc = cu_glb((iTri-1)*M+1:M*iTri);
+    u = V_abc*cu_abc;
+    UU((iTri-1)*Nrs+1:iTri*Nrs) = u;
+    if iTri == seed_tri
+      figure();
+      scatter3(X,Y,u); 
+    end
+end
+figure();
+contourData = scatteredInterpolant(XX, YY, UU, 'natural', 'none');
+Zg = contourData(Xg, Yg);
+contour(Xg, Yg, Zg, 20, 'k'); 
+
