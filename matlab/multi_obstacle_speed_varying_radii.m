@@ -12,7 +12,6 @@ function fvals = multi_obstacle_speed_varying_radii(X, Y, centers, r0s, tol)
 
     [rows, cols] = size(X);
     fvals = ones(rows, cols);  % default speed = 1
-
     k = size(centers, 2);
     for j = 1:k
         cx = centers(1, j);

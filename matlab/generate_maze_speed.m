@@ -38,12 +38,12 @@ f_handle = @(x,y) speed_fn_maze(x, y, obstacles, eps_obst);
 goal = [xmin + (entry_col-0.5)*dx; ymax - (entry_row-0.5)*dy];
 x0   = [xmin + (exit_col -0.5)*dx; ymin + (M-exit_row+0.5)*dy];
 
-if maze(entry_row, entry_col) == 0
-    error('Goal is inside a wall cell. Adjust maze parameters.');
-end
-if maze(exit_row, exit_col) == 0
-    error('Start point is inside a wall cell. Adjust maze parameters.');
-end
+%if maze(entry_row, entry_col) == 0
+%    error('Goal is inside a wall cell. Adjust maze parameters.');
+%end
+%if maze(exit_row, exit_col) == 0
+%    error('Start point is inside a wall cell. Adjust maze parameters.');
+%end
 
 end
 
