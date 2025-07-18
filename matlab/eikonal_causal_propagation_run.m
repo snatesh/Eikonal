@@ -17,15 +17,15 @@ eps_obst = 1e-6;  % minimum speed inside obstacle
 
 %[f_handle, obstacles, goal, x0] = generate_rectcirc_maze_speed(11, eps_obst);
 %f = f_handle;
-[f_handle, obstacles, goal, x0] = generate_maze_speed(11, eps_obst);
-f = f_handle;
+%[f_handle, obstacles, goal, x0] = generate_maze_speed(11, eps_obst);
+%f = f_handle;
 
-%f = @(x,y) multi_obstacle_speed_varying_radii(x,y,centers,r0s,eps_obst);
+f = @(x,y) multi_obstacle_speed_varying_radii(x,y,centers,r0s,eps_obst);
 [xg, yg] = meshgrid(linspace(-1,1,200));
 fg = f(xg, yg);
 figure();
-%contourf(xg, yg, fg); hold on;
-contourf(xg,yg,reshape(fg,200,200)); hold on;
+contourf(xg, yg, fg); hold on;
+%contourf(xg,yg,reshape(fg,200,200)); hold on;
 plot(goal(1),goal(2),'ko','MarkerFaceColor','k');
 plot(x0(1),x0(2),'ro','MarkerFaceColor','r');
 drawnow;
