@@ -1,4 +1,4 @@
-function [N_glb,varargout] = assemble_eik_nonlin_unweighted_tri(iTri,cu_glb,M,W,xi,...
+function [N_glb,detJ,varargout] = assemble_eik_nonlin_unweighted_tri(iTri,cu_glb,M,W,xi,...
                                                                 V_abc,dPdP,...
                                                                 meshT,meshP,K_glb)
 
@@ -8,7 +8,7 @@ nTri = 1; Nrs = length(W);
 % Precompute Jacobians and detJ for triangle
 Pts_Ti = meshP(:,meshT(iTri,:));
 J = IncidenceMatrix(Pts_Ti);
-detJ_vec = det(J);
+detJ = det(J);
 
 % Reshape global coefficients on iTri
 cu = reshape(cu_glb((iTri-1)*M+1:iTri*M), [M, nTri]); % [M × nTri]
@@ -33,11 +33,11 @@ F = VW .* sqrtG;                                  % [M × Nrs × nTri]
 
 % Integrate and multiply by detJ
 N = squeeze(sum(F, 2));                           % [M × nTri]
-N = N .* reshape(detJ_vec, [1, nTri]);                % apply detJ
+N = N .* reshape(detJ, [1, nTri]);                % apply detJ
 N_glb = reshape(N, [M*nTri, 1]);                  % flatten to [M*nTri × 1]
 
 
-if nargout == 2
+if nargout == 3
     H_glb = zeros(M*nTri);
     CU = reshape(cu_glb((iTri-1)*M+1:iTri*M), [M, nTri]);
     
@@ -52,7 +52,7 @@ if nargout == 2
     % Precompute Jacobians and detJ for iTri
     Pts_Ti = meshP(:,meshT(iTri,:));
     J = IncidenceMatrix(Pts_Ti);
-    detJ_vec = det(J);
+    detJ = det(J);
     
     % 1. U1, U2 reshaped for broadcasting: [1 × M × 1 × nTri], [M × 1 × 1 × nTri]
     U1 = reshape(CU, [1, M, 1, nTri]);
@@ -82,7 +82,7 @@ if nargout == 2
     % 7. Compute H(:,:,iTri) = F(:,:,iTri) * VW * detJ(iTri)
     H_all = zeros(M, M, nTri);
     for t = 1:nTri
-        H_all(:,:,t) = F_all(:,:,t) * VW * detJ_vec(t) + xi * K_blocks(:,:,t);
+        H_all(:,:,t) = F_all(:,:,t) * VW * detJ(t) + xi * K_blocks(:,:,t);
     end
     
     for t = 1:nTri

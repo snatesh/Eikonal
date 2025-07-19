@@ -21,13 +21,14 @@ eps_obst = 1e-6;  % minimum speed inside obstacle
 %f = f_handle;
 
 f = @(x,y) multi_obstacle_speed_varying_radii(x,y,centers,r0s,eps_obst);
+%[f_handle, obstacles, goal, x0] = generate_maze_squares(10, 0.05, 0.15, eps_obst);
+%f = f_handle;
+
 [xg, yg] = meshgrid(linspace(-1,1,200));
 fg = f(xg, yg);
 figure();
 contourf(xg, yg, fg); hold on;
 %contourf(xg,yg,reshape(fg,200,200)); hold on;
-plot(goal(1),goal(2),'ko','MarkerFaceColor','k');
-plot(x0(1),x0(2),'ro','MarkerFaceColor','r');
 drawnow;
 % compute min-time surface
 m = 10; n = m+1; M = n*(n+1)/2; nquad = length(W);
@@ -37,7 +38,7 @@ H_abc = structure_factors_tri(n+1,a,b,c);
 udirch = @(x,y) zeros(size(x));
 rhs = @(x,y) 1./f(x,y);
 goal = [1;0.05];
-[cu_glb,V_abc,seed_tri,proxy] = eikonal_causal_propagation(DT, goal', m, R, S, W, udirch, rhs);
+[cu_glb,V_abc,seed_tri,proxy] = eikonal_causal_propagation(DT, goal', m, R, S, W, udirch, rhs, 1);
 
 % get quad grid and sol
 Nrs = length(W);
@@ -88,7 +89,7 @@ contour(Xg, Yg, Zg, 20, 'k');
 
 %%
 cu = cu_glb;
-x0 = [-0.31,0.92]';
+x0 = [-0.81,0.77]';
 %x0 = [0.89, 0.92]';
 tol = 1e-3;
 %plot_sol(meshP,meshT,cu,V_abc,R,S,M);

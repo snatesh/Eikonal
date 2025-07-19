@@ -1,11 +1,11 @@
-function [K,B,F,G,meshP,meshT,dPdP] = assemble_poisson_causal_tri(iTri,DT,n,R,S,W,...
-                                                                       Rl,Sl,Rb,Sb,Rh,Sh, ...
-                                                                       Rl_flip,Sl_flip,...
-                                                                       Rb_flip,Sb_flip,...
-                                                                       Rh_flip,Sh_flip,wleg,...
-                                                                       V_abc,dxP,dyP,Vl,Vb,Vh,...
-                                                                       Vl_flip,Vb_flip,Vh_flip,...
-                                                                       rhs,udirch,mode,varargin)
+function [K,B,F,G,meshP,meshT,dPdP,detJ] = assemble_poisson_causal_tri(iTri,DT,n,R,S,W,...
+                                                                  Rl,Sl,Rb,Sb,Rh,Sh, ...
+                                                                  Rl_flip,Sl_flip,...
+                                                                  Rb_flip,Sb_flip,...
+                                                                  Rh_flip,Sh_flip,wleg,...
+                                                                  V_abc,dxP,dyP,Vl,Vb,Vh,...
+                                                                  Vl_flip,Vb_flip,Vh_flip,...
+                                                                  rhs,fmode,udirch,mode,varargin)
 
 
 % get mesh points, connectivity list
@@ -14,7 +14,7 @@ meshP = DT.Points';
 % jacobi poly params
 a = 1/2; b = a; c = a;
 % total number of polynomials
-M = n*(n+1)/2;
+M = n*(n+1)/2; Nrs = length(R);
 % size of edge quadrature
 nleg = size(wleg,1);
 
@@ -62,9 +62,17 @@ end
 
 
 % local load (rhs)
-for i = 1:M
-    P_if = V_abc(:,i).*rhs(X,Y);
-    F(i) = (W/2)'*P_if*detJ;
+if fmode == 1
+  for i = 1:M
+      P_if = V_abc(:,i).*rhs(X,Y);
+      F(i) = (W/2)'*P_if*detJ;
+  end
+else
+  f_T = rhs((iTri-1)*Nrs+1:iTri*Nrs);
+  for i = 1:M
+      P_if = V_abc(:,i).*f_T;
+      F(i) = (W/2)'*P_if*detJ;
+  end
 end
 
 % non-seed triangle
