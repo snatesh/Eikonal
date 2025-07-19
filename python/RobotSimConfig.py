@@ -38,7 +38,7 @@ def update_pose(room, pose, obstacles, step_size=2.0, angle_range=np.pi/12, buff
   theta_new = theta + np.pi
   return (x, y, theta_new)
 
-def generate_random_obstacles(n, room_size, min_size=5, max_size=15, seed=None):
+def generate_random_obstacles(n, room_size, min_size=20, max_size=100, seed=None):
   """
   Generate n random rectangular obstacles within the room.
   Each rectangle is axis-aligned, with size between min_size and max_size (in cm).

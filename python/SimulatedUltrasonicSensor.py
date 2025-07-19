@@ -95,6 +95,32 @@ def simulate_sensor(x, y, theta, obstacles, max_range, step, cone_deg=35, n_rays
 
   return (2 * min_d) / speed_of_sound  # round-trip time in seconds
 
+def simulate_single_beam_sensor(x, y, theta, obstacles, max_range, step, speed_of_sound=34300):
+  """
+  Simulate a single-beam ultrasonic sensor (e.g., HC-SR04) returning first hit.
+
+  Parameters:
+    x, y         : sensor position (world coords)
+    theta        : beam direction (radians)
+    obstacles    : list of obstacle rectangles ((xmin, ymin), (xmax, ymax))
+    max_range    : maximum range in cm
+    step         : ray stepping resolution in cm
+    speed_of_sound : cm/s
+
+  Returns:
+    distance_cm : one-way distance in cm (max_range if no hit)
+    hit_point   : (x_hit, y_hit) if hit, else None
+  """
+  for d in np.arange(0, max_range, step):
+    px = x + d * np.cos(theta)
+    py = y + d * np.sin(theta)
+
+    for (xmin, ymin), (xmax, ymax) in obstacles:
+      if xmin <= px <= xmax and ymin <= py <= ymax:
+        return d, (px, py)  # one-way distance and hit point
+
+  return max_range, None  # no hit
+
 
 def setup_sensors(robot_pose, sensor_offsets, obstacles, room_dims, max_range, step):
   """
