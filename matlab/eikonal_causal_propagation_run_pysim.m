@@ -30,18 +30,18 @@ for iTri = 1:nTri
     YY((iTri-1)*Nrs+1:Nrs*iTri) = Y;
 end
 figure()
-triplot(DT)
 
-figure()
+
 TRq = delaunayTriangulation(XX, YY);  % build tri mesh from quadrature points
-trisurf(TRq.ConnectivityList, XX, YY, f_vals);
+trisurf(TRq.ConnectivityList, XX, YY, f_vals); hold on;
 shading interp
 view(2)   % Top-down (2D) view
 axis equal
 colorbar
 title('Speed function f(x,y)')
+triplot(DT)
 drawnow; 
-
+%%
 % compute min-time surface
 m = 12; n = m+1; M = n*(n+1)/2; nquad = length(W);
 % normalization under (a,b,c), (a+1,b,c) etc.

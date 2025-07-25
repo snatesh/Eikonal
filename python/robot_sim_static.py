@@ -20,7 +20,7 @@ obstacles = generate_random_obstacles(20, room)
 
 # Robot config
 #robot_pose = (50, 50, 0)  # x, y, theta (in rad)
-robot_pose = (179, 192, np.pi/4)  # x, y, theta (in rad)
+robot_pose = (179, 192, 0)#np.pi/4)  # x, y, theta (in rad)
 half_size = 5.5           # half robot size (cm)
 # sensor config
 sensor_offsets = [        # rel sensor positions (x,y,angle)
@@ -66,7 +66,7 @@ ax.plot(robot_box_world[:, 0], robot_box_world[:, 1], 'b-', label="Robot")
 # Generate sector (Omega_R) a conical sector spanning from robot center
 # and also compute triangulation
 #sector, tris = generate_sector_tris(robot_pose, cone_angle_deg, max_range, n_points=10)
-OmegaR, tris, grid_world = generate_sweep_rectangle(robot_pose, cone_angle_deg, max_range, 10)
+OmegaR, tris, grid_world, A, b = generate_sweep_rectangle(robot_pose, cone_angle_deg, max_range, 5)
 
 # quad points mapped to each triangle in sector
 XX, YY = map_quad_grid(Rq, Sq, tris)
@@ -75,7 +75,6 @@ XX, YY = map_quad_grid(Rq, Sq, tris)
 ax.plot(OmegaR[:, 0], OmegaR[:, 1], 'r-', label='Sensor Sector Boundary')
 ax.plot([OmegaR[-1,0],OmegaR[0,0]], [OmegaR[-1,1],OmegaR[0,1]],'r-')
 ax.fill(OmegaR[:, 0], OmegaR[:, 1], color='red', alpha=0.1)
-#ax.plot(XX,YY,'.')
 ## Plot robot, sensors cones and splatter
 hit_points = []
 sensor_points = []
@@ -95,16 +94,31 @@ for dth in sweep_angles:
       sensor_points.append((x_s, y_s))
 
 
+OmegaR_c = (A@(OmegaR-OmegaR[0]).T + b[:,None]).T
+fig1, ax1 = plt.subplots(figsize=(8, 8))
+ax1.plot(OmegaR_c[:, 0], OmegaR_c[:, 1], 'r-', label='Sensor Sector Boundary')
+ax1.plot([OmegaR_c[-1,0],OmegaR_c[0,0]], [OmegaR_c[-1,1],OmegaR_c[0,1]],'r-')
+
+
 hit_points = np.array(hit_points)
+print(hit_points.shape)
+sensor_points = np.array(sensor_points)
 
 ax.plot(hit_points[:,0], hit_points[:,1], 'cx', label='Hit Points')
 
-rho_vals = rho_splatter(XX, YY, hit_points, sensor_points)
+hit_points_can = (A @ (hit_points - OmegaR[0]).T + b[:,None]).T
+sensor_points_can = (A @ (sensor_points - OmegaR[0]).T + b[:,None]).T
+
+
+rho_vals = rho_splatter(XX, YY, hit_points_can, sensor_points_can)
 speed = 1 - rho_vals + 1e-6
 
+ax1.plot(hit_points_can[:,0], hit_points_can[:,1], 'cx', label='Hit Points')
+c = ax1.tricontourf(XX.ravel(), YY.ravel(), speed.ravel(), levels=30, cmap='hot')
+colorbar = fig1.colorbar(c, ax=ax1, label='f(x, y)') 
+ax1.plot(tris.points[:, 0], tris.points[:, 1], 'o', label=None) # Plot the points
+ax1.triplot(tris.points[:, 0], tris.points[:, 1], tris.simplices, label='Delaunay Triangulation') # Plot the triangles
 
-c = ax.tricontourf(XX.ravel(), YY.ravel(), speed.ravel(), levels=30, cmap='hot')
-colorbar = fig.colorbar(c, ax=ax, label='f(x, y)') 
 
 # Plot obstacles
 for (xmin, ymin), (xmax, ymax) in obstacles:

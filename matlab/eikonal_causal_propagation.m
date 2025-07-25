@@ -10,7 +10,7 @@ function [cu_glb, V_abc, seed_tri, proxy] = eikonal_causal_propagation(DT, x_anc
   %   fmode    - (1 or 2) whether the rhs is a function handle or pre-evaluated at
   %               quad points
 
-  only_poisson = true;
+  only_poisson = false;
   % Step 0: solver precomputation
   n = m+1; M = n*(n+1)/2;   
   [V_abc,dxP,dyP,Vl,Vb,Vh,...
@@ -85,13 +85,13 @@ function [cu_glb, V_abc, seed_tri, proxy] = eikonal_causal_propagation(DT, x_anc
 
 
   if ~only_poisson
-    xi0 = 1;
-    alph = 0.1;
+    xi0 = 0.1;
+    alph = 1;
     max_iter = 10000;
     rtol = 1e-9;
 
     % newton + homotopic continuation
-    xi_min = 1;%7e-2;      % Do not let xi drop below this
+    xi_min = 7e-2;      % Do not let xi drop below this
     xi = xi0;
     xi_decay = 0.8;     % Reduce xi by this factor
     % from init
