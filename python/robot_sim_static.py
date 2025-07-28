@@ -66,7 +66,7 @@ ax.plot(robot_box_world[:, 0], robot_box_world[:, 1], 'b-', label="Robot")
 # Generate sector (Omega_R) a conical sector spanning from robot center
 # and also compute triangulation
 #sector, tris = generate_sector_tris(robot_pose, cone_angle_deg, max_range, n_points=10)
-OmegaR, tris, grid_world, A, b = generate_sweep_rectangle(robot_pose, cone_angle_deg, max_range, 5)
+OmegaR, tris, grid_world, A, b = generate_sweep_rectangle(robot_pose, cone_angle_deg, max_range, 3)
 
 # quad points mapped to each triangle in sector
 XX, YY = map_quad_grid(Rq, Sq, tris)

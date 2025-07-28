@@ -18,7 +18,7 @@ function path = trace_path_greedy_proxy_pysim(cu_glb, meshT, meshP, DT, Dx, Dy, 
 
 % PARAMETERS
 MAX_ITERS = 2000;
-TOL = 2;
+TOL = 1e-2;
 step_size = 0.001;
 
 path = x0;
@@ -28,7 +28,7 @@ a = 0.5; b = 0.5; c = 0.5;
 for k = 1:MAX_ITERS
     % Evaluate gradient and locate triangle
     [g, iTri, uval] = evaluate_grad_u(x, cu_glb, meshT, meshP, DT, Dx, Dy, Hx, Hy, n, H_abc);
-    if norm(x - x_goal) < TOL 
+    if norm(x - x_goal) < TOL  || uval < TOL
         break;
     end
     
@@ -61,7 +61,7 @@ for k = 1:MAX_ITERS
     % Evaluate speed f at quad pts
     f_vals = f_handle(xy_pts(:,1),xy_pts(:,2));
     % Score: combine u and inverse f
-    score = u_vals + 0.5 ./ (f_vals + 1e-6);
+    score = u_vals; %+ 0.5 ./ (f_vals + 1e-6);
     [~, best_idx] = min(score);
     x_cand = xy_pts(best_idx,:)';
     x_new = x_cand;

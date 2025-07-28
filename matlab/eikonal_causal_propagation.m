@@ -88,10 +88,10 @@ function [cu_glb, V_abc, seed_tri, proxy] = eikonal_causal_propagation(DT, x_anc
     xi0 = 0.1;
     alph = 1;
     max_iter = 10000;
-    rtol = 1e-9;
+    rtol = 1e-8;
 
     % newton + homotopic continuation
-    xi_min = 7e-2;      % Do not let xi drop below this
+    xi_min = 1e-1;      % Do not let xi drop below this
     xi = xi0;
     xi_decay = 0.8;     % Reduce xi by this factor
     % from init
@@ -175,7 +175,7 @@ function [cu_glb, V_abc, seed_tri, proxy] = eikonal_causal_propagation(DT, x_anc
   grad_mag_sq = reshape(grad_mag_sq, [], 1);  % Nq×1
   weights = (W/2) .* sqrt(grad_mag_sq) * detJ; 
   weights = weights / sum(weights);
-  cw_fac = 0.8;
+  cw_fac = 0;
   proxy_val_seed = max(0,(1-cw_fac)*sum(weights .* u_sol) + cw_fac*minu_seed);
 
   fprintf("proxy on seed %.3e\n", proxy_val_seed);

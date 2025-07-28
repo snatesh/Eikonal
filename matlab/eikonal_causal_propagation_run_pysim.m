@@ -43,11 +43,11 @@ triplot(DT)
 drawnow; 
 %%
 % compute min-time surface
-m = 12; n = m+1; M = n*(n+1)/2; nquad = length(W);
+m = 10; n = m+1; M = n*(n+1)/2; nquad = length(W);
 % normalization under (a,b,c), (a+1,b,c) etc.
 H_abc = structure_factors_tri(n+1,a,b,c);
 % dirchlet and neumann data/rhs
-udirch = @(x,y) zeros(size(x));
+udirch = @(x,y) 1+zeros(size(x));
 rhs = 1./f_vals;
 edges = freeBoundary(DT);    % E × 2 list of boundary vertex indices
 pts = DT.Points;             % N × 2 matrix of vertex coordinates
@@ -98,13 +98,13 @@ drawnow;
 triplot(DT)
 
 cu = cu_glb;
-x0 = [179,192]';
+x0 = [0,0]';
 %x0 = [0.89, 0.92]';
 tol = 1e-3;
 %plot_sol(meshP,meshT,cu,V_abc,R,S,M);
 
-step_size = 0.05;
-step_tol = 1e-1;
+step_size = 0.01;
+step_tol = 1e-6;
 max_steps = 1000;
 
 
