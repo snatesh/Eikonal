@@ -8,11 +8,22 @@ ECHO_1 = 24  # GPIO24, physical pin 18
 TRIG_2 = 5   # GPIO5, physical pin 29
 ECHO_2 = 6   # GPIO6, physical pin 31
 
+TRIG_3 = 17
+ECHO_3 = 27
+
+TRIG_4 = 20
+ECHO_4 = 21
+
 GPIO.setmode(GPIO.BCM)
 GPIO.setup(TRIG_1, GPIO.OUT)
 GPIO.setup(ECHO_1, GPIO.IN)
 GPIO.setup(TRIG_2, GPIO.OUT)
 GPIO.setup(ECHO_2, GPIO.IN)
+GPIO.setup(TRIG_3, GPIO.OUT)
+GPIO.setup(ECHO_3, GPIO.IN)
+GPIO.setup(TRIG_4, GPIO.OUT)
+GPIO.setup(ECHO_4, GPIO.IN)
+
 
 def measure_distance(trig_pin, echo_pin, sensor_name="", max_distance=400.0):
   # Send 10µs trigger pulse
@@ -48,6 +59,10 @@ try:
     measure_distance(TRIG_1, ECHO_1, "Sensor 1")
     time.sleep(0.1)  # Give time between sensors
     measure_distance(TRIG_2, ECHO_2, "Sensor 2")
+    time.sleep(1)
+    measure_distance(TRIG_3, ECHO_3, "Sensor 3")
+    time.sleep(1)
+    measure_distance(TRIG_4, ECHO_4, "Sensor 4")
     time.sleep(1)
 
 except KeyboardInterrupt:
