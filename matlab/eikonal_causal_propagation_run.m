@@ -89,7 +89,7 @@ contour(Xg, Yg, Zg, 20, 'k');
 
 %%
 cu = cu_glb;
-x0 = [-0.81,0.77]';
+x0 = [-1,0.2]';
 %x0 = [0.89, 0.92]';
 tol = 1e-3;
 %plot_sol(meshP,meshT,cu,V_abc,R,S,M);
