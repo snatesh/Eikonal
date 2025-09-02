@@ -19,11 +19,11 @@ ECHO = 27
 # Rotation calibration:
 # Measure how long (seconds) it takes your bot to turn 90° (pi/2 rad) at a given speed.
 # sec_per_rad = seconds_for_90deg / (math.pi / 2)
-SECONDS_FOR_90_AT_SPEED = 0.375 # <-- put your measured value here
+SECONDS_FOR_90_AT_SPEED = 0.8 # <-- put your measured value here
 SEC_PER_RAD = SECONDS_FOR_90_AT_SPEED / (math.pi / 2)
 
 # Motor speed (PWM duty, ~ -100..100). Keep modest to reduce slip.
-ROTATE_SPEED = 20
+ROTATE_SPEED = 10
 
 # Scan settings
 SAMPLE_PERIOD = 0.05  # seconds between sonar shots
