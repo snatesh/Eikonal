@@ -224,31 +224,6 @@ def affine_world_to_canonical_rect(rect_world_cm, robot_pose, eps=1e-9):
   b = A_local_to_can @ b_world_to_local + b_local_to_can
   return A, b, (x_min, x_max, y_min, y_max)
 
-def canonical_to_world_rect(grid_can, robot_pose, local_bounds):
-  """
-  Inverse map: canonical -> world for an arbitrary axis-aligned local rectangle.
-  Inputs:
-    grid_can: (M,2) with columns (u in [0,1], v in [-1,1])
-    robot_pose: (x0_cm, y0_cm, theta_rad)
-    local_bounds: (x_min, x_max, y_min, y_max) in *local* cm
-  Output:
-    grid_world: (M,2) world cm
-  """
-  x_min, x_max, y_min, y_max = local_bounds
-  Wx = x_max - x_min
-  Hy = y_max - y_min
-
-  u = grid_can[:, 0]
-  v = grid_can[:, 1]
-
-  # canonical -> local
-  x_loc = x_min + u * Wx
-  y_loc = y_min + 0.5 * (v + 1.0) * Hy
-  pts_local = np.column_stack([x_loc, y_loc])
-
-  # local -> world
-  return local_to_world(pts_local, robot_pose)
-
 def canonical_grid_and_triangulation(nu, nv=None):
   """
   Canonical domain grid: u in [0,1] with (nu+1) nodes,
@@ -315,6 +290,29 @@ def map_quad_grid(Rq, Sq, tris):
     YY[iTri*Nrs:Nrs*(iTri+1)] = XYe[:,1].reshape(Nrs,1)
   return XX, YY
 
+# gaussian splatter to model 
+def rho_splatter(grid_x, grid_y, hit_points, sensor_points, eps=0.99):
+  """
+  Evaluates the obstacle field ρ(x, y) from Gaussian splatter at hit points.
+
+  Parameters:
+    grid_x, grid_y : 2D meshgrid arrays (same shape) in world coordinates (cm)
+    hit_points     : list of (x, y) coordinates of sensor hits
+    sensor_points  : corresponding list of (x_s, y_s) sensor origins
+    eps            : peak amplitude of each Gaussian (default: 0.99)
+
+  Returns:
+    rho : 2D array with obstacle field values ρ(x, y) ∈ [0, 1]
+  """
+  rho = np.zeros_like(grid_x)
+  scale = 0.1
+  min_sigma = 0.02
+  for (xi, yi), (xs, ys) in zip(hit_points, sensor_points):
+    d = np.hypot(xi - xs, yi - ys)  # Euclidean distance (in cm)
+    sigma = min_sigma + scale * d
+    exponent = -((grid_x - xi)**2 + (grid_y - yi)**2) / (2 * sigma**2)
+    rho += eps * np.exp(exponent)
+  return np.clip(rho, 0, 1)
 
 def plot_points(points, png_path=OUT_PNG):
   import matplotlib
@@ -338,9 +336,9 @@ def plot_points(points, png_path=OUT_PNG):
   ])
   rect_world = local_to_world(rect_local, robot_pose)
   fig, ax = plt.subplots(1,2)
-  ax[0].plot(rect_world[:, 0], rect_world[:, 1], 'b-', label="Robot")
+  ax[0].plot(rect_world[:, 0], rect_world[:, 1], 'b-')
   ax[0].plot((rect_world[-1, 0], rect_world[0,0]),\
-           (rect_world[-1, 1], rect_world[0,1]), 'b-', label="Robot")
+           (rect_world[-1, 1], rect_world[0,1]), 'b-')
   ax[0].scatter(xs, ys, s=10)
   ax[0].scatter([0], [0], marker="x")  # robot origin
   ax[0].set_title("Ultrasonic hits during rotation")
@@ -348,6 +346,7 @@ def plot_points(points, png_path=OUT_PNG):
   ax[0].set_ylabel("y (m)")
   ax[0].grid(True)
 
+  
 
   A_w2c, b_w2c, local_bounds = affine_world_to_canonical_rect(rect_world, robot_pose)
   # Now any world point Pw maps as: [u,v]^T = A_w2c @ Pw + b_w2c 
@@ -356,12 +355,34 @@ def plot_points(points, png_path=OUT_PNG):
   grid_can, tris =  canonical_grid_and_triangulation(4)
   # quad points mapped to each triangle in sector
   XX, YY = map_quad_grid(Rq, Sq, tris)
-
-  ax[1].scatter(XX,YY,s=10)
+  # hit points as 2 x nhit in world
+  hit_ptsw = np.vstack((xs,ys))
+  # hit points mapped to canonical domain
+  hit_ptsc =  (A_w2c @ hit_ptsw + b_w2c[:,None]).T
+  # robot pos mapped to canonical domain
+  
+  x_min, x_max, y_min, y_max = local_bounds
+  Wx, Hy = x_max - x_min, y_max - y_min
+  hit_ptsl = np.column_stack([
+    x_min + hit_ptsc[:,0] * Wx,
+    y_min + 0.5 * (hit_ptsc[:,1] + 1.0) * Hy
+  ])
+  XX_local = x_min + XX * Wx
+  YY_local = y_min + 0.5 * (YY + 1.0) * Hy
+  n = hit_ptsl.shape[0]
+  sensor_points = np.repeat([[0.0,0.0]], n, axis=0) 
+  rho_vals = rho_splatter(XX_local, YY_local, hit_ptsl, sensor_points)
+  speed = 1 - rho_vals + 1e-6
+  #
+  ax[1].scatter(hit_ptsc[:,0], hit_ptsc[:,1], s=10)
+  ax[1].scatter(b_w2c[0], b_w2c[1], marker="x")
+  c = ax[1].tricontourf(XX.ravel(), YY.ravel(), speed.ravel(), levels=30, cmap='hot')
+  colorbar = fig.colorbar(c, ax=ax[1], label='f(x, y)')
+  ax[1].triplot(tris.points[:, 0], tris.points[:, 1], tris.simplices, label='Delaunay Triangulation') # Plot the triangles
   ax[1].grid(True)
-  ax[1].set_title("Quad points in canonical domain")
+  ax[1].set_title("Smeared speed in canonical domain")
   ax[1].set_xlabel("x")
-  ax[1].set_xlabel("y")
+  ax[1].set_ylabel("y")
   fig.tight_layout()
   fig.savefig(png_path, dpi=160)
 
