@@ -359,8 +359,9 @@ def plot_points(points, png_path=OUT_PNG):
   hit_ptsw = np.vstack((xs,ys))
   # hit points mapped to canonical domain
   hit_ptsc =  (A_w2c @ hit_ptsw + b_w2c[:,None]).T
-  # robot pos mapped to canonical domain
-  
+  # robot pos in local frame
+  robot_pos = [0.0,0.0]; 
+  # hit points in local frame 
   x_min, x_max, y_min, y_max = local_bounds
   Wx, Hy = x_max - x_min, y_max - y_min
   hit_ptsl = np.column_stack([
@@ -370,10 +371,9 @@ def plot_points(points, png_path=OUT_PNG):
   XX_local = x_min + XX * Wx
   YY_local = y_min + 0.5 * (YY + 1.0) * Hy
   n = hit_ptsl.shape[0]
-  sensor_points = np.repeat([[0.0,0.0]], n, axis=0) 
+  sensor_points = np.repeat([robot_pos], n, axis=0) 
   rho_vals = rho_splatter(XX_local, YY_local, hit_ptsl, sensor_points)
   speed = 1 - rho_vals + 1e-6
-  #
   ax[1].scatter(hit_ptsc[:,0], hit_ptsc[:,1], s=10)
   ax[1].scatter(b_w2c[0], b_w2c[1], marker="x")
   c = ax[1].tricontourf(XX.ravel(), YY.ravel(), speed.ravel(), levels=30, cmap='hot')
@@ -385,12 +385,18 @@ def plot_points(points, png_path=OUT_PNG):
   ax[1].set_ylabel("y")
   fig.tight_layout()
   fig.savefig(png_path, dpi=160)
+  np.savetxt("tri_points.txt", tris.points, fmt="%18e")
+  np.savetxt("tri_faces.txt", tris.simplices, fmt="%d")
+  np.savetxt("speed_field.txt", speed, fmt="%.18e")
+
+
 
 
 # ---- MAIN -------------------------------------------------------------------
 
 if __name__ == "__main__":
   import argparse
+  import subprocess
   ap = argparse.ArgumentParser(description="Rotate AlphaBot2 by angle (rad) and plot HC-SR04 hits.")
   ap.add_argument("angle_rad", type=float, help="Target rotation (radians). Positive = clockwise.")
   args = ap.parse_args()
@@ -400,3 +406,10 @@ if __name__ == "__main__":
   plot_points(pts, OUT_PNG)
 
   print(f"Saved {len(pts)} samples to {OUT_CSV} and plot to {OUT_PNG}.")
+  subprocess.run([
+    "rsync", "-az", "--mkpath", "--info=progress2", "--partial", "--inplace",
+    "tri_points.txt", "tri_faces.txt", "speed_field.txt", "scan_points.png",
+    "eikonal:~/Software/Eikonal/matlab/robo_data/"
+  ], check=True)
+
+
