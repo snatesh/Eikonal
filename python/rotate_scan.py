@@ -135,6 +135,7 @@ def save_points(points, csv_path=OUT_CSV):
         x = r_m * math.cos(theta)
         y = r_m * math.sin(theta)
         w.writerow([theta, d, x, y])
+
 def manhattan_rectangle_from_points(xs_cm, ys_cm, buffer_cm=5.0):
   """
   Smallest axis-aligned rectangle (in the robot's local frame) that contains all points,
