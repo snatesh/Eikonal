@@ -695,7 +695,6 @@ double Triangulator::triangulateEntropy_help  ( double* intgn, unsigned int chan
   }
   stdev /= polytri->GetNumberOfCells();
   stdev = std::sqrt(stdev);
-
   return ave;
 }
 
