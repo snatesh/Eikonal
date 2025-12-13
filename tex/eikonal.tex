@@ -244,15 +244,15 @@ and finally find $\bs{u}$ by computing as in \eqref{eq:eikonalauxvar}. Note, the
 	\nabla^2_{\bs{u}}F(\bs{u}) &= 2V_{n-p}^TGV_{n-p}.
 \end{align}
 Note, we can find $p$ by the number of singular values above some small threshold that we choose (near $\varepsilon_\text{mach}$) so that it represents numerical rank.
-\begin{remark}
+%\begin{remark}
 There is a ton of material in chapter 12 and 16 of the Nocedal/Wright optimization book. I believe I can prove properties on minimizers to \eqref{eq:eikonalqp} (though unnecessary) and maybe use a direct method therein. There still remains the problem of initialization..perhaps we just initialize from the null space, or solve a linearized problem?
-\end{remark}
+%\end{remark}
 
-\begin{remark}By making use of a weighted basis $\bs{\tilde{P}}(\bs{x})$, and expressing our solution coefficients and differential operators in terms of this weighted basis, we can alternatively eliminate the constraint equation and solve a completely unconstrained quadratic optimization problem \color{red}  I think I need to do some more symbolic computation to figure out the form of the RHS and/or additional conditions $u$ must first satisfy so that we solve the same problem. I implemented that weighted basis, but I don't think I will get things to work properly, or rather, I will not continue trying.\color{black} 
-\end{remark}
-\begin{remark}
+%\begin{remark}By making use of a weighted basis $\bs{\tilde{P}}(\bs{x})$, and expressing our solution coefficients and differential operators in terms of this weighted basis, we can alternatively eliminate the constraint equation and solve a completely unconstrained quadratic optimization problem \color{red}  I think I need to do some more symbolic computation to figure out the form of the RHS and/or additional conditions $u$ must first satisfy so that we solve the same problem. I implemented that weighted basis, but I don't think I will get things to work properly, or rather, I will not continue trying.\color{black} 
+%\end{remark}
+%\begin{remark}
 	\color{red} It turns out that this squared version of the Eikonal problem is not coercive. That is, there is no associated coercive bilinear form, which we need if we want to initialize the method with something other than the true solution! The elegance of a polynomial identity in coefficient space is, alas, forgone in practice. Instead, we turn to a regularized version of the un-squared Eikonal problem, and try our hand at a modal finite element method.\color{black}
-\end{remark}
+%\end{remark}
 \newpage
 \subsection{Regularized Eikonal Problem}
 Here, we consider the regularized Eikonal problem
@@ -850,7 +850,7 @@ where $\bs{f}:\bb{R}^{N\times (d+1)} \to \bb{R}^{(d+1)N} := \begin{bmatrix} f_1(
 and $f$ is given by \eqref{eq:newtobjscalar}. The zero entries in the constraint matrix $G$ are denoted by $\times$, and each $I_1,\cdots,I_d$ is an $N\times N$ identity matrix. Specifically, each block row of the constraint equation $\bs{f}(\bs{z})$ corresponds, respectively, to the following inequality constraints for  $j = 1 \cdots N$:\\
 \begin{itemize} 
 	\item[(i)] $X_{1j} \geq 0,\cdots,X_{dj} \geq 0$, which restricts the solution to the non-negative $dN$-orthant .
-	\item[(ii)] $|\bs{X}_j|_1 \leq 1$, which is the $L_1$-norm definition of the simplex $\mathcal{T}^d$, and means that no abscissa points should be outside of it.
+	\item[(ii)] $|\bs{X}_j|_1 \leq 1$, which is the $L_1$-norm definition of the simplex $\mathcal{T}^d$, and means that no abscissa should be outside of it.
 \end{itemize}
 \vspace{8pt}
 Now, we can optimize over specific partitions of the variable $\bs{z}$ independently, and formulate an equivalent problem. With $\tilde{\bs{z}}$ as in \eqref{eq:tildez}, define $\tilde{f} : \bb{R}^{N\times d}\to \bb{R}$  by
@@ -916,9 +916,9 @@ This leads to the following conditions characterizing the solution to any optimi
 	\end{split}
 \end{equation}
 
-\begin{remark}
+%\begin{remark}
 	If an optimal primal dual pair is found, $\bs{z}^\star$ is not necessarily a zero of $\bs{F}(\bs{z})$. We have only satisfied the necessary KKT conditions. However, we may be closer to an actual root and will have maintained interior nodes and positive weights. We can use this new estimate $\bs{z}^\star$ as an initial point in a Gauss-Newton iteration that may relax $\bs{F}(\bs{z})$ to zero quadratically. 
-\end{remark}
+%\end{remark}
 
 We will recast \eqref{eq:newtoptnew} into a fully unconstrained problem using the barrier method, as described in the next section.
 
@@ -1133,9 +1133,9 @@ We verify the correctness of our formulae for the derivatives of our objective b
 	\caption{Relative error in the 2-norm (Frobenius for matrix valued derivatives) of the analytical derivative formulae when compared to second order finite difference approximations. We see that our formulae must be correct, if our finite difference implementation is correct (which is an initial assumption). The kink in the error curves after which the error increases is typical of a finite difference scheme, and occurs at the ``usual" location for at least twice differentiable functons, i.e. $h \approx 1e-6$. This corresponds to the point where numerical round-off error (due to IEEE floating point specification) dominates truncation error.} \label{fig:derivCheck}
 \end{figure}
 
-\begin{remark}
+%\begin{remark}
 	For this sort of simple ``reverse" verification test, we assume that we don't know if our analytical formulae are correct, and that a \emph{verified} finite difference implementation is available. Then, we are essentially re-verifying the finite difference implementation, which on success, certifies correctness of the analytical formulae.
-\end{remark}
+%\end{remark}
 The derivatives of the log-barrier function \eqref{eq:logbarriernew} are given by
 \begin{equation}
 \begin{split}
@@ -1427,81 +1427,81 @@ where we eliminated the second summation in the formula for the hessian of $\phi
 %	\bs{1}_{1\times N}\bs{W}-1\end{bmatrix}.
 %\end{split}
 %\end{equation}
-%\subsubsection{Derivatives of the objective functions}\label{sec:objderivs}
-%We can use the machinery developed in Section \ref{sec:jacobibasis} to compute derivatives of \eqref{eq:newtobj}. Given that these tools are only at our disposal for $d \leq 2$, we proceed for now with $d=2$ and $\bs{x} \in \Tau^2$. We view each component of the objective as a function $F_j : \bb{R}^{3N} \to \bb{R}$, and note that $\bs{P}$ is defined in the $(a,b,c)$ Jacobi basis. Applying the derivative operators defined in \eqref{eq:jactrideriv}, we have at a point $(\bs{X},\bs{Y},\bs{W})$, 
-%\begin{align*}
-%	&F_j(\bs{X},\bs{Y},\bs{W}) = \bs{e}_j^T \bs{P}(\bs{X},\bs{Y})\bs{W} - \delta_{1j} 
-%	= \sum_{i=1}^N P_j(x_i,y_i)w_i - \delta_{1j}, \\
-%	&\frac{\partial F_j}{\partial x_k} =  w_k \bs{P}^x(x_k,y_k)^T\mathcal{D}_x \bs{e}_j,\quad
-%	\frac{\partial F_j}{\partial y_k} = w_k \bs{P}^y(x_k,y_k)^T\mathcal{D}_y \bs{e}_j,\quad
-%	\frac{\partial F_j}{\partial w_k} = \bs{P}(x_k,y_k)^T \bs{e}_j,\\
-%	&\frac{\partial^2 F_j}{\partial x_l \partial x_k} = w_k \bs{P}^{xx}(x_k,y_k)^T\mathcal{D}_{xx}\bs{e}_j \delta_{lk},\quad
-%	\frac{\partial^2 F_j}{\partial x_l \partial y_k} = w_k \bs{P}^{xy}(x_k,y_k)^T\mathcal{D}_{xy}\bs{e}_j \delta_{lk},\quad
-%	\frac{\partial^2 F_j}{\partial x_l \partial w_k} = \bs{P}^x(x_k,y_k)^T\mathcal{D}_x\bs{e}_j\delta_{lk},\\
-%	&\frac{\partial^2 F_j}{\partial y_l \partial x_k} = w_k \bs{P}^{yx}(x_k,y_k)^T\mathcal{D}_{yx}\bs{e}_j \delta_{lk},\quad 	\frac{\partial^2 F_j}{\partial y_l \partial y_k} = w_k \bs{P}^{yy}(x_k,y_k)^T\mathcal{D}_{yy}\bs{e}_j \delta_{lk},\quad 
-%	\frac{\partial^2 F_j}{\partial y_l \partial w_k} =  \bs{P}^{y}(x_k,y_k)^T\mathcal{D}_{y}\bs{e}_j \delta_{lk},\\
-%	&\frac{\partial^2 F_j}{\partial w_l \partial x_k} =  \bs{P}^{x}(x_k,y_k)^T\mathcal{D}_{x}\bs{e}_j \delta_{lk},\quad 
-%	\frac{\partial^2 F_j}{\partial w_l \partial y_k} = \bs{P}^{y}(x_k,y_k)^T \mathcal{D}_y\bs{e}_j\delta_{lk},\quad \frac{\partial^2 F_j}{\partial w_l \partial w_k} = 0\cdot \delta_{lk},
-%\end{align*}
-%where 
-%\begin{align*}
-%\mathcal{D}_x &= \mathcal{D}_{x,(a,b,c)}^{a+1,b,c+1},\quad \bs{P}^x = \bs{P}^{(a+1,b,c+1)},\quad
-%\mathcal{D}_y = \mathcal{D}_{x,(a,b,c)}^{a,b+1,c+1},\quad \bs{P}^y = \bs{P}^{(a,b+1,c+1)}\\
-%\mathcal{D}_{xx} &= \mathcal{D}_{x,(a+1,b,c+1)}^{(a+2,b,c+2)}\mathcal{D}_{x,(a,b,c)}^{(a+1,b,c+1)},\quad \bs{P}^{xx} = \bs{P}^{(a+2,b,c+2)},\\
-%\mathcal{D}_{yy} &= 
-%\mathcal{D}_{y,(a,b+1,c+1)}^{(a,b+2,c+2)}\mathcal{D}_{y,(a,b,c)}^{(a,b+1,c+1)}, \quad \bs{P}^{yy} = \bs{P}^{(a,b+2,c+2)}\\
-%\mathcal{D}_{xy} &= \mathcal{D}_{x,(a,b+1,c+1)}^{(a+1,b+1,c+2)}\mathcal{D}_{y,(a,b,c)}^{(a,b+1,c+1)},\quad \bs{P}^{xy} = \bs{P}^{(a+1,b+1,c+2)},\\
-%\mathcal{D}_{yx} &=
-%\mathcal{D}_{y,(a+1,b,c+1)}^{(a+1,b+1,c+2)}\mathcal{D}_{x,(a,b,c)}^{(a+1,b,c+1)},\quad \bs{P}^{yx} = \bs{P}^{xy}
-%\end{align*}
-%Now, reverting to the view of the objective as $\bs{F}:\bb{R}^{3N} \to \bb{R}^M$, we can write
-%\begin{align}\label{eq:Fobjderiv}
-%[\mathcal{D}(\bs{F})]|_{(\bs{X},\bs{Y},\bs{W})} =\begin{bmatrix} \mathcal{D}_x^T \bs{P}^x(\bs{X},\bs{Y})\odot\bs{W} & \mathcal{D}_y^T \bs{P}^y(\bs{X},\bs{Y})\odot \bs{W} & \bs{P}(\bs{X},\bs{Y})\end{bmatrix} \in \bb{R}^{M\times 3N},
-%\end{align}
-%and we can use this formula in the Gauss-Newton update \eqref{eq:gauss-newt}. If we instead consider the equivalent problem of finding zeros of the objective norm $f: \bb{R}^{3N} \to \bb{R}$, $\bs{f}(\bs{X},\bs{Y},\bs{W})= ||\bs{F}||_2^2$, (solved by the iteration \eqref{eq:newtsys}), we must chain out derivatives to find the mapping $\mathcal{D}(\bs{f}):\bb{R}^{3N} \to L(\bb{R}^{3N},\bb{R})$ at a point $(\bs{X},\bs{Y},\bs{W})$ is given by
-%\begin{equation}
-%	[\mathcal{D}(f)]|_{(\bs{X},\bs{Y},\bs{W})} = 2\bs{F}(\bs{X},\bs{Y},\bs{W})^T[\mathcal{D}(\bs{F})]|_{(\bs{X},\bs{Y},\bs{W})} \in \bb{R}^{1\times 3N},
-%\end{equation}
-%where $L(U,V)$ is the space of linear mappings between finite dimensional vector spaces $U,V$.
-%In this case, the Hessian matrix of $\bs{f}$ is a mapping $\mathcal{D}^2(\bs{f}):\bb{R}^{3N} \to L(\bb{R}^{3N},\bb{R}^{3N})$ given at a point $(\bs{X},\bs{Y},\bs{W})$ by
-%\begin{equation}\label{eq:hessf}
-%	\begin{split}
-%		 [\mathcal{D}^2(f)]|_{(\bs{X},\bs{Y},\bs{W})} &=
-%		 2\sum_{j=1}^M F_j(\bs{X},\bs{Y},\bs{W})[\mathcal{D}^2(F_j)]|_{(\bs{X},\bs{Y},\bs{W})} \\ &+ 2\Big([\mathcal{D}(\bs{F})]|_{(\bs{X},\bs{Y},\bs{W})}\Big)^T [\mathcal{D}(\bs{F})]|_{(\bs{X},\bs{Y},\bs{W})} \\
-%		 & \in \bb{R}^{3N\times 3N}
-%	\end{split}
-%\end{equation}
-%The vector Hessian of $\bs{F}$ appears in \eqref{eq:hessf}, and we can make sense of its tensor structure by reviewing the mixed partial formulae given at the beginning of this section. In particular, 
-%we have
-%\begin{align}
-%\partial_{\bs{X}\bs{X}}(F_j(\bs{X},\bs{Y},\bs{W})) &=
-%I_{N\times N} \odot \Bigg(\bs{1}_N^T \otimes \Big(\bs{W}\odot  \bs{P}^{xx}(\bs{X},\bs{Y})^T \mathcal{D}_{xx}\bs{e}_j\Big)\Bigg),\label{eq:hessFfirstpart}\\
-%\partial_{\bs{Y}\bs{X}}(F_j(\bs{X},\bs{Y},\bs{W})) &=
-%I_{N\times N} \odot \Bigg(\bs{1}_N^T \otimes \Big(\bs{W}\odot  \bs{P}^{yx}(\bs{X},\bs{Y})^T \mathcal{D}_{yx}\bs{e}_j\Big)\Bigg),\\
-%\partial_{\bs{W}\bs{X}}(F_j(\bs{X},\bs{Y},\bs{W})) &=
-%I_{N\times N} \odot \Bigg(\bs{1}_N^T \otimes \Big( \bs{P}^{x}(\bs{X},\bs{Y})^T \mathcal{D}_{x}\bs{e}_j\Big)\Bigg),\\
-%\partial_{\bs{X}\bs{Y}}(F_j(\bs{X},\bs{Y},\bs{W})) &=
-%I_{N\times N} \odot \Bigg(\bs{1}_N^T \otimes \Big(\bs{W}\odot  \bs{P}^{xy}(\bs{X},\bs{Y})^T \mathcal{D}_{xy}\bs{e}_j\Big)\Bigg),\\
-%\partial_{\bs{Y}\bs{Y}}(F_j(\bs{X},\bs{Y},\bs{W})) &=
-%I_{N\times N} \odot \Bigg(\bs{1}_N^T \otimes \Big(\bs{W}\odot  \bs{P}^{yy}(\bs{X},\bs{Y})^T \mathcal{D}_{yy}\bs{e}_j\Big)\Bigg),\\
-%\partial_{\bs{W}\bs{Y}}(F_j(\bs{X},\bs{Y},\bs{W})) &=
-%I_{N\times N} \odot \Bigg(\bs{1}_N^T \otimes \Big( \bs{P}^{y}(\bs{X},\bs{Y})^T \mathcal{D}_{y}\bs{e}_j\Big)\Bigg),\\
-%\partial_{\bs{X}\bs{W}}(F_j(\bs{X},\bs{Y},\bs{W})) &=
-%I_{N\times N} \odot \Bigg(\bs{1}_N^T \otimes \Big( \bs{P}^{x}(\bs{X},\bs{Y})^T \mathcal{D}_{x}\bs{e}_j\Big)\Bigg),\\
-%\partial_{\bs{Y}\bs{W}}(F_j(\bs{X},\bs{Y},\bs{W})) &=
-%I_{N\times N} \odot \Bigg(\bs{1}_N^T \otimes \Big( \bs{P}^{y}(\bs{X},\bs{Y})^T \mathcal{D}_{y}\bs{e}_j\Big)\Bigg),\\
-%\partial_{\bs{W}\bs{W}}(F_j(\bs{X},\bs{Y},\bs{W})) &=
-%0_{N\times N}, \label{eq:hessFlastpart}
-%\end{align}
-%where $\cdot \otimes \cdot$ symbolizes the Kronecker product, and $\cdot \odot \cdot $ is component-wise multiplication along the columns of the argument to the right\footnote{Viewing $\bs{W}$ as a column of size $N$, we compute the component-wise product with columns of the matrix on the right. It would be more correct to define a function $\texttt{repmat}(W,k)$, which takes a vector $W \in \bb{R}^N$ and repeats it $k$ times, producing a matrix in $\bb{R}^{N\times k}$ with each of the $k$ columns a copy of $W$. However, for $N\neq M$, the ambiguity in matching sizes of the arguments to $\odot$ is eliminated.}.
-%We verify the correctness of our formulae for the first and second derivatives of our vector and scalar objectives by comparing with second-order finite difference approximations. In particular, we show in Figure \ref{fig:derivCheck} the relative error in the 2-norm between the analytical evaluation and the finite difference approximation. Since the difference scheme is second order, we expect the error to behave like $\mathcal{O}(h^2)$, where $h$ is the stencil width. That is, we should observe that $$\log(||\mathcal{D}(\bs{F}) - \hat{\mathcal{D}}(\bs{F})||) \approx 2\log(h) + \beta,$$ where $\beta$ is the order constant, and $\hat{\mathcal{D}(F)}$ is the finite difference approximation. The same relationship holds for $\mathcal{D}^2(F)$ and other derivatives as well. On a $\log-\log$ scale, this means the slope of the error lines should be around 2. Indeed, we do observe this relationship in the regime of asymptotic convergence, before round-off error dominates truncation error for the finite difference scheme.
-%
+\subsubsection{Derivatives of the objective functions}\label{sec:objderivs}
+We can use the machinery developed in Section \ref{sec:jacobibasis} to compute derivatives of \eqref{eq:newtobj}. Given that these tools are only at our disposal for $d \leq 2$, we proceed for now with $d=2$ and $\bs{x} \in \Tau^2$. We view each component of the objective as a function $F_j : \bb{R}^{3N} \to \bb{R}$, and note that $\bs{P}$ is defined in the $(a,b,c)$ Jacobi basis. Applying the derivative operators defined in \eqref{eq:jactrideriv}, we have at a point $(\bs{X},\bs{Y},\bs{W})$, 
+\begin{align*}
+	&F_j(\bs{X},\bs{Y},\bs{W}) = \bs{e}_j^T \bs{P}(\bs{X},\bs{Y})\bs{W} - \delta_{1j} 
+	= \sum_{i=1}^N P_j(x_i,y_i)w_i - \delta_{1j}, \\
+	&\frac{\partial F_j}{\partial x_k} =  w_k \bs{P}^x(x_k,y_k)^T\mathcal{D}_x \bs{e}_j,\quad
+	\frac{\partial F_j}{\partial y_k} = w_k \bs{P}^y(x_k,y_k)^T\mathcal{D}_y \bs{e}_j,\quad
+	\frac{\partial F_j}{\partial w_k} = \bs{P}(x_k,y_k)^T \bs{e}_j,\\
+	&\frac{\partial^2 F_j}{\partial x_l \partial x_k} = w_k \bs{P}^{xx}(x_k,y_k)^T\mathcal{D}_{xx}\bs{e}_j \delta_{lk},\quad
+	\frac{\partial^2 F_j}{\partial x_l \partial y_k} = w_k \bs{P}^{xy}(x_k,y_k)^T\mathcal{D}_{xy}\bs{e}_j \delta_{lk},\quad
+	\frac{\partial^2 F_j}{\partial x_l \partial w_k} = \bs{P}^x(x_k,y_k)^T\mathcal{D}_x\bs{e}_j\delta_{lk},\\
+	&\frac{\partial^2 F_j}{\partial y_l \partial x_k} = w_k \bs{P}^{yx}(x_k,y_k)^T\mathcal{D}_{yx}\bs{e}_j \delta_{lk},\quad 	\frac{\partial^2 F_j}{\partial y_l \partial y_k} = w_k \bs{P}^{yy}(x_k,y_k)^T\mathcal{D}_{yy}\bs{e}_j \delta_{lk},\quad 
+	\frac{\partial^2 F_j}{\partial y_l \partial w_k} =  \bs{P}^{y}(x_k,y_k)^T\mathcal{D}_{y}\bs{e}_j \delta_{lk},\\
+	&\frac{\partial^2 F_j}{\partial w_l \partial x_k} =  \bs{P}^{x}(x_k,y_k)^T\mathcal{D}_{x}\bs{e}_j \delta_{lk},\quad 
+	\frac{\partial^2 F_j}{\partial w_l \partial y_k} = \bs{P}^{y}(x_k,y_k)^T \mathcal{D}_y\bs{e}_j\delta_{lk},\quad \frac{\partial^2 F_j}{\partial w_l \partial w_k} = 0\cdot \delta_{lk},
+\end{align*}
+where 
+\begin{align*}
+\mathcal{D}_x &= \mathcal{D}_{x,(a,b,c)}^{a+1,b,c+1},\quad \bs{P}^x = \bs{P}^{(a+1,b,c+1)},\quad
+\mathcal{D}_y = \mathcal{D}_{x,(a,b,c)}^{a,b+1,c+1},\quad \bs{P}^y = \bs{P}^{(a,b+1,c+1)}\\
+\mathcal{D}_{xx} &= \mathcal{D}_{x,(a+1,b,c+1)}^{(a+2,b,c+2)}\mathcal{D}_{x,(a,b,c)}^{(a+1,b,c+1)},\quad \bs{P}^{xx} = \bs{P}^{(a+2,b,c+2)},\\
+\mathcal{D}_{yy} &= 
+\mathcal{D}_{y,(a,b+1,c+1)}^{(a,b+2,c+2)}\mathcal{D}_{y,(a,b,c)}^{(a,b+1,c+1)}, \quad \bs{P}^{yy} = \bs{P}^{(a,b+2,c+2)}\\
+\mathcal{D}_{xy} &= \mathcal{D}_{x,(a,b+1,c+1)}^{(a+1,b+1,c+2)}\mathcal{D}_{y,(a,b,c)}^{(a,b+1,c+1)},\quad \bs{P}^{xy} = \bs{P}^{(a+1,b+1,c+2)},\\
+\mathcal{D}_{yx} &=
+\mathcal{D}_{y,(a+1,b,c+1)}^{(a+1,b+1,c+2)}\mathcal{D}_{x,(a,b,c)}^{(a+1,b,c+1)},\quad \bs{P}^{yx} = \bs{P}^{xy}
+\end{align*}
+Now, reverting to the view of the objective as $\bs{F}:\bb{R}^{3N} \to \bb{R}^M$, we can write
+\begin{align}\label{eq:Fobjderiv}
+[\mathcal{D}(\bs{F})]|_{(\bs{X},\bs{Y},\bs{W})} =\begin{bmatrix} \mathcal{D}_x^T \bs{P}^x(\bs{X},\bs{Y})\odot\bs{W} & \mathcal{D}_y^T \bs{P}^y(\bs{X},\bs{Y})\odot \bs{W} & \bs{P}(\bs{X},\bs{Y})\end{bmatrix} \in \bb{R}^{M\times 3N},
+\end{align}
+and we can use this formula in the Gauss-Newton update \eqref{eq:gauss-newt}. If we instead consider the equivalent problem of finding zeros of the objective norm $f: \bb{R}^{3N} \to \bb{R}$, $\bs{f}(\bs{X},\bs{Y},\bs{W})= ||\bs{F}||_2^2$, (solved by the iteration \eqref{eq:newtsys}), we must chain out derivatives to find the mapping $\mathcal{D}(\bs{f}):\bb{R}^{3N} \to L(\bb{R}^{3N},\bb{R})$ at a point $(\bs{X},\bs{Y},\bs{W})$ is given by
+\begin{equation}
+	[\mathcal{D}(f)]|_{(\bs{X},\bs{Y},\bs{W})} = 2\bs{F}(\bs{X},\bs{Y},\bs{W})^T[\mathcal{D}(\bs{F})]|_{(\bs{X},\bs{Y},\bs{W})} \in \bb{R}^{1\times 3N},
+\end{equation}
+where $L(U,V)$ is the space of linear mappings between finite dimensional vector spaces $U,V$.
+In this case, the Hessian matrix of $\bs{f}$ is a mapping $\mathcal{D}^2(\bs{f}):\bb{R}^{3N} \to L(\bb{R}^{3N},\bb{R}^{3N})$ given at a point $(\bs{X},\bs{Y},\bs{W})$ by
+\begin{equation}\label{eq:hessf}
+	\begin{split}
+		 [\mathcal{D}^2(f)]|_{(\bs{X},\bs{Y},\bs{W})} &=
+		 2\sum_{j=1}^M F_j(\bs{X},\bs{Y},\bs{W})[\mathcal{D}^2(F_j)]|_{(\bs{X},\bs{Y},\bs{W})} \\ &+ 2\Big([\mathcal{D}(\bs{F})]|_{(\bs{X},\bs{Y},\bs{W})}\Big)^T [\mathcal{D}(\bs{F})]|_{(\bs{X},\bs{Y},\bs{W})} \\
+		 & \in \bb{R}^{3N\times 3N}
+	\end{split}
+\end{equation}
+The vector Hessian of $\bs{F}$ appears in \eqref{eq:hessf}, and we can make sense of its tensor structure by reviewing the mixed partial formulae given at the beginning of this section. In particular, 
+we have
+\begin{align}
+\partial_{\bs{X}\bs{X}}(F_j(\bs{X},\bs{Y},\bs{W})) &=
+I_{N\times N} \odot \Bigg(\bs{1}_N^T \otimes \Big(\bs{W}\odot  \bs{P}^{xx}(\bs{X},\bs{Y})^T \mathcal{D}_{xx}\bs{e}_j\Big)\Bigg),\label{eq:hessFfirstpart}\\
+\partial_{\bs{Y}\bs{X}}(F_j(\bs{X},\bs{Y},\bs{W})) &=
+I_{N\times N} \odot \Bigg(\bs{1}_N^T \otimes \Big(\bs{W}\odot  \bs{P}^{yx}(\bs{X},\bs{Y})^T \mathcal{D}_{yx}\bs{e}_j\Big)\Bigg),\\
+\partial_{\bs{W}\bs{X}}(F_j(\bs{X},\bs{Y},\bs{W})) &=
+I_{N\times N} \odot \Bigg(\bs{1}_N^T \otimes \Big( \bs{P}^{x}(\bs{X},\bs{Y})^T \mathcal{D}_{x}\bs{e}_j\Big)\Bigg),\\
+\partial_{\bs{X}\bs{Y}}(F_j(\bs{X},\bs{Y},\bs{W})) &=
+I_{N\times N} \odot \Bigg(\bs{1}_N^T \otimes \Big(\bs{W}\odot  \bs{P}^{xy}(\bs{X},\bs{Y})^T \mathcal{D}_{xy}\bs{e}_j\Big)\Bigg),\\
+\partial_{\bs{Y}\bs{Y}}(F_j(\bs{X},\bs{Y},\bs{W})) &=
+I_{N\times N} \odot \Bigg(\bs{1}_N^T \otimes \Big(\bs{W}\odot  \bs{P}^{yy}(\bs{X},\bs{Y})^T \mathcal{D}_{yy}\bs{e}_j\Big)\Bigg),\\
+\partial_{\bs{W}\bs{Y}}(F_j(\bs{X},\bs{Y},\bs{W})) &=
+I_{N\times N} \odot \Bigg(\bs{1}_N^T \otimes \Big( \bs{P}^{y}(\bs{X},\bs{Y})^T \mathcal{D}_{y}\bs{e}_j\Big)\Bigg),\\
+\partial_{\bs{X}\bs{W}}(F_j(\bs{X},\bs{Y},\bs{W})) &=
+I_{N\times N} \odot \Bigg(\bs{1}_N^T \otimes \Big( \bs{P}^{x}(\bs{X},\bs{Y})^T \mathcal{D}_{x}\bs{e}_j\Big)\Bigg),\\
+\partial_{\bs{Y}\bs{W}}(F_j(\bs{X},\bs{Y},\bs{W})) &=
+I_{N\times N} \odot \Bigg(\bs{1}_N^T \otimes \Big( \bs{P}^{y}(\bs{X},\bs{Y})^T \mathcal{D}_{y}\bs{e}_j\Big)\Bigg),\\
+\partial_{\bs{W}\bs{W}}(F_j(\bs{X},\bs{Y},\bs{W})) &=
+0_{N\times N}, \label{eq:hessFlastpart}
+\end{align}
+where $\cdot \otimes \cdot$ symbolizes the Kronecker product, and $\cdot \odot \cdot $ is component-wise multiplication along the columns of the argument to the right\footnote{Viewing $\bs{W}$ as a column of size $N$, we compute the component-wise product with columns of the matrix on the right. It would be more correct to define a function $\texttt{repmat}(W,k)$, which takes a vector $W \in \bb{R}^N$ and repeats it $k$ times, producing a matrix in $\bb{R}^{N\times k}$ with each of the $k$ columns a copy of $W$. However, for $N\neq M$, the ambiguity in matching sizes of the arguments to $\odot$ is eliminated.}.
+We verify the correctness of our formulae for the first and second derivatives of our vector and scalar objectives by comparing with second-order finite difference approximations. In particular, we show in Figure \ref{fig:derivCheck} the relative error in the 2-norm between the analytical evaluation and the finite difference approximation. Since the difference scheme is second order, we expect the error to behave like $\mathcal{O}(h^2)$, where $h$ is the stencil width. That is, we should observe that $$\log(||\mathcal{D}(\bs{F}) - \hat{\mathcal{D}}(\bs{F})||) \approx 2\log(h) + \beta,$$ where $\beta$ is the order constant, and $\hat{\mathcal{D}(F)}$ is the finite difference approximation. The same relationship holds for $\mathcal{D}^2(F)$ and other derivatives as well. On a $\log-\log$ scale, this means the slope of the error lines should be around 2. Indeed, we do observe this relationship in the regime of asymptotic convergence, before round-off error dominates truncation error for the finite difference scheme.
+
 %\begin{figure}[H]
 %	\centering
 %	\includegraphics[width=1\linewidth]{./derivCheck}
 %	\caption{Relative error in the 2-norm (Frobenius for matrix valued derivatives) of the analytical derivative formulae when compared to second order finite difference approximations. We see that our formulae must be correct, if our finite difference implementation is correct (which is an initial assumption). The kink in the error curves after which the error increases is typical of a finite difference scheme, and occurs at the ``usual" locaton for at least twice differentiable functons, i.e. $h \approx 1e-6$. This corresponds to the point where numerical round-off error (due to IEEE floating point specification) dominates truncation error, and can be explicitly determined via error analysis by making reference to the Taylor error term in the difference scheme, with propagation of $\varepsilon_{\text{mach}}$} \label{fig:derivCheck}
 %\end{figure}
-%
+
 %The plot also illustrates the utility of having available to us the analytical derivative formulae. In particular, we note that the solution variables to any of the proposed iterations involve nodes interior to $\Tau^2$, and the zero of the objective function is only some $\varepsilon$ perturbation away from the initial points obtained by \texttt{JEVD} or complex eigenvalue decomposition. If this $\varepsilon$ is smaller than 1e-6 for any component of the solution, which I've empirically observed is the case, finite difference schemes are not appropriate for approximating the vector Hessian or gradient of the objective.
 %\begin{remark}
 %	For this sort of simple ``reverse" verification test, we assume that we don't know if our analytical formulae are correct, and that a \emph{verified} finite difference implementation is available. Then, we are essentially re-verifying the finite difference implementation, which on success, certifies correctness of the analytical formulae.
@@ -1526,18 +1526,1208 @@ At this point, we can parse out what we mean by applying the inverse of the vect
 %\bibliographystyle{siamplain}
 %\bibliography{references}
 
+\section*{Derivative of the Dunkl--Xu Simplex Basis}
+
+We begin with the $d$--simplex orthogonal polynomials defined in
+Dunkl--Xu (Eq.\ 2.5.21).  
+Let $x = (x_1,\dots,x_d)$ satisfy
+\[
+x_j \ge 0,\qquad x_1 + \dots + x_d \le 1,
+\]
+and let $\alpha = (\alpha_1,\dots,\alpha_d)\in\mathbb{N}_0^d$.
+Define the prefix sums
+\[
+s_j(x) := \sum_{i=1}^{j-1} x_i,
+\qquad
+\omega_j(x) := 1 - s_j(x),
+\qquad
+t_j(x) := \frac{2 x_j}{\omega_j(x)} - 1,
+\]
+where by convention $s_1(x)=0$.  
+Let
+\[
+J_j(x) := P_{\alpha_j}^{(a_j,\;\kappa_j - \frac12)}(t_j(x)),
+\]
+where $a_j$ and $\kappa_j$ are the parameters appearing in (2.5.21),
+and $P_n^{(a,b)}$ denotes the Jacobi polynomial on $[-1,1]$.
+Then (2.5.21) states that
+\[
+P_\alpha(x)
+= [h_\alpha]^{-1}
+\prod_{j=1}^d 
+\big( \omega_j(x)^{\alpha_j} \, J_j(x) \big),
+\]
+where $h_\alpha$ is a constant depending only on $\alpha$ and the
+Jacobi parameters.
+
+Define
+\[
+\Phi_j(x) := \omega_j(x)^{\alpha_j} \, J_j(x),
+\qquad j=1,\dots,d,
+\]
+so that
+\[
+P_\alpha(x) = [h_\alpha]^{-1} \prod_{j=1}^d \Phi_j(x).
+\]
+
+\subsection*{Step 1. Logarithmic differentiation of the product}
+
+Let
+\[
+F(x) := \prod_{j=1}^d \Phi_j(x).
+\]
+Then
+\[
+\log F(x)
+= \sum_{j=1}^d \log \Phi_j(x),
+\]
+and by differentiating,
+\[
+\frac{1}{F(x)} \frac{\partial F}{\partial x_\ell}
+= \sum_{j=1}^d 
+\frac{\partial}{\partial x_\ell} \log \Phi_j(x).
+\]
+Multiplying by $F(x)$ gives the product rule
+\[
+\boxed{
+	\frac{\partial}{\partial x_\ell}
+	\Big( \prod_{j=1}^d \Phi_j(x) \Big)
+	=
+	\Big( \prod_{j=1}^d \Phi_j(x) \Big)
+	\sum_{j=1}^d 
+	\frac{\partial}{\partial x_\ell} \log \Phi_j(x).
+}
+\]
+Hence
+\[
+\frac{\partial P_\alpha}{\partial x_\ell}(x)
+=
+P_\alpha(x)\,
+\sum_{j=1}^d 
+\frac{\partial}{\partial x_\ell} \log \Phi_j(x).
+\]
+
+\subsection*{Step 2. Derivative of the factor 
+	$\log(\omega_j^{\alpha_j})$}
+
+Since
+\[
+\omega_j(x) = 1 - s_j(x),
+\qquad
+s_j(x) = \sum_{i=1}^{j-1} x_i,
+\]
+we have
+\[
+\frac{\partial s_j}{\partial x_\ell}
+=
+\begin{cases}
+	1, & 1 \le \ell \le j-1,\\[4pt]
+	0, & \ell \ge j.
+\end{cases}
+\]
+Thus
+\[
+\frac{\partial \omega_j}{\partial x_\ell}
+= -\frac{\partial s_j}{\partial x_\ell}
+=
+\begin{cases}
+	-1, & \ell \le j-1,\\[4pt]
+	0, & \ell \ge j.
+\end{cases}
+\]
+
+If $\alpha_j>0$, then
+\[
+\omega_j(x)^{\alpha_j}
+= \exp\big( \alpha_j \log \omega_j(x) \big),
+\]
+and therefore
+\[
+\frac{\partial}{\partial x_\ell}
+\log(\omega_j^{\alpha_j})
+= \alpha_j \frac{1}{\omega_j}
+\frac{\partial\omega_j}{\partial x_\ell}
+=
+\begin{cases}
+	-\dfrac{\alpha_j}{\omega_j(x)}, & \ell \le j-1,\\[8pt]
+	0, & \ell \ge j.
+\end{cases}
+\]
+
+\subsection*{Step 3. Derivative of $t_j(x)$}
+
+Recall
+\[
+t_j(x) = \frac{2 x_j}{\omega_j(x)} - 1.
+\]
+We compute:
+\[
+\frac{\partial t_j}{\partial x_\ell}
+=
+\begin{cases}
+	\dfrac{2}{\omega_j(x)}, 
+	& \ell = j,\\[10pt]
+	\dfrac{2 x_j}{\omega_j(x)^2}, 
+	& 1 \le \ell \le j-1,\\[10pt]
+	0,
+	& \ell > j.
+\end{cases}
+\]
+
+\subsection*{Step 4. Derivative of the Jacobi factor $J_j(x)$}
+
+For $\alpha_j>0$, define
+\[
+J_j(x) = P_{\alpha_j}^{(a_j,\;b_j)}( t_j(x) ),
+\qquad
+b_j := \kappa_j - \frac12.
+\]
+The standard Jacobi derivative identity is
+\[
+\frac{d}{dt} P_n^{(a,b)}(t)
+= \frac{1}{2}(n+a+b+1)\,
+P_{n-1}^{(a+1,b+1)}(t),
+\qquad n\ge 1.
+\]
+Hence
+\[
+\frac{\partial J_j}{\partial x_\ell}
+=
+\frac{1}{2}(\alpha_j + a_j + b_j + 1)\,
+P_{\alpha_j - 1}^{(a_j+1,\;b_j+1)}(t_j(x))\,
+\frac{\partial t_j}{\partial x_\ell}.
+\]
+Thus
+\[
+\frac{\partial}{\partial x_\ell} \log J_j(x)
+=
+\frac{1}{J_j(x)}
+\frac{\partial J_j}{\partial x_\ell}
+=
+R_j(x)\,\frac{\partial t_j}{\partial x_\ell},
+\]
+where
+\[
+R_j(x)
+:=
+\frac{
+	\frac{1}{2}\,(\alpha_j + a_j + b_j + 1)\,
+	P_{\alpha_j - 1}^{(a_j+1,\;b_j+1)}(t_j(x))
+}{
+	P_{\alpha_j}^{(a_j,b_j)}(t_j(x))
+},
+\]
+and $R_j(x)=0$ if $\alpha_j=0$.
+
+\subsection*{Step 5. Final derivative formula}
+
+Combining all pieces,
+\[
+\boxed{
+	\frac{\partial P_\alpha}{\partial x_\ell}(x)
+	=
+	P_\alpha(x)
+	\sum_{j=1}^d
+	\left[
+	-\mathbf{1}_{\{\ell \le j-1\}}
+	\frac{\alpha_j}{\omega_j(x)}
+	\;+\;
+	R_j(x)\,\frac{\partial t_j}{\partial x_\ell}(x)
+	\right].
+}
+\]
+Here $\omega_j(x)$, $t_j(x)$, $R_j(x)$, and
+$\dfrac{\partial t_j}{\partial x_\ell}(x)$ are given explicitly above.
+This formula holds for the full Dunkl--Xu orthogonal basis on the
+$d$--simplex defined in Eq.\ (2.5.21).
+\newpage
+\section*{Derivative Operators for Dunkl--Xu Simplex Polynomials (General $D$)}
+
+We work on the $D$-simplex
+\[
+T_D = \bigl\{ x\in\mathbb{R}^D : x_i \ge 0,\;\; 
+|x| := x_1+\dots+x_D \le 1 \bigr\}.
+\]
+The Jacobi weight is
+\[
+w_\kappa(x)
+= x_1^{\kappa_1 - 1/2} \cdots x_D^{\kappa_D - 1/2}
+(1-|x|)^{\kappa_{D+1}-1/2}, 
+\qquad \kappa_i > -\tfrac12.
+\]
+
+\subsection*{1. Dunkl--Xu basis (Equation 2.5.21)}
+
+Let $\alpha=(\alpha_1,\dots,\alpha_D)\in\mathbb{N}_0^D$.
+Define
+\[
+s_j(x) := x_1 + \dots + x_{j-1}, \qquad
+\omega_j(x) := 1 - s_j(x), \qquad
+t_j(x) := \frac{2x_j}{\omega_j(x)} - 1,
+\]
+with $s_1(x):=0$.
+Jacobi parameters at level $j$ are
+\[
+a_j(\alpha,\kappa)
+:= 2|\alpha^{j+1}|
++ |\kappa^{j+1}|
++ \tfrac12(D-j-1),
+\qquad
+b_j := \kappa_j - \tfrac12 .
+\]
+We take the (already normalized) Dunkl--Xu basis
+\[
+P_{\alpha}^{(\kappa)}(x)
+:=
+\prod_{j=1}^D
+\omega_j(x)^{\alpha_j}\,
+P_{\alpha_j}^{(a_j(\alpha,\kappa),\,b_j)}(t_j(x)),
+\]
+with normalization chosen so that
+\[
+\big\langle P_\alpha^{(\kappa)},P_\beta^{(\kappa)}\big\rangle_{w_\kappa}
+= \delta_{\alpha\beta},
+\qquad
+\langle f,g\rangle_{w_\kappa}
+:= \int_{T_D} f(x)\,g(x)\,w_\kappa(x)\,dx.
+\]
+(Your implementation achieves this via the precomputed factors \texttt{inv\_h\_alpha}.)
+
+\subsection*{2. Pointwise derivative formula}
+
+Introduce
+\[
+\Phi_j(x) := \omega_j(x)^{\alpha_j}
+P_{\alpha_j}^{(a_j(\alpha,\kappa),\,b_j)}(t_j(x)),
+\]
+so that
+\[
+P_\alpha^{(\kappa)}(x)
+= \prod_{j=1}^D \Phi_j(x).
+\]
+Logarithmic differentiation yields
+\begin{equation}
+	\frac{\partial P_\alpha^{(\kappa)}}{\partial x_\ell}(x)
+	=
+	P_\alpha^{(\kappa)}(x)
+	\sum_{j=1}^D
+	\frac{\partial}{\partial x_\ell}\log\Phi_j(x).
+	\label{eqnew:log-product}
+\end{equation}
+
+We compute, for $\alpha_j>0$,
+\[
+\frac{\partial}{\partial x_\ell}\log(\omega_j^{\alpha_j})
+=
+\begin{cases}
+	-\dfrac{\alpha_j}{\omega_j(x)}, & \ell \le j-1,\\[6pt]
+	0, & \ell \ge j,
+\end{cases}
+\]
+and using the Jacobi identity
+\[
+\frac{d}{dt} P_{n}^{(a,b)}(t)
+= \frac{n+a+b+1}{2}\,
+P_{n-1}^{(a+1,b+1)}(t),
+\]
+we obtain
+\[
+\frac{\partial}{\partial x_\ell}\log 
+P_{\alpha_j}^{(a_j,b_j)}(t_j)
+= 
+R_j(x)\,\frac{\partial t_j}{\partial x_\ell}(x),
+\]
+where, for $\alpha_j>0$,
+\[
+R_j(x)
+:=
+\frac{
+	\frac12(\alpha_j+a_j+b_j+1)
+	P_{\alpha_j-1}^{(a_j+1,b_j+1)}(t_j(x))
+}{
+	P_{\alpha_j}^{(a_j,b_j)}(t_j(x))
+}.
+\]
+
+The derivative of $t_j$ is
+\[
+\frac{\partial t_j}{\partial x_\ell}(x)
+=
+\begin{cases}
+	\dfrac{2}{\omega_j(x)}, & \ell = j,\\[6pt]
+	\dfrac{2x_j}{\omega_j(x)^2}, & 1\le \ell \le j-1,\\[6pt]
+	0, & \ell > j.
+\end{cases}
+\]
+
+Plugging these into~\eqref{eqnew:log-product} yields the compact general-$D$ formula:
+\begin{equation}
+	\boxed{
+		\frac{\partial P_\alpha^{(\kappa)}}{\partial x_\ell}(x)
+		=
+		P_\alpha^{(\kappa)}(x)
+		\sum_{j=1}^D
+		\left[
+		-\mathbf{1}_{(\ell\le j-1)}\frac{\alpha_j}{\omega_j(x)}
+		\;+\;
+		R_j(x)\,\frac{\partial t_j}{\partial x_\ell}(x)
+		\right]
+	}
+	\label{eqnew:DX-derivative}
+\end{equation}
+
+\subsection*{3. Promoted parameter sets}
+
+Differentiating the Jacobi factor at level $j$ transforms
+\[
+(a_j,b_j)\mapsto (a_j+1,b_j+1),
+\]
+which corresponds to shifting the tail of $\kappa$:
+\begin{equation}
+	\kappa^{(j)}_r :=
+	\begin{cases}
+		\kappa_r, & r<j,\\[4pt]
+		\kappa_r+\tfrac12, & r\ge j.
+	\end{cases}
+	\label{eqnew:promoted-kappa}
+\end{equation}
+Thus each level-$j$ contribution to the derivative naturally lies in 
+$\Pi_{|\alpha|-1}^D(\kappa^{(j)})$, the degree-$|\alpha|-1$ space for the
+promoted parameter set $\kappa^{(j)}$.
+
+\subsection*{4. Selection rule}
+
+Consider the inner product
+\[
+I_{\beta,\alpha}^{(\ell,j)}
+:=
+\left\langle
+\frac{\partial}{\partial x_\ell}P_\alpha^{(\kappa)},
+P_\beta^{(\kappa^{(j)})}
+\right\rangle_{w_{\kappa^{(j)}}},
+\]
+for some multi-index $\beta$ with $|\beta|\le|\alpha|-1$.
+
+The polynomial $P_\alpha^{(\kappa)}$ is a product over levels $m=1,\dots,D$ of
+1D Jacobi factors in the transformed coordinates $(t_m,\omega_m)$.
+The derivative $\partial_{x_\ell}$ in~\eqref{eqnew:DX-derivative} is a sum over
+$j=1,\dots,D$, where the $j$th summand modifies only the $j$th factor,
+lowering its 1D Jacobi degree by $1$ while leaving all other 1D degrees unchanged.
+
+On the other hand, for fixed promoted parameter set $\kappa^{(j)}$, the family
+$\{P_\beta^{(\kappa^{(j)})}\}$ is orthonormal and separates by 1D degree at each
+level.  Consequently, the inner product $I_{\beta,\alpha}^{(\ell,j)}$ is zero
+unless $\beta$ matches $\alpha$ in every unaffected coordinate and is lowered by
+1 at the $j$th coordinate.
+
+More precisely,
+\begin{equation}
+	I_{\beta,\alpha}^{(\ell,j)} \neq 0
+	\quad\Longrightarrow\quad
+	\beta = \alpha - e_j,
+	\qquad j\ge\ell,\ \alpha_j>0,
+	\label{eqnew:selection-rule}
+\end{equation}
+where $e_j$ is the $j$th standard basis vector in $\mathbb{R}^D$.
+This is the \emph{selection rule}: differentiating a Dunkl--Xu basis polynomial
+can only lower one Jacobi index $\alpha_j$ at a time, and only for those
+$j\ge\ell$ such that $\partial_{x_\ell}$ affects the $j$th factor.
+
+\subsection*{5. Sparse coefficient mapping}
+
+Expand the derivative in the promoted bases $\{P_\beta^{(\kappa^{(j)})}\}$:
+\begin{equation}
+	\frac{\partial}{\partial x_\ell}P_\alpha^{(\kappa)}(x)
+	=
+	\sum_{j=\ell}^D
+	c_\alpha^{(\ell,j)}(\kappa)\,
+	P_{\alpha-e_j}^{(\kappa^{(j)})}(x),
+	\label{eqnew:derivative-expansion}
+\end{equation}
+where each term is present only if $\alpha_j>0$, and
+\begin{equation}
+	c_\alpha^{(\ell,j)}(\kappa)
+	:=
+	\left\langle
+	\frac{\partial}{\partial x_\ell}P_\alpha^{(\kappa)},
+	P_{\alpha-e_j}^{(\kappa^{(j)})}
+	\right\rangle_{w_{\kappa^{(j)}}}.
+	\label{eqnew:coeff-inner-product}
+\end{equation}
+
+\subsection*{6. Sparse derivative matrices}
+
+Let $\Pi_n^D$ denote polynomials of total degree $\le n$.
+For each $\ell$ define the block operator
+\[
+D^{(\ell)}
+=
+\begin{bmatrix}
+	D^{(\ell,\ell)} \\
+	D^{(\ell,\ell+1)} \\
+	\vdots \\
+	D^{(\ell,D)}
+\end{bmatrix}
+:
+\mathbb{R}^{\dim\Pi_n^D}
+\longrightarrow
+\bigoplus_{j=\ell}^D \mathbb{R}^{\dim\Pi_{n-1}^D},
+\]
+where each block satisfies
+\begin{equation}
+	(D^{(\ell,j)})_{\alpha-e_j,\;\alpha}
+	=
+	c_\alpha^{(\ell,j)}(\kappa),
+	\qquad
+	\alpha_j>0,
+	\label{eqnew:sparse-entry}
+\end{equation}
+and all other entries vanish.
+
+Thus for any modal expansion 
+\[
+u(x)=\sum_{|\alpha|\le n} c_\alpha\,P_\alpha^{(\kappa)}(x),
+\]
+its derivative is
+\[
+\frac{\partial u}{\partial x_\ell}(x)
+=
+\sum_{j=\ell}^D 
+\sum_{|\alpha|\le n}
+c_\alpha\,c_\alpha^{(\ell,j)}(\kappa)\,
+P_{\alpha-e_j}^{(\kappa^{(j)})}(x),
+\]
+which is an extremely sparse operation in coefficient space.
+\subsection*{Limiting values of Jacobi polynomials on simplex faces (general $D$)}
+
+Let
+\[
+T^D := \{ x\in\mathbb{R}^D : x_i\ge 0,\; x_1+\dots+x_D \le 1\}
+\]
+be the reference $D$--simplex.  
+For parameters $\kappa=(\kappa_1,\dots,\kappa_{D+1})$ with $\kappa_i>-\tfrac12$
+and multi--index $\alpha=(\alpha_1,\dots,\alpha_D)\in\mathbb{N}_0^D$,
+the Koornwinder--Jacobi polynomial $P_\alpha^\kappa(x)$ on $T^D$ admits the
+product representation (Dunkl--Xu, (2.5.21))
+\begin{equation}
+	P_\alpha^\kappa(x)
+	=
+	c_\alpha^\kappa
+	\prod_{\ell=1}^D
+	\Bigl( 1 - |x^{\ell-1}| \Bigr)^{\alpha_\ell}
+	P_{\alpha_\ell}^{(a_\ell,b_\ell)}
+	\!\left(
+	\frac{2x_\ell}{1 - |x^{\ell-1}|} - 1
+	\right),
+	\qquad x\in T^D,
+	\label{eqnew:simplex-product}
+\end{equation}
+where
+\[
+|x^{\ell-1}| := x_1 + \dots + x_{\ell-1},\qquad |x^0|:=0,
+\]
+and
+\begin{equation}
+	a_\ell = 2|\alpha^{\ell+1}| + |\kappa^{\ell+1}|
+	+ \tfrac12\,(D-\ell-1),
+	\qquad
+	b_\ell = \kappa_\ell - \tfrac12,
+	\label{eqnew:aj-bj-def}
+\end{equation}
+with tail notation $\alpha^{\ell+1} = (\alpha_{\ell+1},\dots,\alpha_D)$ and
+$\kappa^{\ell+1} = (\kappa_{\ell+1},\dots,\kappa_{D+1})$.
+The normalisation $c_\alpha^\kappa$ is independent of $x$.
+
+\subsubsection*{Approaching a boundary face}
+
+We consider a path $x(t)\in T^D$ for $t>0$ such that
+\[
+\lim_{t\downarrow 0} x(t) = x^\ast,
+\]
+where $x^\ast$ lies on a boundary face of $T^D$.  
+For each coordinate index $\ell$ define
+\[
+s_\ell(t) := x_1(t)+\dots+x_{\ell-1}(t),
+\qquad
+y_\ell(t) := x_\ell(t).
+\]
+A face is characterised by the behaviour of the partial sums $s_\ell(t)$:
+whenever $s_\ell(t)\to 1$, the remaining coordinates $x_\ell(t),\dots,x_D(t)$
+necessarily tend to zero (the simplex constraint), identifying the corresponding codimension--$(\ell-1)$
+face of~$T^D$.
+
+Define the $\ell$th factor in~\eqref{eqnew:simplex-product} as
+\begin{equation}
+	\Phi_\ell(t)
+	:=
+	\bigl(1 - s_\ell(t)\bigr)^{\alpha_\ell}
+	P_{\alpha_\ell}^{(a_\ell,b_\ell)}
+	\!\left(
+	\frac{2y_\ell(t)}{1 - s_\ell(t)} - 1
+	\right).
+	\label{eqnew:phi-l-def}
+\end{equation}
+Then
+\[
+P_\alpha^\kappa(x(t))
+=
+c_\alpha^\kappa \prod_{\ell=1}^D \Phi_\ell(t).
+\]
+
+To determine the limiting value on the face, it suffices to compute
+\[
+L_\ell := \lim_{t\downarrow 0}\Phi_\ell(t)
+\]
+in the case when $s_\ell(t)\to 1$.  
+If $s_\ell(t)\not\to 1$, the denominator stays bounded away from~zero and the
+limit is just the ordinary evaluation $\Phi_\ell(0)$, so no special treatment
+is required.  
+Thus we now focus on the singular case $s_\ell(t)\to 1$.
+
+\subsubsection*{Singular limit of a single factor}
+
+Fix an index $\ell$ for which $s_\ell(t)\to 1$ and write
+\[
+s := s_\ell(t),\qquad y := y_\ell(t),\qquad
+n := \alpha_\ell,\quad a := a_\ell,\quad b := b_\ell.
+\]
+Then
+\begin{equation}
+	\Phi_\ell(s,y)
+	=
+	(1-s)^n
+	P_n^{(a,b)}\!
+	\left(
+	\frac{2y}{1-s} - 1
+	\right).
+	\label{eqnew:phi-single}
+\end{equation}
+A standard identity for Jacobi polynomials gives the leading coefficient
+\begin{equation}
+	[q^n]\,P_n^{(a,b)}(q)
+	=
+	\frac{1}{2^n}\binom{2n+a+b}{n},
+	\label{eqnew:jacobi-leading-coeff}
+\end{equation}
+so as $|q|\to\infty$,
+\begin{equation}
+	P_n^{(a,b)}(q)
+	=
+	\frac{1}{2^n}\binom{2n+a+b}{n}q^n
+	+ \sum_{r=0}^{n-1} c_r\, q^r,
+	\qquad c_r\in\mathbb{R}.
+	\label{eqnew:jacobi-asymptotic}
+\end{equation}
+
+In~\eqref{eqnew:phi-single} the Jacobi argument is
+\[
+q(s,y) := \frac{2y}{1-s} - 1,
+\]
+and for fixed $y$ one has $|q(s,y)|\to\infty$ as $s\to 1^-$.  
+Substituting~\eqref{eqnew:jacobi-asymptotic} into~\eqref{eqnew:phi-single},
+\begin{equation}
+	\begin{split}
+		\Phi_\ell(s,y)
+		&=
+		(1-s)^n
+		\left[
+		\frac{1}{2^n}\binom{2n+a+b}{n} q(s,y)^n
+		+ \sum_{r=0}^{n-1} c_r\, q(s,y)^r
+		\right]
+		\\
+		&=
+		\frac{1}{2^n}\binom{2n+a+b}{n}(1-s)^n q(s,y)^n
+		+ \sum_{r=0}^{n-1} c_r (1-s)^n q(s,y)^r.
+	\end{split}
+	\label{eqnew:phi-single-expand}
+\end{equation}
+
+Since $q(s,y)\sim 2y/(1-s)$ as $s\to 1^-$, we obtain
+\[
+(1-s)^n q(s,y)^n \sim (2y)^n,
+\qquad
+(1-s)^n q(s,y)^r \sim (1-s)^{n-r}(2y)^r \to 0,
+\quad r<n.
+\]
+Thus all lower--order contributions vanish, yielding the singular limit
+\begin{equation}
+	\boxed{
+		\displaystyle
+		\lim_{s\to 1^-} \Phi_\ell(s,y)
+		=
+		\frac{1}{2^{\alpha_\ell}}
+		\binom{2\alpha_\ell + a_\ell + b_\ell}{\alpha_\ell}
+		(2x_\ell^\ast)^{\alpha_\ell},
+	}
+	\label{eqnew:phi-single-limit}
+\end{equation}
+where $x_\ell^\ast=\lim_{t\downarrow 0} x_\ell(t)$ is the coordinate value
+of the face point $x^\ast$.
+
+\subsubsection*{Limit of the full polynomial}
+Let $x^\ast = \lim_{t\downarrow 0} x(t)$ denote the limit point on a boundary
+face, and write $s_\ell^\ast := \lim_{t\downarrow 0} s_\ell(t)$ for the
+corresponding partial sums.  For each $\ell$ with $s_\ell^\ast < 1$ the factor
+$\Phi_\ell(t)$ is continuous at $t=0$ and we simply have
+$\lim_{t\downarrow 0}\Phi_\ell(t) = \Phi_\ell(x^\ast)$.
+For each $\ell$ with $s_\ell^\ast = 1$ the singular limit
+\eqref{eqnew:phi-single-limit} applies.  Collecting all factors, we obtain
+\begin{equation}
+	\boxed{
+		\displaystyle
+		\lim_{t\downarrow 0} P_\alpha^\kappa\bigl(x(t)\bigr)
+		=
+		c_\alpha^\kappa
+		\prod_{\substack{\ell=1 \\ s_\ell^\ast < 1}}^D
+		\Phi_\ell(x^\ast)
+		\;\cdot\!
+		\prod_{\substack{\ell=1 \\ s_\ell^\ast = 1}}^D
+		\left[
+		\frac{1}{2^{\alpha_\ell}}
+		\binom{2\alpha_\ell + a_\ell + b_\ell}{\alpha_\ell}
+		(2x_\ell^\ast)^{\alpha_\ell}
+		\right],
+	}
+	\label{eqnew:full-limit-face}
+\end{equation}
+where, for each $\ell$,
+\[
+\Phi_\ell(x^\ast)
+=
+\bigl(1 - s_\ell^\ast\bigr)^{\alpha_\ell}
+P_{\alpha_\ell}^{(a_\ell,b_\ell)}
+\!\left(
+\frac{2x_\ell^\ast}{1 - s_\ell^\ast} - 1
+\right),
+\qquad
+s_\ell^\ast = \sum_{i=1}^{\ell-1} x_i^\ast.
+\]
+
+In particular, for $D=2$ and $s_2=x_1\to 1$ this recovers the classical
+vertex limit used in~\eqref{eq:lim1jactri}.
+For $D=3$, singular limits appear along edges and triangular faces whenever
+$s_\ell(t)\to 1$, and~\eqref{eqnew:phi-single-limit} provides the correct
+replacement for the corresponding factor in~\eqref{eqnew:simplex-product}.
+\section{Mapped tensor-product quadrature on the simplex}
+\label{sec:mapped-quad-detailed}
+
+\subsection{Reference simplex, barycentric coordinates, and Dirichlet--Jacobi weights}
+Let the reference $d$-simplex be
+\[
+\Delta_d=\Big\{x\in\mathbb{R}^d:\ x_i\ge 0,\ \sum_{i=1}^d x_i \le 1\Big\}.
+\]
+Introduce barycentric coordinates $\lambda=(\lambda_1,\dots,\lambda_{d+1})$ with
+\[
+\lambda_i = x_i\ (1\le i\le d),\qquad
+\lambda_{d+1} = 1-\sum_{i=1}^d x_i,
+\qquad
+\sum_{i=1}^{d+1}\lambda_i=1,\ \lambda_i\ge 0.
+\]
+For parameters $\kappa\in\mathbb{R}^{d+1}$ with $\kappa_i>0$ we use the Dirichlet--Jacobi weight
+\begin{equation}
+	w_{\kappa}(x)
+	= C_{\kappa}\,\prod_{i=1}^{d+1}\lambda_i(x)^{\kappa_i-\frac12},
+	\qquad
+	C_{\kappa}^{-1}=\int_{\Delta_d}\prod_{i=1}^{d+1}\lambda_i(x)^{\kappa_i-\frac12}\,dx,
+	\label{eq:dirichlet-jacobi-weight}
+\end{equation}
+and define the orthonormal simplex polynomials $\{\phi^{(\kappa)}_{\alpha}\}$ by
+\[
+\langle \phi^{(\kappa)}_{\alpha},\phi^{(\kappa)}_{\beta}\rangle_{L^2(\Delta_d,w_{\kappa})}=\delta_{\alpha\beta},
+\qquad
+|\alpha|\le n.
+\]
+
+\subsection{Stick-breaking map to $[0,1]^d$}
+A convenient way to build quadrature nodes on $\Delta_d$ is via the stick-breaking parameterization.
+Let $t=(t_1,\dots,t_d)\in[0,1]^d$ and define
+\begin{align}
+	\lambda_1 &= t_1, \nonumber\\
+	\lambda_2 &= (1-t_1)\,t_2, \nonumber\\
+	\lambda_3 &= (1-t_1)(1-t_2)\,t_3, \nonumber\\
+	&\ \vdots \nonumber\\
+	\lambda_d &= \Big(\prod_{j=1}^{d-1}(1-t_j)\Big)t_d, \nonumber\\
+	\lambda_{d+1} &= \prod_{j=1}^d(1-t_j),
+	\label{eq:stick-breaking-bary}
+\end{align}
+so that $x_i=\lambda_i$ for $i\le d$.
+This map is bijective between $[0,1]^d$ and the interior of $\Delta_d$.
+
+\subsection{Jacobian determinant}
+The Jacobian of $x(t)$ (equivalently of $\lambda(t)$ restricted to the first $d$ components) is lower-triangular in
+a suitable ordering, and its determinant is
+\begin{equation}
+	\left|\frac{\partial x}{\partial t}\right|
+	= \prod_{j=1}^d (1-t_j)^{d-j}.
+	\label{eq:stick-jacobian}
+\end{equation}
+
+\subsection{Factorization of the simplex measure into 1D Jacobi weights}
+Substitute $\lambda(t)$ into the Dirichlet weight. From \eqref{eq:dirichlet-jacobi-weight} and
+\eqref{eq:stick-breaking-bary} we have
+\[
+\prod_{i=1}^{d}\lambda_i^{\kappa_i-\frac12}
+=
+\prod_{j=1}^d
+\Big(t_j^{\kappa_j-\frac12}\prod_{m=1}^{j-1}(1-t_m)^{\kappa_j-\frac12}\Big),
+\qquad
+\lambda_{d+1}^{\kappa_{d+1}-\frac12}=\prod_{m=1}^d(1-t_m)^{\kappa_{d+1}-\frac12}.
+\]
+Collecting all powers of each $(1-t_j)$ from:
+(i) the later barycentric coordinates $\lambda_{j+1},\dots,\lambda_d$,
+(ii) $\lambda_{d+1}$,
+and (iii) the Jacobian \eqref{eq:stick-jacobian},
+one obtains a complete factorization:
+\begin{equation}
+	w_{\kappa}(x(t))\left|\frac{\partial x}{\partial t}\right|
+	= \tilde C_{\kappa}\,
+	\prod_{j=1}^{d}
+	\Big[t_j^{\kappa_j-\frac12}(1-t_j)^{\eta_j-\frac12}\Big],
+	\label{eq:factored-weight}
+\end{equation}
+where the effective ``right'' Jacobi parameters are
+\begin{equation}
+	\eta_j
+	:= \sum_{m=j+1}^{d+1}\kappa_m + (d-j).
+	\label{eq:eta-def-detailed}
+\end{equation}
+Thus the weighted simplex integral becomes a tensor-product of 1D Jacobi-weighted integrals:
+\begin{equation}
+	\int_{\Delta_d} f(x)\,w_{\kappa}(x)\,dx
+	= \int_{[0,1]^d} f(x(t))\,
+	\prod_{j=1}^d t_j^{\kappa_j-\frac12}(1-t_j)^{\eta_j-\frac12}\,dt.
+	\label{eq:simplex-cube-integral}
+\end{equation}
+
+\subsection{1D Gauss--Jacobi rules on $[0,1]$}
+For each axis $j$, define a Gauss--Jacobi quadrature on $[0,1]$ for the weight
+\[
+\rho_j(t) := t^{\kappa_j-\frac12}(1-t)^{\eta_j-\frac12}.
+\]
+Let $\{(t^{(j)}_q,\omega^{(j)}_q)\}_{q=1}^{Q}$ integrate polynomials up to degree $2Q-1$ against $\rho_j$.
+(Equivalently, one may map the standard $[-1,1]$ Gauss--Jacobi nodes via $t=(1+s)/2$ with the usual weight scaling.)
+
+\subsection{Mapped tensor-product quadrature on $\Delta_d$}
+Form the tensor product rule on $[0,1]^d$:
+\[
+t^{(q)}=(t_{q_1}^{(1)},\dots,t_{q_d}^{(d)}),
+\qquad
+\Omega^{(q)}=\prod_{j=1}^d \omega_{q_j}^{(j)}.
+\]
+Map nodes to the simplex by $x^{(q)}=x(t^{(q)})$ via \eqref{eq:stick-breaking-bary}.
+Then for smooth $f$,
+\begin{equation}
+	\int_{\Delta_d} f(x)\,w_{\kappa}(x)\,dx
+	\approx \sum_{q} \Omega^{(q)} f(x^{(q)}).
+	\label{eq:mapped-tprod-quad}
+\end{equation}
+Because the factorization \eqref{eq:factored-weight} already includes the Dirichlet--Jacobi weight, this rule is
+tailored for accurate evaluation of inner products in $L^2(\Delta_d,w_{\kappa})$.
+
+\paragraph{Parameter selection per axis.}
+The stick-breaking map induces the 1D Jacobi weights $\rho_j(t)$ with parameters
+\[
+\alpha_j = \kappa_j-\tfrac12,\qquad
+\beta_j = \eta_j-\tfrac12,\qquad
+\eta_j=\sum_{m=j+1}^{d+1}\kappa_m + (d-j),
+\]
+so the quadrature construction is entirely determined by $\kappa$ and $d$.
+
+\paragraph{Notes on degree of exactness.}
+If $f$ is a polynomial in barycentric coordinates and the basis functions are polynomial, then
+\eqref{eq:mapped-tprod-quad} integrates exactly up to a degree determined by the 1D orders $Q$.
+In practice we choose $Q$ so that all inner products defining operator entries are resolved to machine precision,
+and then prune near-zeros consistent with the expected sparsity pattern.
+
+\section{Promotion and differentiation operators from quadrature}
+\label{sec:KD-detailed}
+
+\subsection{Promotion matrices}
+For degree $\le n$, let $M=\dim\Pi_n(\Delta_d)$.
+Given parameter vectors $\kappa,\kappa'$, define the promotion matrix
+\begin{equation}
+	(K_{\kappa\to\kappa'})_{ij}
+	:=
+	\langle \phi_i^{(\kappa')},\phi_j^{(\kappa)}\rangle_{L^2(\Delta_d,w_{\kappa'})}
+	=
+	\int_{\Delta_d} \phi_i^{(\kappa')}(x)\phi_j^{(\kappa)}(x)\,w_{\kappa'}(x)\,dx.
+	\label{eq:promotion-K}
+\end{equation}
+Using mapped quadrature with weight $w_{\kappa'}$:
+\begin{equation}
+	K_{\kappa\to\kappa'} \approx V(\kappa')^\top \mathrm{diag}(\omega)\,V(\kappa),
+	\label{eq:K-assembled}
+\end{equation}
+where $V(\kappa)_{qj}=\phi_j^{(\kappa)}(x^{(q)})$ and $\omega$ are quadrature weights for $w_{\kappa'}$.
+
+\subsection{Differentiation matrices and the natural parameter shift}
+Define the coefficient differentiation matrix for $\partial_{x_i}$:
+\begin{equation}
+	(D_{i;\kappa\to\kappa'})_{ab}
+	:=
+	\langle \phi_a^{(\kappa')},\,\partial_{x_i}\phi_b^{(\kappa)}\rangle_{L^2(\Delta_d,w_{\kappa'})}.
+	\label{eq:diff-D}
+\end{equation}
+Empirically (and consistent with known low-dimensional sparse recurrences), the sparsest stable mapping is obtained by
+the \emph{natural shift}
+\begin{equation}
+	\kappa' = \kappa + \delta^{(i)},\qquad \delta^{(i)} = e_i + e_{d+1},
+	\label{eq:natural-shift-detailed}
+\end{equation}
+i.e.\ increment the $i$-th and the last Dirichlet parameter.
+
+\paragraph{Quadrature evaluation using analytic gradients.}
+We evaluate \eqref{eq:diff-D} via mapped quadrature with weight $w_{\kappa'}$:
+\begin{equation}
+	D_{i;\kappa\to\kappa'} \approx
+	V(\kappa')^\top\,\mathrm{diag}(\omega)\,(\partial_{x_i}V(\kappa)),
+	\label{eq:D-assembled}
+\end{equation}
+where $\partial_{x_i}V(\kappa)$ is obtained by evaluating analytic gradients of the orthonormal basis at
+the quadrature nodes. After dense evaluation, we apply structured pruning based on row-relative thresholds and an
+absolute floor, yielding the observed banded/block-banded sparsity patterns in graded total-degree ordering.
+
+\subsection{Promoted Laplacian on coefficients}
+Second derivatives are composed in coefficient space:
+\[
+D_{ii}(\kappa):=D_{i;\kappa+\delta^{(i)}\to\kappa+2\delta^{(i)}}\,D_{i;\kappa\to\kappa+\delta^{(i)}}.
+\]
+Each $D_{ii}$ lives in parameter space $\kappa+2\delta^{(i)}$. To sum, promote to a common target
+\[
+\kappa_{\Delta}:=\kappa+2\mathbf{1},\qquad \mathbf{1}=(1,\dots,1)\in\mathbb{R}^{d+1}.
+\]
+Define the promoted Laplacian
+\begin{equation}
+	A_{\Delta,\kappa}
+	:=
+	\sum_{i=1}^d
+	K_{\kappa+2\delta^{(i)}\to\kappa_{\Delta}}\,
+	D_{ii}(\kappa),
+	\label{eq:promoted-laplacian}
+\end{equation}
+mapping $\Pi_n^{(\kappa)}$ coefficients to $\Pi_n^{(\kappa_{\Delta})}$ coefficients of $\Delta u$.
+
+\section{Poisson on one tetrahedron via nullspace completion}
+\label{sec:poisson-one-tet-detailed}
+
+\subsection{Discrete formulation}
+On $K=\Delta_3$ (reference tetrahedron), solve
+\[
+-\Delta u = f \text{ in }K,\qquad u=g \text{ on }\partial K,
+\]
+with $u_h(x)=\sum_{j=1}^M c_j\phi_j^{(\kappa)}(x)$ and $M=\dim\Pi_n(K)$.
+
+\subsection{Interior constraints (strong operator in coefficient space)}
+Since $\Delta\Pi_n\subset \Pi_{n-2}$, only $M_{\mathrm{int}}:=\dim\Pi_{n-2}(K)$ constraints are active.
+Let $A_{\Delta,\kappa}$ be the promoted Laplacian \eqref{eq:promoted-laplacian} and define
+\[
+L_{\mathrm{int}} := A_{\Delta,\kappa}[1{:}M_{\mathrm{int}},:]\in\mathbb{R}^{M_{\mathrm{int}}\times M}.
+\]
+Project $f$ into the $\kappa_\Delta$ basis:
+\[
+(f_{\Delta})_a := \langle \phi_a^{(\kappa_\Delta)}, f\rangle_{L^2(K,w_{\kappa_\Delta})}.
+\]
+Then the interior equation is
+\begin{equation}
+	L_{\mathrm{int}}c = -f_{\mathrm{int}},
+	\qquad f_{\mathrm{int}} := (f_{\Delta})_{1{:}M_{\mathrm{int}}}.
+	\label{eq:Lint-system}
+\end{equation}
+
+\subsection{Boundary moments (weak Dirichlet enforcement)}
+On each face $F$ we choose an independent triangle basis (Option A) $\{\psi_\ell^{(F)}\}$ of degree $\le n$.
+Stacking all faces yields $N_b^{\mathrm{full}}$ boundary test functions $\{\psi_\ell\}$.
+Define
+\begin{equation}
+	(T_{\mathrm{full}})_{\ell j} := \int_{\partial K}\psi_\ell(x)\phi_j^{(\kappa)}(x)\,dS,
+	\qquad (g_{\mathrm{full}})_\ell := \int_{\partial K}\psi_\ell(x)g(x)\,dS,
+	\label{eq:Tfull}
+\end{equation}
+assembled accurately by mapped triangle quadrature on each face.
+
+\subsection{Harmonic dimension and nullspace completion}
+Let $M=\dim\Pi_n(K)$ and $M_{\mathrm{int}}=\dim\Pi_{n-2}(K)$. Then
+\[
+k := M-M_{\mathrm{int}}=(n+1)^2.
+\]
+This $k$ is the dimension of the discrete nullspace of $L_{\mathrm{int}}$ (harmonic modes).
+We solve \eqref{eq:Lint-system}--\eqref{eq:Tfull} by:
+\begin{enumerate}
+	\item Find a particular interior solution $c_p$ satisfying $L_{\mathrm{int}}c_p=-f_{\mathrm{int}}$
+	(via a direct square solve on pivot columns of $L_{\mathrm{int}}$).
+	\item Compute a basis $N\in\mathbb{R}^{M\times k}$ for $\ker(L_{\mathrm{int}})$ (e.g.\ from an SVD).
+	\item Write all interior solutions as $c=c_p+Ny$ and impose Dirichlet:
+	\[
+	T_{\mathrm{full}}(c_p+Ny)=g_{\mathrm{full}}
+	\quad\Rightarrow\quad
+	(T_{\mathrm{full}}N)y = g_{\mathrm{full}}-T_{\mathrm{full}}c_p.
+	\]
+	\item Select $k$ independent rows of $(T_{\mathrm{full}}N)$ by pivoted QR on $(T_{\mathrm{full}}N)^\top$,
+	solve the resulting $k\times k$ system for $y$, and recover $c$.
+\end{enumerate}
+For polynomial manufactured solutions, the method converges spectrally in $n$ and reaches machine precision once
+$n$ exceeds the solution degree.
+
+\section{Two tetrahedra: interface coupling and the local DtN map}
+\label{sec:two-tets-dtn}
+
+\subsection{Geometry and interface notation}
+Let $K_1$ and $K_2$ be two tetrahedra sharing a common face $F=K_1\cap K_2$.
+Let $\partial K_e = F \cup \Gamma_e$ where $\Gamma_e$ denotes the external faces of $K_e$.
+We orient normals so that $n_1$ points out of $K_1$ and $n_2=-n_1$ points out of $K_2$ on the shared face.
+
+\subsection{Face trace and flux coefficients}
+Choose a face basis on $F$ (triangle basis of degree $\le n$) and represent:
+\[
+\hat u_F \in \mathbb{R}^{N_F},\qquad
+\hat q_F \in \mathbb{R}^{N_F},
+\]
+where $\hat u_F$ are Dirichlet trace moment coefficients and $\hat q_F$ are flux moment coefficients,
+defined via (for each face test function $\psi_\ell$ on $F$)
+\[
+(\hat u_F)_\ell \approx \int_F \psi_\ell\,u\,dS,\qquad
+(\hat q_F)_\ell \approx \int_F \psi_\ell\,(\nabla u\cdot n)\,dS.
+\]
+Similarly define external-face traces $\hat u_{\Gamma_e}$ from prescribed boundary data.
+
+\subsection{Element equations with boundary forcing split}
+On each element $K_e$ we have:
+\[
+L_{\mathrm{int},e}\,c_e = -f_{\mathrm{int},e},
+\qquad
+T_{e,\Gamma}\,c_e = \hat u_{\Gamma_e},
+\qquad
+T_{e,F}\,c_e = \hat u_F.
+\]
+Here $T_{e,F}$ and $T_{e,\Gamma}$ are the appropriate blocks of the full boundary moment map $T_{\mathrm{full},e}$
+restricted to $F$ and to $\Gamma_e$.
+
+\subsection{Element DtN map on the interface}
+Eliminate the volume coefficients $c_e$ to obtain a map from interface trace to interface flux:
+\begin{equation}
+	\hat q_F^{(e)} = S_e\,\hat u_F + \hat q_{F,f}^{(e)},
+	\label{eq:element-dtn}
+\end{equation}
+where $S_e$ is the (local) Dirichlet-to-Neumann operator on the shared face and $\hat q_{F,f}^{(e)}$ is the forcing
+contribution (including prescribed external boundary data on $\Gamma_e$).
+In our nullspace-completion framework, \eqref{eq:element-dtn} is obtained by:
+(i) computing $c_p$ and $N$ for $L_{\mathrm{int},e}$,
+(ii) expressing the dependence of $c_e$ on $\hat u_F$ through boundary moment constraints, and
+(iii) applying the face flux map $F_{e,F}$ to $c_e$.
+
+\subsection{Element DtN map on the interface (detailed elimination)}
+\label{sec:element-dtn-detailed}
+
+Fix an element $K_e$ with boundary $\partial K_e = F \cup \Gamma_e$, where $F$ is a designated interface face
+(shared with a neighbor) and $\Gamma_e$ denotes the remaining faces (which may include physical boundary faces).
+Let $c_e\in\mathbb{R}^{M}$ denote the volume coefficients of the element solution
+$u_h|_{K_e}(x)=\sum_{j=1}^M (c_e)_j\,\phi_j^{(\kappa)}(x)$.
+
+\paragraph{Interior constraints.}
+As in the single-tet case, the promoted Laplacian yields an active-row operator
+$L_{\mathrm{int},e}\in\mathbb{R}^{M_{\mathrm{int}}\times M}$ and a forcing vector
+$f_{\mathrm{int},e}\in\mathbb{R}^{M_{\mathrm{int}}}$ such that the strong interior equation is
+\begin{equation}
+	L_{\mathrm{int},e}\,c_e = -f_{\mathrm{int},e}.
+	\label{eq:elem-interior}
+\end{equation}
+
+\paragraph{Boundary trace constraints (moment form).}
+Choose a face test basis on each face (triangle polynomials of degree $\le n$) and define, for any face set
+$B\subset\partial K_e$, the trace moment map
+\[
+(T_{e,B})_{\ell j} := \int_{B}\psi_\ell(x)\,\phi_j^{(\kappa)}(x)\,dS.
+\]
+We split the boundary into the interface face $F$ and the remainder $\Gamma_e$, and write
+\begin{equation}
+	T_{e,F}\,c_e = \hat u_F,\qquad T_{e,\Gamma}\,c_e = \hat u_{\Gamma_e}.
+	\label{eq:elem-trace}
+\end{equation}
+Here $\hat u_F$ is the \emph{unknown} interface trace coefficient vector (to be coupled to neighbors) and
+$\hat u_{\Gamma_e}$ is either known (Dirichlet data) or an auxiliary unknown depending on the global formulation.
+
+\paragraph{Flux moments on $F$.}
+Define the face flux moment map
+\begin{equation}
+	(F_{e,F})_{\ell j} := \int_{F}\psi_\ell(x)\,(\nabla\phi_j^{(\kappa)}(x)\cdot n_e)\,dS,
+	\label{eq:flux-map}
+\end{equation}
+where $n_e$ is the outward unit normal of $K_e$ on $F$.
+Then the interface flux coefficients induced by $c_e$ are
+\begin{equation}
+	\hat q_F^{(e)} = F_{e,F}\,c_e.
+	\label{eq:q-from-c}
+\end{equation}
+
+\subsubsection*{Nullspace parameterization of interior solutions}
+Equation \eqref{eq:elem-interior} is underdetermined: it fixes $c_e$ only up to a $k$-dimensional nullspace, where
+$k=M-M_{\mathrm{int}}=(n+1)^2$ for the tetrahedron.
+We compute:
+\begin{enumerate}
+	\item A particular solution $c_{p,e}$ satisfying
+	\begin{equation}
+		L_{\mathrm{int},e}\,c_{p,e} = -f_{\mathrm{int},e}.
+		\label{eq:particular}
+	\end{equation}
+	\item A nullspace basis $N_e\in\mathbb{R}^{M\times k}$ satisfying
+	\begin{equation}
+		L_{\mathrm{int},e}\,N_e = 0,\qquad \mathrm{rank}(N_e)=k.
+		\label{eq:nullspace}
+	\end{equation}
+\end{enumerate}
+Then every interior solution has the form
+\begin{equation}
+	c_e = c_{p,e} + N_e\,y_e,
+	\qquad y_e\in\mathbb{R}^{k}.
+	\label{eq:c-nullspace-form}
+\end{equation}
+
+\subsubsection*{Expressing $y_e$ in terms of boundary trace data}
+Insert \eqref{eq:c-nullspace-form} into the boundary constraints \eqref{eq:elem-trace}:
+\begin{align}
+	T_{e,F}(c_{p,e}+N_e y_e) &= \hat u_F,
+	\label{eq:trace-F}\\
+	T_{e,\Gamma}(c_{p,e}+N_e y_e) &= \hat u_{\Gamma_e}.
+	\label{eq:trace-G}
+\end{align}
+Stacking these gives a linear system for $y_e$:
+\begin{equation}
+	\underbrace{
+		\begin{bmatrix}
+			T_{e,F}N_e\\
+			T_{e,\Gamma}N_e
+	\end{bmatrix}}_{=: \ \mathcal{T}_e \ \in \mathbb{R}^{N_b\times k}}
+	y_e
+	=
+	\underbrace{
+		\begin{bmatrix}
+			\hat u_F\\
+			\hat u_{\Gamma_e}
+	\end{bmatrix}}_{=:\ \hat u_{\partial K_e}}
+	-
+	\underbrace{
+		\begin{bmatrix}
+			T_{e,F}c_{p,e}\\
+			T_{e,\Gamma}c_{p,e}
+	\end{bmatrix}}_{=:\ b_{p,e}}.
+	\label{eq:Te-system}
+\end{equation}
+The matrix $\mathcal{T}_e$ is typically tall (many boundary moments) but has rank $k$ for well-posed boundary data.
+To obtain a direct square solve we select $k$ independent rows (pivoted QR on $\mathcal{T}_e^\top$) and solve the resulting
+$k\times k$ system for $y_e$.
+
+\paragraph{Affine dependence on boundary traces.}
+Crucially, \eqref{eq:Te-system} is linear in the boundary traces:
+\[
+y_e = \mathcal{T}_e^{\dagger}\big(\hat u_{\partial K_e} - b_{p,e}\big),
+\]
+where $\mathcal{T}_e^{\dagger}$ denotes the (square, pivot-selected) inverse used in practice.
+Thus $y_e$ depends \emph{affinely} on $\hat u_{\partial K_e}$.
+
+\subsubsection*{Eliminating $c_e$ and deriving the DtN map}
+Substitute $c_e=c_{p,e}+N_e y_e$ into the flux relation \eqref{eq:q-from-c}:
+\begin{equation}
+	\hat q_F^{(e)} = F_{e,F}c_{p,e} + F_{e,F}N_e\,y_e.
+	\label{eq:q-split}
+\end{equation}
+Now use \eqref{eq:Te-system} to express $y_e$ in terms of $(\hat u_F,\hat u_{\Gamma_e})$.
+Because the solve for $y_e$ is linear, we obtain an affine map
+\begin{equation}
+	\hat q_F^{(e)} = S_{e,FF}\,\hat u_F \;+\; S_{e,F\Gamma}\,\hat u_{\Gamma_e} \;+\; \hat q_{F,f}^{(e)}.
+	\label{eq:dtn-blocked}
+\end{equation}
+Here:
+\begin{itemize}
+	\item $S_{e,FF}$ maps interface Dirichlet trace to interface flux;
+	\item $S_{e,F\Gamma}$ maps external-face Dirichlet data to interface flux;
+	\item $\hat q_{F,f}^{(e)}$ is the forcing-induced flux contribution (including the contribution of $c_{p,e}$).
+\end{itemize}
+
+\paragraph{Recovering the one-face DtN form.}
+If $\hat u_{\Gamma_e}$ is prescribed (physical Dirichlet boundary), then the terms
+$S_{e,F\Gamma}\hat u_{\Gamma_e}$ and $\hat q_{F,f}^{(e)}$ are known and may be combined into a single forcing term:
+\begin{equation}
+	\hat q_F^{(e)} = S_e\,\hat u_F + \hat q_{F,f}^{(e)},
+	\label{eq:element-dtn-final}
+\end{equation}
+which is the element DtN relation \eqref{eq:element-dtn}.
+If instead $\hat u_{\Gamma_e}$ contains additional interface unknowns (e.g.\ when $K_e$ has multiple shared faces),
+then \eqref{eq:dtn-blocked} provides the corresponding block structure needed for multi-face coupling and for
+hierarchical merging.
+
+
+\subsection{Two-tet coupling: flux continuity}
+On the shared face, continuity of normal flux with opposite normals gives
+\[
+\hat q_F^{(1)} + \hat q_F^{(2)} = 0.
+\]
+Substituting \eqref{eq:element-dtn} yields a square interface system for $\hat u_F$:
+\begin{equation}
+	(S_1 + S_2)\,\hat u_F = -\big(\hat q_{F,f}^{(1)} + \hat q_{F,f}^{(2)}\big).
+	\label{eq:two-tet-interface}
+\end{equation}
+Once $\hat u_F$ is solved, recover each $c_e$ locally (downward pass / back-substitution).
+
+\section{From two tetrahedra to a mesh: adjacency-graph and HPS viewpoint}
+\label{sec:hps-mesh}
+
+\subsection{Dual graph and separators}
+Let $\mathcal{T}$ be a tetrahedral mesh. Consider the dual graph whose nodes are tetrahedra and whose edges connect
+tetrahedra sharing a face.
+A hierarchical solver (HPS/nested-dissection style) recursively partitions the dual graph into subgraphs, producing
+separators that correspond to collections of faces on subdomain boundaries.
+
+\subsection{Subdomain DtN operator}
+For any subdomain $\Omega_\tau$ (a union of tetrahedra), define its boundary interface $\Gamma_\tau$ as the union of faces
+on the boundary of the subdomain.
+A subdomain DtN map is
+\[
+\hat q_{\Gamma_\tau} = S_\tau \hat u_{\Gamma_\tau} + \hat q_{\Gamma_\tau,f},
+\]
+where $\hat u_{\Gamma_\tau}$ are trace coefficients on the subdomain boundary and $\hat q_{\Gamma_\tau}$ are the associated
+normal flux coefficients.
+
+\subsection{Upward pass (merge)}
+Suppose a parent subdomain $\tau$ is formed by merging two children $\tau_L$ and $\tau_R$ that share an internal interface
+$\Gamma_{\mathrm{int}}$.
+Each child provides a DtN map on its boundary:
+\[
+\hat q_{\Gamma_L} = S_L \hat u_{\Gamma_L} + \hat q_{L,f},\qquad
+\hat q_{\Gamma_R} = S_R \hat u_{\Gamma_R} + \hat q_{R,f}.
+\]
+The internal interface traces $\hat u_{\Gamma_{\mathrm{int}}}$ are unknown and must satisfy flux continuity when the
+children are glued.
+Eliminating $\hat u_{\Gamma_{\mathrm{int}}}$ produces a new DtN map $S_\tau$ on the \emph{external} boundary
+$\Gamma_\tau$ of the merged domain. Algebraically, this is a Schur-complement elimination on interface blocks, analogous
+to \eqref{eq:two-tet-interface} but at a larger scale.
+
+\subsection{Root solve}
+At the root of the hierarchy, $\Gamma_{\mathrm{root}}=\partial\Omega$.
+Impose boundary data (Dirichlet traces) to solve for the remaining interface unknowns.
+
+\subsection{Downward pass (back-substitution)}
+Once parent boundary traces are known, recursively recover child traces on internal interfaces and then recover each
+tetrahedron's volume coefficients using the stored local elimination data (nullspace completion / element solves).
+
+\paragraph{Complexity remarks.}
+Without compression, separator sizes govern complexity (nested dissection).
+With compression (e.g.\ low-rank structure in interface-to-interface maps), HPS-type methods can achieve near-linear
+complexity for elliptic problems. In the present work, the key enabling property is the availability of sparse/banded
+modal differentiation and promotion operators on each tetrahedron, allowing high-order local solves and efficient DtN
+construction.
+
 \section{Image Compression via Jacobi Polynomial Expansion}{}
 An image (i.e. with file format .jpg, .png, etc.) can be thought of as an integer-valued surface (or multiple surfaces in the case of multi-channel images) on a rectangular domain. We can easily tesselate this domain with triangles equipped with the quadrature nodes derived in the previous section. The idea is to approximate the subsurfaces on each triangle with a Jacobi polynomial expansion. Areas where the image is highly varying will require more triangles or higher order expansion (i.e. $h$ vs $p$ refinement). As of now, we can compute expansion coefficients on the reference triangle. Here, we first derive a method for computing such expansions on a general triangle.
 \noindent
 For a given function $f(x,y)$, with $(x,y) \in \mathcal{T}^2$ points in a general triangle
-
-\begin{theorem}
+\newpage
+%\begin{theorem}
 Let $X = \{x_1,x_2,\ldots,x_k\}$ be a set of $k$ signed integers, where each $x_i$ is represented using $n$ bits. Let $y = \sum_{i=1}^k x_i$ be the sum of all elements in $X$, which is representable using $m \geq n+1$ bits without overflow (i.e., $-2^{m-1} \leq y \leq 2^{m-1}-1$). Then, there exists an ordering of summation for $X$ that avoids transient overflow when using an $m$-bit accumulator.
-\end{theorem}
+%\end{theorem}
 
 
 
-\begin{proof} We shall proceed by induction.
+%\begin{proof} We shall proceed by induction.
 	
 
 	
@@ -1549,7 +2739,7 @@ Let $X = \{x_1,x_2,\ldots,x_k\}$ be a set of $k$ signed integers, where each $x_
 \textbf{Inductive step:} Suppose that $k = l+1$. Consider the set $X = X_{\alpha_l}\cup x_{k}$. Assume that the sum of all elements of $X$ is representable by an $m$-bit signed integer $y$. We know that $$ y = \sum_{i=1}^k x_i = x_k+ \sum_{i\in \alpha_l} x_i.$$ By the inductive hypothesis, the second term in the sum avoids transient overflow. Denote this second term by $\hat{y} = \sum_{i\in \alpha_l} x_i$. Since $\hat{y}$ is an $m$-bit signed integer, and $x_k$ is an $n$-bit signed integer with $n \leq m-1$, the sum $x_k+\hat{y}$ is represented by at most $m$ bits. Therefore, a feasible ordering to avoid transient overflow is $\alpha_k = \{\alpha_l,k\}$.
 
 Thus, by induction, our theorem must hold for any $k\geq 2$.
-\end{proof}
+%\end{proof}
 
 
 
