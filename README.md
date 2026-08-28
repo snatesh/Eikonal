@@ -122,7 +122,7 @@ of convergence for the underdetermined linear system / quadratic root finding pr
 we seek to solve at the end of the day.
 
 #### UPDATE ####
-(UPDATE:) EHHHH! MORE LIKE BOOTFAP!! - we can't bootstrap because the inner products we need to compute
+(UPDATE:) EHHHH!!! - we can't bootstrap because the inner products we need to compute
 involve order 2n+1 total degree polynomials. BUT, we can kinda-sorta bootstrap by incorporating
 the below process, when said process starts lacking in efficacy.
 
